@@ -1,0 +1,18 @@
+{
+ "id_0001": [{"ic":"onhint","cond":{"pcolor":"blue"},"lim":1,"ops":[{"op":"select","n":1,"do":"deckBottom","filter":{"type":"char","lvMax":"used"}}]}],
+ "id_0002": [{"ic":"static","cond":{"bond":"江戸川コナン"},"tgt":{"sel":"self"},"kw":"untarget"},
+             {"ic":"declare","cost":[{"c":"sleepSelf"}],"ops":[{"op":"play","n":1,"from":"hand","filter":{"lvMax":5,"trait":"少年探偵団"}},{"op":"if","c":"played","name":"江戸川コナン","ops":[{"op":"draw","n":1}]}]}],
+ "id_0003": [{"ic":"onkill","ops":[{"op":"draw","n":1}]},
+             {"ic":"declare","cond":{"pcolor":"blue"},"lim":1,"cost":[{"c":"discard","n":1}],"ops":[{"op":"self","do":"ap","v":"1000"},{"op":"self","do":"kw","v":"assault"}]}],
+ "id_0005": [{"ic":"hand","cond":{"pcolor":"blue","fieldMin":6},"lv":4},
+             {"ic":"declare","cost":[{"c":"selfBottom"}],"ops":[{"op":"select","n":1,"do":"active","filter":{"lpMax":0,"color":"blue"}}]}],
+ "id_0006": [{"ic":"onkill","ops":[{"op":"discard","n":1,"opt":true},{"op":"if","c":"done","ops":[{"op":"gain","n":1}]}]}],
+ "id_0007": [{"ic":"enter","st":"s"},{"ic":"flash","ops":[{"op":"draw","n":1}]}],
+ "id_0008": [{"ic":"onally","lim":1,"on":{"by":"effect"},"ef":{"lvMax":6,"trait":"少年探偵団"},"ops":[{"op":"ent","do":"active"},{"op":"ent","do":"kw","v":"rapid"}]}],
+ "id_0010": [{"ic":"onplay","cond":{"via":[{"type":"char","lvMin":3},{"type":"event","lvMin":3}]},"ops":[{"op":"select","n":1,"do":"sleep","filter":{"lvMax":5}}]}],
+ "id_0011": [{"ic":"onplay","cond":{"via":[{"type":"char","lvMin":3},{"type":"event","lvMin":3}]},"ops":[{"op":"select","n":1,"do":"ap","v":"2000","filter":{}}]}],
+ "id_0014": [{"ic":"onremoved","cond":{"turn":"opp"},"ops":[{"op":"reveal","name":"江戸川コナン","then":"hand","rest":"shuffleBottom","shuffle":true}]},{"ic":"flash","ops":[{"op":"draw","n":1}]}],
+ "id_0016": [{"ic":"static","cond":{"selfSt":"s"},"tgt":{"sel":"allies","filter":{"lvMax":4}},"kw":"noact"},{"ic":"flash","ops":[{"op":"select","n":1,"do":"sleep","filter":{}}]}],
+ "id_0017": [{"ic":"onplay","cond":{"via":[{"type":"char","lvMin":3},{"type":"event","lvMin":3}]},"ops":[{"op":"draw","n":1}]}],
+ "id_0019": [{"ic":"event","ops":[{"op":"look","n":5,"max":1,"then":"hand","rest":"bottom"},{"op":"set"}]},{"ic":"grant","g":{"ic":"oncontact","on":{"k":"atk"},"ops":[{"op":"self","do":"ap","v":"2000","until":"contact"}]}},{"ic":"flash","ops":[{"op":"draw","n":1}]}]
+}

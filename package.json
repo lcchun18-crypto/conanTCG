@@ -1,0 +1,21 @@
+{
+  "name": "conan-sim",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/unit.js && node test/spec_examples.js && node test/patterns.js && node test/patterns100.js && node test/patterns_v11.js && node test/patterns_v12.js && node test/acts_test.js && node test/fuzz.js 200 && node test/ui_test.js && node test/deck_test.js && node test/e2e_ui.js && node test/deploy_test.js && node test/autoload_test.js",
+    "test:importer": "python test/importer_test.py",
+    "report:fixture": "python test/fixture_report.py",
+    "test:deploy": "node test/deploy_test.js",
+    "test:ui": "node test/ui_test.js && node test/deck_test.js && node test/e2e_ui.js && node test/deploy_test.js",
+    "test:autoload": "node test/autoload_test.js",
+    "test:add": "python3 test/addcards_test.py"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

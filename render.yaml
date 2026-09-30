@@ -1,0 +1,9 @@
+# Render Blueprint (선택 사항: 대시보드에서 직접 설정해도 됨)
+services:
+  - type: web
+    name: conan-sim
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
