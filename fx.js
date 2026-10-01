@@ -435,6 +435,15 @@ module.exports = function (A) {
     ids.forEach(x => { const i = E.indexOf(x), up = !!R.cards[x].up; pos.push(i); hid.push(up ? 0 : 1); labels.push(up ? `${i + 1}번째 앞면 증거: ${D(R, x).n}` : `${i + 1}번째 뒷면 증거`); });
     return { labels, evp: { t, pos, hid } }; };
 
+  // 뒷면 증거를 n장 표향으로: 효과 텍스트가 위치를 정하지 않으면(= "뒷면 증거 1개") 효과를 쓰는 플레이어가 직접 고른다. 전부 뒤집는 경우(n ≥ 뒷면 수)는 선택이 무의미하므로 바로 처리.
+  //   위치가 정해진 효과(맨 위 n장 등)는 이 함수를 쓰지 않고 flipEv 에 ids 를 직접 넘긴다.
+  function* flipPick(R, s, t, n, why) { const down = faceDown(R, t); if (n >= down.length) return flipEv(R, t, n);
+    const ids = []; let rest = down.slice();
+    for (let i = 0; i < n; i++) { const cand = R.P[t].evid.filter(x => rest.includes(x)), o = evOpts(R, t, cand);
+      const j = yield { who: s, kind: 'opt', fp: 1, msg: `${t === s ? '내' : '상대'} 뒷면 증거 중 표향으로 할 증거를 선택${n > 1 ? ` (${i + 1}/${n})` : ''}${why ? ' — ' + why : ''}`, labels: o.labels, evp: o.evp };
+      const m = cand[+j] !== undefined ? cand[+j] : cand[0]; ids.push(m); rest = rest.filter(x => x !== m); }
+    return flipEv(R, t, n, ids); }
+
   function unsetOne(R, holder, x) { const h = R.cards[holder], wasSet = (h.sets || []).includes(x), wasFd = (h.fd || []).includes(x); h.fd = (h.fd || []).filter(y => y !== x); h.sets = (h.sets || []).filter(y => y !== x); R.cards[x].fdOn = null; R.cards[x].setOn = null; R.P[R.cards[x].o].rem.push(x); if (wasSet) bus(R, 'setOff', { s: R.cards[x].o, ent: x, holder }); if (wasFd) bus(R, 'fdOff', { s: R.cards[x].o, ent: x, holder }); }
   const unsetPool = (R, s, src, k) => k.scope === 'any' ? [0, 1].flatMap(t => R.P[t].field).flatMap(h => setCards(R, h, !!k.fd)) : k.scope === 'mine' ? R.P[s].field.flatMap(h => setCards(R, h, !!k.fd)) : k.scope === 'opp' ? R.P[1 - s].field.flatMap(h => setCards(R, h, !!k.fd)) : setCards(R, src, !!k.fd);
   const setCards = (R, id, fdOnly) => [...(R.cards[id].fd || []), ...(fdOnly ? [] : (R.cards[id].sets || []))];
@@ -642,7 +651,7 @@ module.exports = function (A) {
       case 'stack': { const f = rf(R, o.filter, ctx), cand = P.rem.filter(x => D(R, x).type === 'char' && fOk(R, s, x, f, src, true)); if (!cand.length || !onField(R, src)) { ctx.done = false; return; }
         const ids = (yield pickReq(s, `리무브 에리어에서 이 캐릭터 아래에 겹칠 카드를 최대 ${o.n}장 선택` + (o.distinct ? ' (카드 이름이 서로 달라야 함)' : ''), cand, 0, Math.min(o.n, cand.length), { distinct: o.distinct, reveal: 1 })).filter(x => cand.includes(x));
         if (!ids.length) { ctx.done = false; return; } P.rem = P.rem.filter(x => !ids.includes(x)); const h = R.cards[src]; (h.under = h.under || []).push(...ids); setReg(ctx, 'moved', ids); remLeft(R, s, ids); say(R, `[효과] ${D(R, src).n} 아래에 ${ids.length}장을 겹침`); ctx.done = true; return; }
-      case 'flip': { const t = tg(o.who); if (o.opt && faceDown(R, t).length && !(yield { who: s, kind: 'yn', msg: `뒷면 증거 ${o.n}장을 표향으로 할까요?` })) { ctx.done = false; return; } const ids = flipEv(R, t, o.n); ctx.flipped = ids; if (ids.length) say(R, `[효과] ${nm(t)}의 뒷면 증거 ${ids.length}장을 표향으로` + ids.map(x => ` (${D(R, x).n})`).join('')); ctx.done = ids.length > 0; return; }
+      case 'flip': { const t = tg(o.who); if (o.opt && faceDown(R, t).length && !(yield { who: s, kind: 'yn', msg: `뒷면 증거 ${o.n}장을 표향으로 할까요?` })) { ctx.done = false; return; } const ids = yield* flipPick(R, s, t, o.n); ctx.flipped = ids; if (ids.length) say(R, `[효과] ${nm(t)}의 뒷면 증거 ${ids.length}장을 표향으로` + ids.map(x => ` (${D(R, x).n})`).join('')); ctx.done = ids.length > 0; return; }
       case 'flashFlipped': { const f = rf(R, o.filter, ctx), ids = [...(ctx.cost && ctx.cost.flip || []), ...(ctx.flipped || [])].filter(x => fOk(R, s, x, f, src, true) && (D(R, x).ab || []).some(a => a.ic === 'flash' && !!a.bang === !!o.bang));
         for (const x of ids) { const abs = (D(R, x).ab || []).filter(a => a.ic === 'flash' && !!a.bang === !!o.bang && condOk(R, s, x, a)); if (!abs.length) continue;
           if (!(yield { who: s, kind: 'yn', msg: `표향이 된 「${D(R, x).n}」의 ${o.bang ? '【!】' : ''}히라메키를 발동할까요?` })) continue;
@@ -737,7 +746,7 @@ module.exports = function (A) {
     else if (k.c === 'selfPa') { leave(R, src); P.pa.push(src); say(R, `${D(R, src).n}: 파트너 에리어로 이동`); }
     else if (k.c === 'sleepOther') { const cand = P.field.filter(x => x !== src && (R.cards[x].st || 'a') === 'a'); const ids = cand.length === k.n ? cand : yield pickReq(s, `코스트: 슬립시킬 다른 캐릭터 ${k.n}장`, cand, k.n, k.n); ids.forEach(x => { R.cards[x].st = 's'; bus(R, 'sleepEv', { s, ent: x, by: 'cost' }); }); }
     else if (k.c === 'flipEvid') { let n = k.n; if (k.var) { const mx = faceDown(R, s).length; const i = yield { who: s, kind: 'opt', msg: '표향으로 할 뒷면 증거의 수 (1장당 효과가 커집니다)', labels: Array.from({ length: mx }, (_, j) => `${j + 1}장`) }; n = Math.max(1, +i + 1); }
-      const ids = flipEv(R, s, n); co.flip = (co.flip || []).concat(ids); say(R, `코스트: 뒷면 증거 ${ids.length}장을 표향으로` + ids.map(x => ` (${D(R, x).n})`).join('')); }
+      const ids = yield* flipPick(R, s, s, n, '코스트'); co.flip = (co.flip || []).concat(ids); say(R, `코스트: 뒷면 증거 ${ids.length}장을 표향으로` + ids.map(x => ` (${D(R, x).n})`).join('')); }
     else if (k.c === 'fieldBottom') { const cand = [...ally(R, 0), ...ally(R, 1)].filter(x => fOk(R, s, x, f, src, true)); const ids = cand.length === k.n ? cand : yield pickReq(s, `코스트: 덱 아래로 보낼 현장의 캐릭터 ${k.n}장`, cand, k.n, k.n);
       ids.forEach(x => moveOut(R, x, 'deckBottom')); }
     else if (k.c === 'unset') { const cs = unsetPool(R, s, src, k).filter(x => fOk(R, s, x, f, src, true)); const ids = cs.length === k.n ? cs : yield pickReq(s, `코스트: 리무브할 세트 카드 ${k.n}장`, cs, k.n, k.n); ids.forEach(x => unsetOne(R, R.cards[x].fdOn != null ? R.cards[x].fdOn : R.cards[x].setOn != null ? R.cards[x].setOn : src, x)); }
@@ -836,8 +845,8 @@ module.exports = function (A) {
   // 클라이언트 표시용: 세트/임시로 받은 능력(d.ab 뒤에 붙는 것들)
   const grantedAb = (R, id) => { const n = (D(R, id).ab || []).length; return abList(R, id).slice(n).map((a, k) => ({ i: n + k, ic: a.ic, lab: a.lab || '', txt: a.txt || '', lim: a.lim || 0 })); };
   const hasCut = (R, id) => cutAbs(R, 0, id).length > 0 || handCutV(R, R.cards[id].o, id) > 0;
-  const X = require('./fx_ext')({ nameBanned, fieldMax, chosenCheck, useOk, A, D, say, shuf, pull, chk, gain, nm, fcount, cols, fOk, rf, countOf, condOk, regIds, setReg, pickReq, yn, onField, inPa, moveCards, applyG, applyTo, placeCards, inZone: inZoneFx, rmChar, leave, moveOut, release, unsetOne, takeOut, runOps, lvOf, traitsId, traitsOf, bus, fire, kwHas, enterSt, noteEnter, mrEnter, remLeft, ally, faceDown, flipEv, evOpts, dynNum, regNumBy, cleanFilter, cleanCond, cleanOps, cleanAb, cleanCost, cx, str, num, opt, queueEvent, abList, setCards, canPayOne, pay, noTarget, fieldPa, setSolved, replaceCheck });
+  const X = require('./fx_ext')({ nameBanned, fieldMax, chosenCheck, useOk, A, D, say, shuf, pull, chk, gain, nm, fcount, cols, fOk, rf, countOf, condOk, regIds, setReg, pickReq, yn, onField, inPa, moveCards, applyG, applyTo, placeCards, inZone: inZoneFx, rmChar, leave, moveOut, release, unsetOne, takeOut, runOps, lvOf, traitsId, traitsOf, bus, fire, kwHas, enterSt, noteEnter, mrEnter, remLeft, ally, faceDown, flipEv, flipPick, evOpts, dynNum, regNumBy, cleanFilter, cleanCond, cleanOps, cleanAb, cleanCost, cx, str, num, opt, queueEvent, abList, setCards, canPayOne, pay, noTarget, fieldPa, setSolved, replaceCheck });
   FXX = X;
   return { noteEnter, carry, bus, pkVals, countOf, useOk, hasAbIc, ignoreColor, disguiseOk, disAbs, lvOf, enterSt, noAct, noTarget, fireAlly, fireAllyKill, fireAllyContact, fireMain, remLeft, release, hasCut, cutOk, cleanAb, fire, queueEvent, queueFlash, rmChar, leave, moveOut, mrEnter, isMR, winAlt, setSolved,
-    flipEv, evOpts, nameBanned, fieldMax, replaceAvail, pk, hasKwTk: kwHas, grantedAb, pump, answer, declare, declareCheck, abInfo, canPay, stat, cutV, cutOps, condOk, traitsOf, traitsId };
+    flipEv, flipPick, evOpts, nameBanned, fieldMax, replaceAvail, pk, hasKwTk: kwHas, grantedAb, pump, answer, declare, declareCheck, abInfo, canPay, stat, cutV, cutOps, condOk, traitsOf, traitsId };
 };

@@ -127,6 +127,7 @@ body.m #firstb,body.m #turnb{white-space:nowrap}body.m #firstb{font-size:11px;pa
 .stk.dk .pile .card{box-shadow:1px 2px 0 #000a}
 /* ── 중앙 바 ── */
 #mid{flex:none;min-height:46px;display:flex;align-items:center;gap:12px;padding:5px 14px;border-radius:12px;background:linear-gradient(#1c2938,#141e2a);border:1px solid #ffffff1c;box-shadow:0 4px 14px #0007;position:relative;z-index:2}
+#endb{display:none;position:fixed;inset:0;z-index:60;align-items:center;justify-content:center;background:#000a;pointer-events:none}#endb.on{display:flex;animation:ebin .5s ease-out}#endb .eb{text-align:center;pointer-events:auto;padding:30px 70px 22px;border-radius:22px;border:3px solid var(--gold);background:linear-gradient(#22303f,#111a24);box-shadow:0 0 80px #f2bd4b66,0 20px 60px #000c}#endb.lose .eb{border-color:#7b8ba0;box-shadow:0 0 60px #0008,0 20px 60px #000c}#endb .et{font-size:clamp(48px,9vw,120px);font-weight:900;letter-spacing:4px;color:var(--gold);text-shadow:0 4px 0 #8a5b0c,0 0 40px #f2bd4b88;line-height:1.1}#endb.lose .et{color:#aab6c6;text-shadow:0 4px 0 #2a3441}#endb .es{margin-top:8px;font-size:clamp(14px,2vw,22px);color:#dfe8f2}#endb .eclose{margin-top:16px}@media(prefers-reduced-motion:reduce){#endb.on{animation:none}}@keyframes ebin{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:none}}
 #msg{flex:1 1 200px;font-size:14px;font-weight:600;color:#dfe8f2}#err{color:#ff9b94;flex:none;font-weight:600}
 #btns{display:flex;flex-wrap:wrap;gap:8px}#btns button{padding:9px 20px;font-size:14px}
 /* ── 오버레이(효과 선택/덱 확인) ── */
@@ -134,7 +135,7 @@ body.m #firstb,body.m #turnb{white-space:nowrap}body.m #firstb{font-size:11px;pa
 #ovl{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:15;max-width:94%;max-height:94%;overflow:auto;display:flex;flex-direction:column;gap:8px}
 #ovl:not(:has(.box,#pk:not(:empty))){display:none}
 #effp .box,#remp .box,#pk{background:linear-gradient(#22303f,#16212d);border:1.5px solid var(--gold);border-radius:14px;padding:14px 16px;box-shadow:0 0 0 9999px #0007,0 16px 50px #000c;min-width:280px}
-#effp .box>b,#remp .box>b{color:var(--gold);font-size:15px}#effp .box>div{margin-top:4px;font-size:14px}#remp .cs{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0;max-width:900px}#remp .cs .card{margin:0}
+#effp .fxh{display:flex;gap:14px;align-items:flex-start}#effp .fxi{flex:none;width:clamp(110px,14vw,170px);border-radius:8px;box-shadow:0 4px 16px #000a;border:1px solid #ffffff22}#effp .fxm{flex:1;min-width:0}#effp .fxm>b{color:var(--gold);font-size:16px;display:block}#effp .fxid{display:inline-block;margin-top:2px;font:600 11px ui-monospace,Consolas,monospace;color:#9fd0ff}#effp .fxq{margin-top:6px;font-size:15px;font-weight:700;color:#fff}#effp .fxm .fxt{max-height:190px}body.m #effp .fxi{width:84px}#effp .box>b,#remp .box>b{color:var(--gold);font-size:15px}#effp .box>div{margin-top:4px;font-size:14px}#remp .cs{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0;max-width:900px}#remp .cs .card{margin:0}
 #pk{display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-color:#7bb8ff}#pk:empty{display:none}
 #effp .cs{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0}#effp .cs .card{margin:0}#effp .card.no{opacity:.35;cursor:not-allowed}
 #effp .gh{margin:10px 0 0;font-size:13px;font-weight:800;padding-left:8px;border-left:4px solid #8b9cb1}#effp .gh small{font-weight:600;color:var(--mut);margin-left:4px}#effp .gh.mine{border-color:var(--gold);color:var(--gold)}#effp .gh.theirs{border-color:#ff6a3d;color:#ff9b94}#effp .gh+.cs{margin-top:6px}
@@ -150,7 +151,7 @@ body.m #firstb,body.m #turnb{white-space:nowrap}body.m #firstb{font-size:11px;pa
 #pv .noimg{padding:60px 8px;text-align:center;background:#243244;border-radius:9px;font-weight:700;flex:none}
 #pv .meta{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
 #pv .chipm{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:1px 9px;border-radius:999px;background:#0b131b;border:1px solid #ffffff22;color:#d3deea}
-#pv .chipm.ty{background:#f2bd4b22;border-color:#f2bd4b77;color:var(--gold)}
+#pv .chipm.cid{cursor:pointer;user-select:all;-webkit-user-select:all;font-family:ui-monospace,Consolas,monospace;color:#9fd0ff;border-color:#4a8fe855}#pv .chipm.ty{background:#f2bd4b22;border-color:#f2bd4b77;color:var(--gold)}
 #pv .dot{width:9px;height:9px;border-radius:50%;display:inline-block;border:1px solid #fff6}
 #pv .nm{font-size:11px;color:var(--mut)}
 #pv .fx,#pv .meta,#pv .nm,#pv .nofx{flex:none}#pv .fx{white-space:pre-wrap;font-size:13px;line-height:1.6;color:#e6edf5;background:#0d151dcc;border:1px solid #ffffff14;border-radius:9px;padding:9px 11px}
@@ -182,7 +183,7 @@ body.m #firstb,body.m #turnb{white-space:nowrap}body.m #firstb{font-size:11px;pa
 #act.off{border:1.5px dashed #ffffff26;background:#0e161f}
 #act .ah{font-size:12px;font-weight:700;color:var(--gold);letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #act button{padding:11px 12px;font-size:15px;text-align:center;border-radius:11px;width:100%}
-#act button.ghost{padding:8px;font-size:13px}
+#act button,#act button.ghost{color:#2b1b00;border-color:#ffdc8a;background:linear-gradient(#ffd167,#e19f26);box-shadow:0 3px 0 #8a5b0c,0 6px 14px #f2bd4b33,inset 0 1px 0 #fff8;text-shadow:0 1px 0 #ffffff66}#act button:active:not(:disabled){box-shadow:0 0 0 #8a5b0c,inset 0 2px 5px #0005}#act button.ghost{padding:11px 12px;font-size:15px}
 #act .hint{font-size:12px;color:var(--mut);text-align:center}
 #menu{position:fixed;display:none;background:#182433;border:1px solid #4a6078;border-radius:10px;z-index:30;padding:4px;box-shadow:0 10px 30px #000c}#menu div{padding:6px 16px;cursor:pointer;border-radius:7px;font-size:13px}@media(hover:hover){#menu div:hover{background:#2c4058}}
 /* ── 덱 빌더 ── */
@@ -193,7 +194,7 @@ body.m #firstb,body.m #turnb{white-space:nowrap}body.m #firstb{font-size:11px;pa
 .dbr{display:flex;gap:6px;margin-bottom:6px}.dbr:last-child{margin-bottom:0}.dbr>input,.dbr>select{flex:1;min-width:0}.dbr>button{white-space:nowrap;padding:6px 10px;font-size:12px}
 #dbPv{flex:1;min-height:0;display:flex;flex-direction:column;gap:6px;overflow:hidden}
 #dbPvImg{flex:none;width:100%;max-height:52vh;aspect-ratio:.714;margin:0 auto;border-radius:10px;background:#0e161f center/contain no-repeat;display:flex;align-items:center;justify-content:center;color:var(--mut);font-size:12px;text-align:center;max-width:calc(52vh*.714)}
-#dbChips{display:flex;gap:5px;flex-wrap:wrap;min-height:20px}#dbChips span{font-size:11px;font-weight:700;padding:1px 8px;border-radius:999px;background:#0b131b;border:1px solid #ffffff26}
+#dbChips{display:flex;gap:5px;flex-wrap:wrap;min-height:20px}#dbChips span:last-child{font-family:ui-monospace,Consolas,monospace;color:#9fd0ff;user-select:all}#dbChips span{font-size:11px;font-weight:700;padding:1px 8px;border-radius:999px;background:#0b131b;border:1px solid #ffffff26}
 #dbTx{flex:1;min-height:0;overflow:auto;font-size:13px;line-height:1.5;padding:8px 10px;background:#0e161f;border-radius:8px;white-space:pre-wrap}
 #dbTx .nofx{color:var(--mut)}
 #dbDeck{flex:none;height:clamp(170px,31vh,310px);display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto 1fr;gap:6px 12px;position:relative;min-height:0}
@@ -333,7 +334,7 @@ body.m.ls #dock #act button,body.m.ls #dock #btns button{width:100%;flex:none;mi
 #dock #act.off,#dock #act.on{border:0;background:none;box-shadow:none}
 #dock #act .ah{display:none}
 #dock #act button{width:auto;flex:1 1 38%;min-height:46px;padding:8px 10px;font-size:15px;border-radius:11px}
-#dock #act button.ghost{padding:8px 10px;font-size:14px}
+#dock #act button.ghost{padding:8px 10px;font-size:15px}
 #dock #act .hint{flex:1 1 100%;order:-1;font-size:11px;text-align:left;line-height:1.2;max-height:28px;overflow:hidden}
 #dock #btns{flex:none;display:flex;flex-direction:column;gap:6px;justify-content:flex-end}
 #dock #btns button{min-height:46px;padding:8px 14px;font-size:15px;min-width:104px}
@@ -436,7 +437,7 @@ body.m #dbErr>div{max-width:94vw}
 <div id="board"><div id="oppl" class="half opp"></div>
 <div id="mid"><div id="msg"></div><div id="err"></div><div id="btns"></div></div>
 <div id="mel" class="half me"></div><svg id="arr" xmlns="http://www.w3.org/2000/svg"><defs><marker id="ah1" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#ff6a3d" stroke="none"/></marker><marker id="ah2" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#f2bd4b" stroke="none"/></marker></defs><g id="arrg"></g></svg><div id="battle"></div>
-<div id="ovl"><div id="pk"></div><div id="effp"></div><div id="remp"></div></div></div>
+<div id="endb"><div class="eb"><div class="et"></div><div class="es"></div><button class="eclose">닫기</button></div></div><div id="ovl"><div id="pk"></div><div id="effp"></div><div id="remp"></div></div></div>
 <div id="side"><div id="pv"><div class="hintx">카드에 마우스를 올리면 크게 표시됩니다.</div></div>
 <div id="act" class="off"></div></div></div><div id="dock"></div></div>
 <div id="sheet"><div class="sh"><span id="shn"></span><button id="shBig">🔍 크게</button><button id="shX" aria-label="닫기">✕</button></div></div>
@@ -509,6 +510,7 @@ const TYPE_KO={char:'캐릭터',event:'이벤트',partner:'파트너',case:'사�
 const COL={red:['빨강','#e5544b'],blue:['파랑','#4a8fe8'],green:['초록','#3fb56b'],yellow:['노랑','#e8c93c'],white:['하양','#f1f1f1'],black:['검정','#3a3a3a'],purple:['보라','#9b6be0']};
 const fxHtml=t=>esc(t).replace(/(【[^】]*】)/g,'<em>$1</em>');
 // 카드 상세: 일본어 효과 원문(fx)은 표시하지 않고 한국어 번역(extra)만 표시한다. 카드 이름은 이미지로 확인 (한글 이름 필드가 DB 에 없으므로 원본 이름을 작게만 표기).
+const cardId=(f,c)=>String((f&&f.id)||(c&&c.d)||'').replace(/^\d+:/,'');
 function pv(f,c){const cols=String(f.color||'').split(/[\/,&]/).map(x=>x.trim().toLowerCase()).filter(Boolean);
  const ch=[`<span class="chipm ty">${esc(TYPE_KO[f.type]||f.type||'')}</span>`];
  if(f.lv!==''&&f.lv!=null&&f.type!=='partner')ch.push(`<span class="chipm">Lv ${esc(f.type==='case'&&f.lv2?f.lv+' / '+f.lv2:f.lv)}</span>`);
@@ -516,6 +518,8 @@ function pv(f,c){const cols=String(f.color||'').split(/[\/,&]/).map(x=>x.trim().
   if(f.type==='char'&&f.ap!=='')ch.push(`<span class="chipm">AP ${dl(f.ap,c&&c.apm)}</span>`);
   if((f.type==='char'||f.type==='partner')&&f.lp!=='')ch.push(`<span class="chipm">증거 ${dl(f.lp,c&&c.lpm)}</span>`);}
  cols.forEach(c=>{const k=COL[c];ch.push(k?`<span class="chipm"><span class="dot" style="background:${k[1]}"></span>${k[0]}</span>`:`<span class="chipm">${esc(c)}</span>`)});
+
+ {const cid=cardId(f,c);if(cid)ch.push(`<span class="chipm cid" title="눌러서 복사" data-cid="${esc(cid)}">카드 ID: ${esc(cid)}</span>`)}
  String(f.trait||'').split(',').map(x=>x.trim()).filter(Boolean).forEach(t=>ch.push(`<span class="chipm">${esc(t)}</span>`));
  const kr=String(f.extra||'').trim();
  $('pv').innerHTML=(f.img?`<img src="${f.img}" alt="">`:`<div class="noimg">${esc(f.n)}</div>`)+`<div class="meta">${ch.join('')}</div>`+(f.img?`<div class="nm">${esc(f.n)}</div>`:'')
@@ -686,6 +690,7 @@ if(TOUCH){document.documentElement.classList.add('touch');fitVp();addEventListen
 // 시트 / 상단 버튼 연결
 $('shX').onclick=e=>{e.stopPropagation();closeSheet()};
 $('shBig').onclick=e=>{e.stopPropagation();if(PVC){const f=PVC.d?DEFS[PVC.d]:null;if(f)openFs(f,PVC);else openFs({n:'?'},PVC)}};
+document.addEventListener('click',e=>{const c=e.target.closest&&e.target.closest('.cid');if(c&&c.dataset.cid){try{navigator.clipboard.writeText(c.dataset.cid);const o=c.textContent;c.textContent='복사됨: '+c.dataset.cid;setTimeout(()=>{c.textContent=o},1200)}catch(_){}}});
 $('pv').addEventListener('click',e=>{const b=e.target.closest('[data-i]');if(b&&PVC&&PVC.sl){const x=PVC.sl[+b.dataset.i];if(x&&x.d&&DEFS[x.d]){PVC=x;pv(DEFS[x.d],x);$('shn').textContent=DEFS[x.d].n||''}else bToastG('뒷면으로 세트된 상대 카드입니다')}else if(e.target.closest('img')&&PVC&&M)$('shBig').click()});
 $('fsv').addEventListener('click',closeFs);
 function bToastG(t){const m=$('err');m.textContent=t;setTimeout(()=>{if(m.textContent===t)m.textContent=''},2200)}
@@ -709,7 +714,9 @@ function effText(E){const f=DEFS[E.srcD]||{},kr=String(f.extra||'').split('\n').
  const hi=E.abI>=0&&E.abN===kr.length?E.abI:-1,rows=kr.map((l,i)=>`<div class="fl${i===hi?' on':''}">${fxHtml(l)}</div>`).join('');
  return `<div class="fxt"><small>적용 중인 효과${E.abLab?' · '+esc(E.abLab):''}</small>${rows||''}</div>`}
 function effUI(b,B){const E=V.eff;if(E.wait)return E.msg;const key=JSON.stringify([E.msg,E.kind,(E.cards||[]).map(c=>c.id)]);if(key!==effKey){effKey=key;esel=[]}
- const box=document.createElement('div');box.className='box';box.innerHTML=`<b>효과 · ${esc(E.src||'효과')}</b><div>${esc(E.msg||'')}</div>`+effText(E);$('effp').appendChild(box);if(M&&(E.kind==='pick'||E.kind==='ack'))box.firstElementChild.insertAdjacentHTML('afterend','<small style="color:var(--mut);display:block">카드를 길게 누르면 크게 볼 수 있습니다</small>');
+ const box=document.createElement('div');box.className='box';{const sf=DEFS[E.srcD]||{},im=sf.img?`<img class="fxi" src="${esc(sf.img)}" alt="${esc(sf.n||E.src||'')}">`:'';const cid=E.srcD?cardId(sf,{d:E.srcD}):'';
+  box.innerHTML=`<div class="fxh">${im}<div class="fxm"><b>효과 · ${esc(sf.n||E.src||'효과')}</b>${cid?`<span class="fxid">${esc(cid)}</span>`:''}<div class="fxq">${esc(E.msg||'')}</div>${effText(E)}</div></div>`}
+ $('effp').appendChild(box);if(M&&(E.kind==='pick'||E.kind==='ack'))box.querySelector('.fxq').insertAdjacentHTML('afterend','<small style="color:var(--mut);display:block">카드를 길게 누르면 크게 볼 수 있습니다</small>');
  // 카드를 내 것/상대 것으로 나눠서 보여준다 (캐릭터면 '내 캐릭터'/'상대 캐릭터')
  const grp=(cards,fn)=>{const side=id=>{for(const i of[0,1]){const P=V.P[i],all=[...P.field,...(P.pa||[]),...(Array.isArray(P.hand)?P.hand:[]),...P.rem,P.partner,P.kase].filter(Boolean);if(all.some(c=>c.id===id))return i}return -1},G={me:[],opp:[],oth:[]};
   cards.forEach(c=>{const o=side(c.id);(o===V.me?G.me:o===1-V.me?G.opp:G.oth).push(c)});
@@ -759,10 +766,12 @@ function actUI(){const a=$('act');a.innerHTML='';const H=t=>{const d=document.cr
   else if(x.k==='ab')Bt('능력'+(x.lab&&!JP.test(x.lab)?': '+x.lab:' '+(x.i+1)+' 사용'),()=>{A('ability',{id,i:x.i});mode=null},pri())});
  if(!list.length)N('지금 이 카드로 할 수 있는 행동이 없습니다');
  Bt('선택 해제',()=>{mode=null;render()},'ghost')}
-function ui(){const me=V.me,T=V.turn===me,s=V.sub,b=$('btns');b.innerHTML='';let m='';
+let endShown=null;
+function endBanner(){const b=$('endb');if(V.winner!==0&&V.winner!==1)return;const key=V.code+':'+V.winner+':'+V.n;if(endShown===key)return;endShown=key;const w=V.winner===V.me;b.className='on'+(w?'':' lose');b.querySelector('.et').textContent=w?'🏆 승리!':'😢 패배';b.querySelector('.es').textContent=w?'축하합니다! 이겼습니다':'아쉽게도 졌습니다';b.querySelector('.eclose').onclick=()=>{b.className=''}}
+function ui(){const me=V.me,T=V.turn===me,s=V.sub,b=$('btns');b.innerHTML='';let m='';if(V.phase!=='over'){endShown=null;$('endb').className=''}
  const B=(t,f,cls)=>{const x=document.createElement('button');x.textContent=t;if(cls)x.className=cls;x.onclick=f;b.appendChild(x)};
  $('effp').innerHTML='';(M?$('dock'):$('mid')).appendChild(b);
- if(V.phase==='over')m=V.winner===me?'🏆 승리했습니다!':'😢 패배했습니다';
+ if(V.phase==='over'){m=V.winner===me?'🏆 승리했습니다!':'😢 패배했습니다';endBanner()}
  else if(V.eff){m=effUI(b,B);const bx=$('effp').querySelector('.box');if(bx)bx.appendChild(b)}
  else if(V.phase==='setup')m=V.P[me].ready?'덱 등록 완료. 상대를 기다리는 중…':'위쪽 바에서 덱을 선택하고 [덱 등록] (40장, 같은 카드 3장 이하, 파트너·사건 지정)';
  else if(V.phase==='mull'){if(V.mull===me){m='교체할 손패를 선택 후 확정 (선택 없이 확정 = 유지)';B(`확정 (${selm.length}장 교체)`,()=>{A('mull',{ids:selm});selm=[]},'pri')}else m='상대가 손패 교체를 결정 중…'}
@@ -935,7 +944,7 @@ function bRender(){const g=$('dbGrid');bList=bFilter();g.innerHTML='';g.scrollTo
 function bMore(){const g=$('dbGrid');let guard=0;while(bShown<bList.length&&guard++<40){const f=document.createDocumentFragment();for(const c of bList.slice(bShown,bShown+120))f.appendChild(bCell(c));bShown=Math.min(bList.length,bShown+120);g.appendChild(f);if(g.scrollHeight>g.clientHeight+600)break}}
 function bCellsOf(id){return document.querySelectorAll(`#dbGrid .cc[data-id="${CSS.escape(id)}"]`)}
 function bPv(id){const c=DB.cards[id];if(!c)return;const im=$('dbPvImg');im.innerHTML='';im.style.backgroundImage=c.img?`url("${c.img}")`:'';if(!c.img)im.textContent=c.n;
- const ch=[B_TYPE[c.type]||c.type,...bCols(c).map(k=>(B_COL.find(x=>x[0]===k)||[0,k])[1]+'색'),c.lv!==''&&c.lv!=null?(c.type==='case'?'사건 Lv '+c.lv+(c.lv2?' / '+c.lv2:''):'Lv '+c.lv):'',c.ap?'AP '+c.ap:'',c.lp!==''&&c.lp!=null?'LP '+c.lp:''].filter(Boolean);
+ const ch=[B_TYPE[c.type]||c.type,...bCols(c).map(k=>(B_COL.find(x=>x[0]===k)||[0,k])[1]+'색'),c.lv!==''&&c.lv!=null?(c.type==='case'?'사건 Lv '+c.lv+(c.lv2?' / '+c.lv2:''):'Lv '+c.lv):'',c.ap?'AP '+c.ap:'',c.lp!==''&&c.lp!=null?'LP '+c.lp:'','카드 ID: '+(c.id||id)].filter(Boolean);
  $('dbChips').innerHTML=ch.map(x=>`<span>${esc(x)}</span>`).join('');
  const kr=String(c.extra||'').trim();$('dbTx').innerHTML=kr?(typeof fxHtml==='function'?fxHtml(kr):esc(kr)):(c.fx?'<div class="nofx">한국어 효과 텍스트가 등록되지 않은 카드입니다.</div>':'<div class="nofx">효과가 없는 카드입니다.</div>')}
 // ── 덱 편집 (클릭=추가 / 덱의 카드 클릭=1장 빼기). 규칙: 메인 40장 · 같은 카드 3장 · 사건 1 · 파트너 1 (사건/파트너는 교체)

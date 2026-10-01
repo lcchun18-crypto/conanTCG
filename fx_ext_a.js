@@ -60,7 +60,7 @@ module.exports = function (K, def) {
     const t = side(s, o.who), down = R.P[t].evid.filter(x => !R.cards[x].up); let n = o.nref ? regIds(R, ctx, o.nref.ref).length : o.n; ctx.done = false; const prev = o.acc ? regIds(R, ctx, o.as) : [];
     const mx = Math.min(n, down.length); let k = mx;
     if (o.any && mx > 0) k = +(yield { who: s, kind: 'opt', msg: `${nm(t)}의 뒷면 증거를 표향으로 할 장수 (최대 ${mx}장)`, labels: Array.from({ length: mx + 1 }, (_, j) => `${j}장`) });
-    const ids = k > 0 ? K.flipEv(R, t, k) : []; setReg(ctx, o.as, [...prev, ...ids]); if (ids.length) say(R, `[효과] ${nm(t)}의 뒷면 증거 ${ids.length}장을 표향으로: ${ids.map(x => D(R, x).n).join(', ')}`); ctx.done = ids.length > 0; });
+    const ids = k > 0 ? yield* K.flipPick(R, s, t, k) : []; setReg(ctx, o.as, [...prev, ...ids]); if (ids.length) say(R, `[효과] ${nm(t)}의 뒷면 증거 ${ids.length}장을 표향으로: ${ids.map(x => D(R, x).n).join(', ')}`); ctx.done = ids.length > 0; });
 
   // ── FILE 에리어 위에서 n장 리무브 / 덱 위에서 n장을 뒷면으로 FILE 위에 한 장씩 놓는다
   def('fileRemTop', o => ({ op: 'fileRemTop', who: opt(o.who, ['self', 'opp'], 'self'), n: Math.max(1, Math.min(num(o.n, 1), 10)) }), function* (R, s, src, o, ctx) {
