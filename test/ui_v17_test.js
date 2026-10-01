@@ -57,5 +57,13 @@ const J = x => JSON.parse(JSON.stringify(x)); let pass = 0, fail = 0; const ok =
   for (const side of ['me', 'opp']) { const R = mkR(); decorate(R); const s = R.turn, o = 1 - s; const x = U.give(R, side === 'me' ? s : o, 'e0', 'rem'); const pg = await open(R, J(S.view(R, s)));
     await pg.locator(`#${side}-rem`).hover({ force: true }); const t = await pg.evaluate(() => { const i = document.querySelector('#pv img'); return i ? decodeURIComponent(i.getAttribute('src')) : ''; }); ok(/EVID0/.test(t), `${side === 'me' ? '내' : '상대'} 리무브 에리어 호버 → 상세에 카드 표시`);
     await pg.mouse.move(5, 5); await pg.locator(`#${side}-rem .pile .card`).hover({ force: true }); ok(/EVID0/.test(await pg.evaluate(() => { const i = document.querySelector('#pv img'); return i ? decodeURIComponent(i.getAttribute('src')) : ''; })), `${side === 'me' ? '내' : '상대'} 리무브 맨 위 카드 호버`); await pg.context().close(); }
+  // ⑧ 능력 버튼: "능력 n 사용" 대신 해당 능력의 실제 텍스트 전체 (길면 작은 글씨)
+  for (const mobile of [false, true]) { const T = mobile ? '모바일' : 'PC'; const R = mkR(); decorate(R); const s = R.turn; const c = field(R, s, 'c'); const cd = R.cards[c].d;
+    const LONG = '【선언】【턴①】 손패에서 특징 [FBI] 의 캐릭터를 1장 리무브한다: 카드를 1장 뽑는다. 이 능력의 코스트로 레벨 8 이상의 캐릭터를 리무브한 경우, 카드를 1장 더 뽑는다. 이 능력은 파트너 에리어에서도 선언할 수 있다.';
+    R.defs[cd].extra = '【턴①】 짧은 능력\n' + LONG; R.defs[cd].ab = [{ ic: 'declare', ops: [] }, { ic: 'declare', ops: [] }];
+    const v = J(S.view(R, s)); v.acts = { [c]: [{ k: 'ab', i: 0, lab: 'x' }, { k: 'ab', i: 1, lab: 'y' }] }; const pg = await open(R, v, { mobile }); await pg.locator(`[data-id="${c}"]`).first().click({ force: true }); await pg.waitForTimeout(150);
+    const bs = await pg.evaluate(() => [...document.querySelectorAll('#act button')].map(b => ({ t: b.textContent, fs: parseFloat(getComputedStyle(b).fontSize), w: b.scrollWidth <= b.clientWidth + 1 })));
+    ok(bs[0].t.includes('짧은 능력') && !/능력 \d 사용/.test(bs[0].t), `${T}: 능력 1 버튼에 실제 텍스트 (${bs[0].t})`); ok(bs[1].t === LONG, `${T}: 능력 2 버튼에 능력 전체 텍스트`); ok(bs[1].fs < bs[0].fs && bs[1].fs >= 10, `${T}: 긴 텍스트는 작은 글씨 (${bs[0].fs}px → ${bs[1].fs}px)`); ok(bs.every(b => b.w), `${T}: 버튼 안에서 가로로 넘치지 않음`);
+    if (!mobile) await pg.screenshot({ path: OUT + '/8_ability_btn.png' }); await pg.context().close(); }
   await br.close(); console.log(`\nui_v17_test: ${pass} 통과, ${fail} 실패`); process.exit(fail ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });

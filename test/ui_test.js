@@ -103,7 +103,7 @@ const DEF = R.defs, cid = { a, b, ov, oc }, imgOf = id => DEF[(mainView.P[s].fie
     if (w === 1366) {
       // ── 행동 버튼: 서버가 계산한 가능한 행동만
       ok((await btns(pg)).length === 0 && await pg.locator('#act.off').count() === 1, `${T} 선택 전에는 행동 버튼 없음`);
-      await pg.locator('#me-field .card').nth(0).click(); let t = await btns(pg); const acts = mainActs[a].map(x => x.k); ok(JSON.stringify(t) === JSON.stringify(['추리', '액션', '능력: 테스트능력', '선택 해제'].filter((x, i) => [acts.includes('reason'), acts.includes('actc') || acts.includes('actk'), acts.includes('ab'), true][i])), `${T} 캐릭터 A 행동: ${t}`);
+      await pg.locator('#me-field .card').nth(0).click(); let t = await btns(pg); const acts = mainActs[a].map(x => x.k); ok(JSON.stringify(t) === JSON.stringify(['추리', '액션', '【선언】 한국어 효과 A', '선택 해제'].filter((x, i) => [acts.includes('reason'), acts.includes('actc') || acts.includes('actk'), acts.includes('ab'), true][i])), `${T} 캐릭터 A 행동: ${t}`);
       ok(acts.includes('reason') && acts.includes('ab') && acts.includes('actk'), 'A 는 추리/능력/사건 액션 가능(전제)');
       await pg.locator('#me-field .card').nth(1).click(); t = await btns(pg); ok(!t.includes('추리') && !t.some(x => x.startsWith('액션')), `${T} 등장한 턴의 캐릭터 B 는 추리/액션 버튼이 없다: ${t}`);
       ok((await pg.locator('#act .hint').innerText()).includes('할 수 있는 행동이 없습니다'), `${T} 가능한 행동이 없으면 안내`);
@@ -117,7 +117,7 @@ const DEF = R.defs, cid = { a, b, ov, oc }, imgOf = id => DEF[(mainView.P[s].fie
       // 액션 버튼은 하나: 누르면 상대 사건/증거도 대상으로 하이라이트되고, 증거 더미 클릭 = 상대 사건에 액션
       await pg.locator('#me-field .card').nth(0).click(); await pg.locator('#act button', { hasText: /^액션$/ }).click(); ok(await pg.locator('#opp-lp.tgtz').count() === 1 && await pg.locator('#opp-case .card.tgt').count() === 1, `${T} 액션 모드: 상대 사건·증거도 대상으로 하이라이트`);
       await pg.locator('#opp-lp').click({ force: true }); const s2k = await pg.evaluate(() => window.__sent.at(-1)); ok(s2k.a === 'action' && s2k.k === 'case' && s2k.id === a, `${T} 상대 증거 클릭 → 사건 액션 전송 ${JSON.stringify(s2k)}`);
-      await pg.locator('#me-field .card').nth(0).click(); await pg.locator('#act button', { hasText: '능력' }).click(); const s3 = await pg.evaluate(() => window.__sent.at(-1)); ok(s3.a === 'ability' && s3.id === a, `${T} 능력 버튼 → ${JSON.stringify(s3)}`);
+      await pg.locator('#me-field .card').nth(0).click(); await pg.locator('#act button', { hasText: '한국어 효과' }).click(); const s3 = await pg.evaluate(() => window.__sent.at(-1)); ok(s3.a === 'ability' && s3.id === a, `${T} 능력 버튼 → ${JSON.stringify(s3)}`);
       // 상대 턴에는 행동 패널이 열리지 않는다
       await push(pg, oppTurnView); await pg.locator('#me-field .card').first().click().catch(() => {}); ok(await pg.locator('#act.off').count() === 1 && (await btns(pg)).length === 0, `${T} 내 턴이 아니면 행동 버튼 없음`);
     }

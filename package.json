@@ -1,6 +1,6 @@
 {
   "name": "conan-sim",
-  "version": "1.7.3",
+  "version": "1.7.4",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
