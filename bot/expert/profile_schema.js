@@ -8,11 +8,12 @@
 //   firstPlayerPlan / secondPlayerPlan  선공/후공 계획 { notes, requiredEarlyPlays, mulliganKeepGroups, curveFailurePenalty, formation, partner, fileFloor }
 //   partner              { preserveDeduction: 0~1 (파트너 추리 보존 성향), note }
 //   fileFloor            { floor, fromTurn? } 이 덱이 지키고 싶은 FILE 하한
+//   tactics              { lethal, file6, charEveryTurn, contact, partner, defense, mulligan: true/false } — v1.6.0 Tactical Layer 규칙 켜기/끄기 (범용 Expert 는 전부 켜짐, 전문 봇은 lethal·contact·defense 만 기본 켜짐)
 //   knowledge            { use:[entry id], exclude:[entry id], entries:[이 봇 전용 knowledge entry] }
 //   slot = { cards?:[id], role?:'역할', type?:'char'|'event', lvMin?, lvMax?, n?:1, weight?:1 }
 'use strict';
 const isNum = x => typeof x === 'number' && Number.isFinite(x);
-const EXPERT_KEYS = ['archetype', 'formation', 'requiredEarlyPlays', 'mulliganKeepGroups', 'curveFailurePenalty', 'firstPlayerPlan', 'secondPlayerPlan', 'partner', 'fileFloor', 'knowledge'];
+const EXPERT_KEYS = ['archetype', 'formation', 'requiredEarlyPlays', 'mulliganKeepGroups', 'curveFailurePenalty', 'firstPlayerPlan', 'secondPlayerPlan', 'partner', 'fileFloor', 'knowledge', 'tactics'];
 const SLOT_KEYS = ['cards', 'role', 'type', 'lvMin', 'lvMax', 'n', 'weight', 'name'];
 const PLAN_KEYS = ['notes', 'requiredEarlyPlays', 'mulliganKeepGroups', 'curveFailurePenalty', 'formation', 'partner', 'fileFloor'];
 
@@ -52,6 +53,7 @@ function validateExpert(p, h) {
     if (pl.requiredEarlyPlays != null) early(pl.requiredEarlyPlays, `${pk}.requiredEarlyPlays`); if (pl.mulliganKeepGroups != null) groups(pl.mulliganKeepGroups, `${pk}.mulliganKeepGroups`);
     if (pl.curveFailurePenalty != null) penalty(pl.curveFailurePenalty, `${pk}.curveFailurePenalty`); if (pl.formation != null) formation(pl.formation, `${pk}.formation`);
     if (pl.partner != null) partner(pl.partner, `${pk}.partner`); if (pl.fileFloor != null) floor(pl.fileFloor, `${pk}.fileFloor`); }
+  if (p.tactics != null && obj(p.tactics, 'tactics')) for (const [k, v] of Object.entries(p.tactics)) { if (!['lethal', 'file6', 'charEveryTurn', 'contact', 'partner', 'defense', 'mulligan'].includes(k)) errors.push(`tactics.${k}: 알 수 없는 항목 (허용: lethal, file6, charEveryTurn, contact, partner, defense, mulligan)`); else if (typeof v !== 'boolean') errors.push(`tactics.${k}: true/false 여야 합니다`); }
   if (p.knowledge != null && obj(p.knowledge, 'knowledge')) { const k = p.knowledge; for (const x of Object.keys(k)) if (!['use', 'exclude', 'entries'].includes(x)) errors.push(`knowledge.${x}: use|exclude|entries`);
     for (const x of ['use', 'exclude']) if (k[x] != null && (!Array.isArray(k[x]) || k[x].some(v => typeof v !== 'string'))) errors.push(`knowledge.${x}: entry id 문자열 배열`);
     if (k.entries != null) { if (!Array.isArray(k.entries)) errors.push('knowledge.entries: 배열'); else { const KB = require('./knowledge.js'); k.entries.forEach((e, i) => { const r = KB.validateEntry(e, { DB: h.DB, at: `knowledge.entries[${i}]`, own: true }); errors.push(...r.errors); warn.push(...r.warnings); }); } } }

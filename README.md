@@ -416,3 +416,12 @@ npm run expert:regress       # + v1.2 PRO 와 비교 표시
 * 상단 `knowledge`: 적용/제외된 지식(출처·환경·confidence·오래됨), 특징 크기, prior, 소프트 pruning.
 * 메인 결정마다 `explain`: `now`(내/상대 승리 턴, FILE 요구치, 파트너 추리 vs 어시스트 값, 상대 방어 자원), `candidates`(첫 행동이 서로 다른 후보 라인마다 **증거 템포 · 보드 가치 · FILE 보존 · 리살 거리 · 상대 리살 위협 · Action Economy · 콤보/포메이션 · 손패 품질 · 상대 응수 검증(탐색)** 이 점수에 준 영향 = 지금 상태 대비 Δ, 세부 항목, 라인 후 승리 턴, 단계별 상대 응수/영역), `why`(선택 vs 차선 차이 문장), 후보별 `vsChosen`, `pruned`/`overrides`.
 * `node bot/expert/cli.js why --log conan-bot-log.json --n 12` 로 읽기 좋게 출력. 예: "왜 캐릭터를 잡고 증거를 안 먹었어?" → 공격 후보와 추리 후보의 요소 차이(보드 +, 증거 템포 −, 리살 거리 …)를 그대로 본다.
+
+
+## v1.6.0 — Tactical Layer (Expert Bot 기본기 강화)
+탐색 앞단의 빠른 규칙 계층. 규칙상 불가능한 행동은 엔진 `dispatch` 로만 실행되므로 절대 두지 않는다.
+- **리살 솔버** (`bot/tactics/lethal.js`): 매 메인 결정마다 최우선. 1-A 추리/등장+추리, 1-B 사건 공격 증거, 1-C 블로커 제거 후 공격, 1-D 실제 FILE 가능 여부(가짜 리살 거부).
+- **우선순위** (`bot/tactics/rules.js`): 리살 → 큰 위협 → FILE → 효과 제거 → 유리한 AP 컨택 → 증거 공격 → 추리. 탐색 결과가 명확히 더 좋으면 규칙을 뒤집는다(soft prune).
+- **FILE 6**: FILE > 6 이면 넥스트 힌트로 적극 전개, ≤ 6 이면 리살/큰 이득 없이 힌트 금지.
+- **멀리건** (`bot/tactics/mulligan.js`): 2코 1 + 4코 1 + MR 1 유지(예외: 2코 2 + 4코 0 + MR). 카드 ID 하드코딩 없음.
+- 끄기: `BOT_TACTICS=0`. 회귀: `npm run test:tactics` (22 케이스, 판단 로그 출력; `--only P3` 로 개별 실행).

@@ -56,7 +56,8 @@ class Searcher {
     for (const mv of moves) {
       const c = node.child(mv); if (c.err) continue;
       const r = this.micro(c.node, c.pending || c.node.R, me, depth - 1);
-      const v = r.v; if (best === null || (maxi ? v > best.v : v < best.v)) best = { v, mv };
+      let v = r.v; if (maxi && this.policy && this.policy.microAdj) v += this.policy.microAdj(R, mv);   // v1.6.0 Tactical: MR 컷인·무의미한 가드 보정 (내 선택에만)
+      if (best === null || (maxi ? v > best.v : v < best.v)) best = { v, mv };
     }
     if (!best) best = { v: this.ev(R, me), mv: moves[0] };
     if (this.memo.size > 80000) this.memo.clear();
@@ -175,6 +176,7 @@ class Searcher {
     this.stats.replies++;
     const opp = 1 - me; let out;
     if (R.phase !== 'play' || R.turn !== opp || SIM.who(R) == null || SIM.who(R).kind !== 'main') out = { v: this.ev(R, me), note: 'static' };
+    else if (this.policy && this.policy.tacticsOn && this.policy.tactics.flags.lethal && cloneable(R) && (() => { const L = require('./tactics/lethal.js').solve(R, opp, { ms: 120, nodes: 350 }); return L.found; })()) out = { v: -WIN + 1, note: 'opp-lethal(solver)' };   // v1.6.0: 상대의 다음 턴 리살은 정확한 solver 로 먼저 확인
     else {
       const sub = new Searcher({ deadline: this.deadline, maxNodes: this.nodes + (this.replyNodes || 400), memo: this.memo, replyCache: this.replyCache, seed: this.seedBase + 1, microDepth: 6, policy: this.policy }); sub.nodes = this.nodes; sub.tick = this.tick;
       const r = sub.planTurn(clone(R), opp, { iters: [{ W: 3, cap: 10, K: 1 }], noReply: true, singleIter: true });

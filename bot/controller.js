@@ -49,7 +49,10 @@ class BotCtl {
   }
   // 계획 재사용: 지난번 탐색이 고른 "턴 전체 행동열"의 다음 행동 — 현재 상태가 탐색이 예측한 상태와 같을 때만
   planned(R, d) {
-    if (!this.plan || d.kind !== 'main') return null; const p = this.plan; const key = stateKey(R);
+    if (!this.plan || d.kind !== 'main') return null;
+    // v1.6.0: 리살이 가능해 보이는 상태(해결편 + 액티브 파트너 + 증거 상한 ≥ 필요)면 지난 계획을 재사용하지 말고 매번 리살 solver 부터 다시 돌린다 (탐색 계획은 리살 기회를 놓칠 수 있다)
+    if (this.cfg.specialist && process.env.BOT_TACTICS !== '0') { try { const LT = require('./tactics/lethal.js'), rep = LT.report(R, this.seat); if (rep.state === 'ok' && LT.potential(R, this.seat) >= rep.need) { this.plan = null; return null; } } catch (e) {} }
+    const p = this.plan; const key = stateKey(R);
     const i = p.steps.findIndex((s, k) => k >= p.next - 1 && s.key === key); if (i < 0) { this.plan = null; return null; }
     const nx = p.steps[i + 1]; if (!nx) { this.plan = null; return null; } p.next = i + 2;
     const legal = genMoves(R, () => 0).find(m => JSON.stringify(m.m) === JSON.stringify(nx.mv.m)); return legal ? { mv: legal, info: { planned: true, ms: 0, kind: d.kind } } : null;
@@ -73,7 +76,7 @@ class BotCtl {
     const mv = res.mv, e = this.deps.dispatch(R, mv.seat, mv.m);
     this.decisions++;
     this.log.push({ n: this.decisions, at: new Date().toISOString(), state: sum, snap, kind: d.kind, chosen: { desc: describe(R, mv), move: mv.m }, top: (res.info.top || []), search: { ms: res.info.ms, nodes: res.info.nodes, iterations: res.info.iters, value: res.info.value, win: res.info.win, forced: res.info.forced, planned: res.info.planned, fallback: res.info.fallback, exact: res.info.exact, reply: res.info.reply, line: res.info.lineDesc, overrides: res.info.overrides },
-      explain: res.info.explain || undefined, mulligan: res.info.mulligan || undefined, error: e || undefined });   // v1.5.0: explain = 후보별 판단 요소 분해(증거 템포·보드·FILE·리살 거리·상대 위협·Action Economy·포메이션·손패) + 시퀀스
+      explain: res.info.explain || undefined, tactics: res.info.tactics || undefined, mulligan: res.info.mulligan || undefined, error: e || undefined });   // v1.5.0: explain = 후보별 판단 요소 분해(증거 템포·보드·FILE·리살 거리·상대 위협·Action Economy·포메이션·손패) + 시퀀스
     if (e) { this.illegal++; this.fallback('illegal: ' + e); }
     this.deps.bc(R);
   }

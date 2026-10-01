@@ -62,11 +62,14 @@ function botDeck(id, DB) {
 //   '<전문 봇>' = 프로필 정책 + knowledge(프로필의 formation/plan/knowledge 포함)   '<id>@raw' = knowledge 없이 프로필 정책만 (비교용)
 //   환경변수 BOT_KNOWLEDGE=0 이면 knowledge 를 끈다.
 function policyFor(id, seat, R) {
-  const LAYER = require('../expert/layer.js'), off = process.env.BOT_KNOWLEDGE === '0';
+  const LAYER = require('../expert/layer.js'), TACT = require('../tactics/rules.js'), off = process.env.BOT_KNOWLEDGE === '0', tOn = process.env.BOT_TACTICS !== '0';
   if (id === 'pro_v12') return require('../pro.js').policy(seat, R);
-  if (id === 'pro') { const b = require('../pro.js').policy(seat, R); return off ? b : LAYER.attach(b, { seat, R, bot: 'pro' }); }
+  // v1.6.0: Tactical Layer(bot/tactics) — 리살 solver 는 decide.js 가 탐색 전에 돌리고, 평상시 규칙(FILE 6·AP/컷인·파트너·MR)은 정책 필터/정렬/평가로 들어간다.
+  //   범용 'pro' 는 v1.2 의 "이른 힌트 금지(FILE 8/9)·매 턴 캐릭터" 하드 ban 을 버리고 같은 내용을 소프트 규칙(FILE 6 기준)으로 대체한다.  BOT_TACTICS=0 이면 v1.5.0 동작.
+  if (id === 'pro') { const b = require('../pro.js').policy(seat, R); if (tOn) delete b.ban; const l = off ? b : LAYER.attach(b, { seat, R, bot: 'pro' }); return tOn ? TACT.attach(l, { seat }) : l; }
   const raw = /@raw$/.test(id), sid = raw ? id.slice(0, -4) : id, s = get(sid); if (!s) throw new Error('등록되지 않은 전문 봇: ' + sid);
-  const b = POL.buildPolicy(s, { seat, R }); return raw || off ? b : LAYER.attach(b, { seat, R, bot: sid, profile: s.profile });
+  const b = POL.buildPolicy(s, { seat, R }); if (raw) return b; const l = off ? b : LAYER.attach(b, { seat, R, bot: sid, profile: s.profile });
+  return tOn ? TACT.attach(l, { seat, flags: { file6: false, charEveryTurn: false, partner: false, mulligan: false, ...((s.profile && s.profile.tactics) || {}) } }) : l;
 }
 // 테스트 전용: 파일 없이 mock specialist 등록/해제
 function _register(mod) { const r = readSpec(mod, 'mock'); if (!r.spec) throw new Error(r.errors.join('; ')); _extra.set(r.spec.id, r.spec); if (_specs) _specs.set(r.spec.id, r.spec); return r.spec; }

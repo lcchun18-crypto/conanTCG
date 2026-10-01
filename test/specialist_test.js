@@ -57,7 +57,7 @@ const mk = (profile, R, seat) => POL.buildPolicy({ id: 't', profile }, { seat, R
   const pl = mk({ limit: 3, cards: { [k0]: { hand: 100 } } }, R, seat); ok(pl.score(R) === 3, '정책 추가 점수 상한(limit) 적용');
   // 반대칭: evaluate(R,0,pol) == -evaluate(R,1,pol)
   for (const pol of [p1, mk({ cards: { [k0]: { hand: 2, field: 1, target: 3 } }, file: { perCard: 0.3 }, weights: { file: 1.4 } }, R, seat)]) ok(Math.abs(EV.evaluate(R, 0, pol) + EV.evaluate(R, 1, pol)) < 1e-9, '평가 반대칭 유지 (정책 포함)');
-  ok(EV.evaluate(R, seat, p1) - EV.evaluate(R, seat, null) === p1.score(R), '평가 = 범용 평가 + 정책 점수');
+  ok(Math.abs(EV.evaluate(R, seat, p1) - EV.evaluate(R, seat, null) - p1.score(R)) < 1e-9, '평가 = 범용 평가 + 정책 점수');
   // 가중치
   const pw = mk({ weights: { file: 2 }, lethal: { weight: 2 } }, R, seat); ok(pw.W.file === 2 && pw.W.lethalNow === EV.W.lethalNow * 2 && EV.W.file !== 2, '가중치 덮어쓰기 + lethal 배율 (전역 W 는 불변)');
   // 선공/후공, 매치업
