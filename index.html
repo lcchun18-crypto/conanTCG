@@ -412,7 +412,10 @@ body.m #db.on #dbBar.on{display:flex}
 #dbBarTx{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.25}#dbBarN{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#dbBarC{font-size:11px;color:var(--mut)}
 #dbBar button{min-width:52px;min-height:46px;font-size:18px;padding:4px 10px}#dbBar button.t{font-size:13px}
 body.m #dbErr>div{max-width:94vw}
+#net{position:fixed;left:50%;top:8px;transform:translate(-50%,-140%);z-index:99999;max-width:min(92vw,560px);padding:8px 16px;border-radius:999px;font:600 13px/1.4 system-ui,sans-serif;color:#fff;background:#444;box-shadow:0 4px 18px #0008;pointer-events:none;opacity:0;transition:transform .25s,opacity .25s;text-align:center}
+#net.on{transform:translate(-50%,0);opacity:1}#net.conn,#net.down{background:#b8601c}#net.up{background:#1f8a4c}#net.warn{background:#a23030}
 </style></head><body>
+<div id="net" role="status" aria-live="polite"></div>
 <div id="lobby"><h1>명탐정 코난 TCG</h1><div class="sub">카드게임 시뮬레이터</div>
 <button class="pri" onclick="S({t:'create'})">방 만들기 (호스트)</button> <button class="bot" id="botBtn" onclick="botOpen()">🤖 봇과 대전</button><br>
 <input id="code" placeholder="방 코드" maxlength="4" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="go" onkeydown="if(event.key==='Enter'){S({t:'join',code:this.value});this.blur()}" style="text-transform:uppercase;width:130px;text-align:center"><button onclick="S({t:'join',code:code.value})">입장 (게스트)</button>
@@ -447,15 +450,55 @@ body.m #dbErr>div{max-width:94vw}
  <div id="dbBar"><span id="dbBarImg"></span><div id="dbBarTx"><b id="dbBarN"></b><small id="dbBarC"></small></div><button id="dbBarM" aria-label="1장 빼기">−</button><button class="pri" id="dbBarP" aria-label="1장 넣기">＋</button><button class="t" id="dbBarI">상세</button></div>
  <div id="dbErr"><div><b>덱 파일을 적용하지 않았습니다</b><ul id="dbErrL"></ul><button class="pri" onclick="$('dbErr').style.display='none'">확인</button></div></div></div>
 <script>
-const $=id=>document.getElementById(id),ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host),S=o=>ws.send(JSON.stringify(o));
+const $=id=>document.getElementById(id);
+// ── WebSocket 연결 수명주기 (v1.5.1) ─────────────────────────────────────────────
+// 소켓은 항상 NET.ws 하나. 닫힌/연결 중인 소켓에는 절대 send 하지 않고(S 가 false 반환), 끊기면 단일 타이머로 재연결한다.
+// 이벤트 핸들러는 자기 소켓(w)이 현재 소켓(NET.ws)일 때만 동작하므로, 죽은 소켓의 늦은 이벤트가 상태를 망치지 않는다.
+// 방에 들어간 뒤 끊기면 서버가 준 {code,seat,token} 으로 resume 해서 같은 자리로 돌아간다 (Render 재배포·재시작이면 방이 사라져 안내 후 로비로).
+const NET={ws:null,timer:null,tries:0,hadOpen:false,downAt:0,sess:null,hide:null,conT:null},OPEN=1,CONNECTING=0;
+const wsUrl=()=>(location.protocol==='https:'?'wss://':'ws://')+location.host;
+const sessGet=()=>{try{const j=JSON.parse(sessionStorage.getItem('conan.sess')||'null');return j&&j.code&&j.token&&Date.now()-j.ts<3e5?j:null}catch{return null}};
+const sessPut=j=>{NET.sess=j;try{j?sessionStorage.setItem('conan.sess',JSON.stringify({...j,ts:Date.now()})):sessionStorage.removeItem('conan.sess')}catch{}};
+function netUI(kind,msg){const e=document.getElementById('net');if(!e)return;clearTimeout(NET.hide);e.className='on '+kind;e.textContent=msg;document.body.classList.toggle('netdown',kind==='down'||kind==='conn');
+ if(kind==='up'||kind==='warn')NET.hide=setTimeout(()=>{e.className='';document.body.classList.remove('netdown')},kind==='up'?2500:6000)}
+const wsOpen=()=>!!NET.ws&&NET.ws.readyState===OPEN;
+function S(o){ // 연결이 열려 있을 때만 전송. 닫혀 있으면 예외 없이 false (화면은 그대로, 상태 표시만)
+ const w=NET.ws;if(w&&w.readyState===OPEN){try{w.send(JSON.stringify(o));return true}catch{}}
+ netUI(NET.hadOpen?'down':'conn',NET.hadOpen?'연결이 끊어졌습니다. 재연결 중... 연결되면 다시 시도해 주세요.':'서버 연결 중...');netKick(false);return false}
+function netDown(w){ // 이 소켓이 죽었다: 정리하고 재연결 예약 (현재 소켓이 아니면 무시)
+ if(NET.ws!==w)return;NET.ws=null;clearTimeout(NET.conT);w.onopen=w.onmessage=w.onclose=w.onerror=null;try{if(w.readyState===0||w.readyState===1)w.close()}catch{}
+ if(!NET.downAt)NET.downAt=Date.now();
+ if(NET.hadOpen)netUI('down','연결이 끊어졌습니다. 재연결 중...'+(NET.tries>2?' (서버가 깨어나는 중일 수 있습니다 — 최대 1분 정도 걸립니다)':''));else netUI('conn','서버 연결 중...'+(NET.tries>2?' (서버가 깨어나는 중일 수 있습니다)':''));
+ netSchedule()}
+function netSchedule(){if(NET.timer)return;const d=Math.min(500*Math.pow(1.6,NET.tries),8000);NET.tries++;NET.timer=setTimeout(()=>{NET.timer=null;netConnect()},d)}
+function netKick(now){ // 지금 바로 한 번 시도 (온라인 복귀·탭 활성화·버튼 입력). 이미 연결 중/열림이면 아무 것도 안 함
+ if(NET.ws&&(NET.ws.readyState===CONNECTING||NET.ws.readyState===OPEN))return;if(now&&NET.timer){clearTimeout(NET.timer);NET.timer=null}if(!NET.timer)netConnect()}
+function netConnect(){
+ if(NET.ws&&(NET.ws.readyState===CONNECTING||NET.ws.readyState===OPEN))return;
+ let w;try{w=new WebSocket(wsUrl())}catch{netSchedule();return}
+ NET.ws=w;
+ NET.conT=setTimeout(()=>{if(NET.ws===w&&w.readyState!==OPEN)netDown(w)},9000); // 깨어나는 중이라 응답이 없으면 포기하고 다시 시도
+ w.onopen=()=>{if(NET.ws!==w)return;clearTimeout(NET.conT);const re=NET.hadOpen;NET.hadOpen=true;NET.tries=0;NET.downAt=0;
+  if(NET.sess){S({t:'resume',code:NET.sess.code,seat:NET.sess.seat,token:NET.sess.token});if(re)netUI('up','서버에 다시 연결되었습니다. 게임을 복구하는 중...')}
+  else if(re)netUI('up','서버에 다시 연결되었습니다.');else{const e=document.getElementById('net');if(e&&/conn/.test(e.className)){e.className='';document.body.classList.remove('netdown')}}};
+ w.onmessage=e=>{if(NET.ws===w)onMsg(e)};
+ w.onclose=()=>netDown(w);w.onerror=()=>netDown(w);}
+addEventListener('online',()=>netKick(true));
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)netKick(true)});
+addEventListener('pageshow',e=>{if(e.persisted)netKick(true)});
+NET.sess=sessGet();
 let hsel=null,remShow=null,V=null,DEFS={},DB={cards:{},decks:{}},cur=null,curDeck=null,pimg=null,mode=null,selm=[],pend=null;
 const A=(a,o={})=>{if(M)closeSheet();S({t:'act',a,...o})};
-ws.onmessage=e=>{const m=JSON.parse(e.data);
- if(m.t==='err'){$('lerr').textContent=m.msg;$('err').textContent=m.msg;setTimeout(()=>$('err').textContent='',4000)}
+function onMsg(e){let m;try{m=JSON.parse(e.data)}catch{return}
+ if(m.t==='joined')sessPut({code:m.code,seat:m.seat,token:m.token});
+ else if(m.t==='resumeFail'){sessPut(null);toLobby();netUI('warn',m.msg||'방을 복구하지 못했습니다.')}
+ else if(m.t==='err'){$('lerr').textContent=m.msg;$('err').textContent=m.msg;setTimeout(()=>$('err').textContent='',4000)}
  else if(m.t==='defs'){DEFS=m.defs;V&&render()}
- else if(m.t==='left'){V=null;prevSolved=null;document.body.classList.remove('ing','topopen','logopen');closeSheet();$('game').style.display='none';$('lobby').style.display='';if(botAuto==='restart'&&botCfg)botStart(botCfg);else botAuto=false}
+ else if(m.t==='left'){sessPut(null);toLobby();if(botAuto==='restart'&&botCfg)botStart(botCfg);else botAuto=false}
  else if(m.t==='botlog'){if(m.err)return alert(m.err);const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(m.log,null,1)],{type:'application/json'}));a.download='conan-bot-log.json';a.click()}
- else if(m.t==='v'){V=m;if(V.bot&&botAuto===true&&V.phase==='setup'&&!V.P[0].ready){botAuto=false;loadDeck()}$('lobby').style.display='none';$('game').style.display='flex';document.body.classList.add('ing');sizes();if(!V.sub||V.sub.who!==V.me)selm=selm;render()}};
+ else if(m.t==='v'){V=m;if(m.phase==='over'&&NET.sess)sessPut(null);if(V.bot&&botAuto===true&&V.phase==='setup'&&!V.P[0].ready){botAuto=false;loadDeck()}$('lobby').style.display='none';$('game').style.display='flex';document.body.classList.add('ing');sizes();if(!V.sub||V.sub.who!==V.me)selm=selm;render()}}
+function toLobby(){V=null;prevSolved=null;document.body.classList.remove('ing','topopen','logopen');try{closeSheet()}catch{}$('game').style.display='none';$('lobby').style.display=''}
+netUI('conn','서버 연결 중...');netConnect();
 const kw=f=>String(f.kw||'').toLowerCase();
 const canSel=()=>V&&V.phase==='play'&&V.turn===V.me&&!V.sub&&!V.eff&&!V.fl.hw;
 const TYPE_KO={char:'캐릭터',event:'이벤트',partner:'파트너',case:'사건'};
@@ -848,8 +891,8 @@ function botOpen(){if(cdbErr)return alert('카드 DB를 불러올 수 없습니�
 function botStart(cfg){if(!cfg){const my=$('botMy').value,dk=$('botDk').value,spec=botSel!=='expert';if(!my||(!spec&&!dk)){$('botErr').textContent='덱을 선택하세요.';return}cfg={my,dk,bot:botSel,first:(document.querySelector('input[name=bf]:checked')||{}).value||'random'}}
  const spec=cfg.bot&&cfg.bot!=='expert',b=DB.decks[cfg.dk],m=DB.decks[cfg.my];if(!m||(!spec&&!b)){$('botErr').textContent='선택한 덱을 찾을 수 없습니다.';return}botCfg=cfg;botAuto=true;curDeck=cfg.my;$('dsel').value=cfg.my;$('botm').style.display='none';
  S(spec?{t:'createBot',first:cfg.first,bot:cfg.bot}:{t:'createBot',first:cfg.first,bot:'expert',botDeck:{cards:b.cards,partner:b.partner,kase:b.kase}})}
-function botRestart(){S({t:'leaveBot'});botAuto='restart'}
-function botLobby(){botAuto=false;S({t:'leaveBot'});botAuto='lobby'}
+function botRestart(){if(S({t:'leaveBot'}))botAuto='restart'}
+function botLobby(){botAuto=false;if(S({t:'leaveBot'}))botAuto='lobby'}
 function botLog(){S({t:'botlog'})}
 
 // ══ 덱 빌더 (OPTCG SIM 식: 왼쪽 미리보기 / 오른쪽 위 덱 / 오른쪽 아래 카드 그리드). 엔진·효과 로직과 무관, 저장 형식은 기존 DB.decks 그대로 ══

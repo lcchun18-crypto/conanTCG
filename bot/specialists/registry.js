@@ -57,7 +57,17 @@ function botDeck(id, DB) {
   const ck = check(s, DB); if (!ck.ok) throw new Error(`"${s.name}" 의 덱/프로필이 올바르지 않습니다 — ` + ck.errors.slice(0, 4).join(' / '));
   return { spec: s, deck: DF.toBotDeck(s.deck) };
 }
-function policyFor(id, seat, R) { if (id === 'pro') return require('../pro.js').policy(seat, R); const s = get(id); if (!s) throw new Error('등록되지 않은 전문 봇: ' + id); return POL.buildPolicy(s, { seat, R }); }
+// v1.5.0: 모든 정책에 Expert Knowledge Layer(bot/expert/layer.js)를 얹는다 — 고수 판단 기준(평가 특징·행동 prior·소프트 pruning·초동 멀리건).
+//   'pro'       = 범용 Expert (PRO 정책 + knowledge)        'pro_v12' = v1.2.0 PRO 정책 그대로 (비교용, knowledge 없음)
+//   '<전문 봇>' = 프로필 정책 + knowledge(프로필의 formation/plan/knowledge 포함)   '<id>@raw' = knowledge 없이 프로필 정책만 (비교용)
+//   환경변수 BOT_KNOWLEDGE=0 이면 knowledge 를 끈다.
+function policyFor(id, seat, R) {
+  const LAYER = require('../expert/layer.js'), off = process.env.BOT_KNOWLEDGE === '0';
+  if (id === 'pro_v12') return require('../pro.js').policy(seat, R);
+  if (id === 'pro') { const b = require('../pro.js').policy(seat, R); return off ? b : LAYER.attach(b, { seat, R, bot: 'pro' }); }
+  const raw = /@raw$/.test(id), sid = raw ? id.slice(0, -4) : id, s = get(sid); if (!s) throw new Error('등록되지 않은 전문 봇: ' + sid);
+  const b = POL.buildPolicy(s, { seat, R }); return raw || off ? b : LAYER.attach(b, { seat, R, bot: sid, profile: s.profile });
+}
 // 테스트 전용: 파일 없이 mock specialist 등록/해제
 function _register(mod) { const r = readSpec(mod, 'mock'); if (!r.spec) throw new Error(r.errors.join('; ')); _extra.set(r.spec.id, r.spec); if (_specs) _specs.set(r.spec.id, r.spec); return r.spec; }
 function _unregister(id) { _extra.delete(id); if (_specs) _specs.delete(id); }

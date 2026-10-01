@@ -100,7 +100,11 @@ function mainMoves(R, seat) {
     for (const id of P.hand) { const d = D(R, id), k = R.cards[id].d; if (seen.has(k)) continue; if (S.playCheck(R, seat, id)) continue; seen.add(k);
       if (d.type === 'char' && P.field.length >= 5) { const rs = new Set(); for (const r of P.field) { const rk = ckey(R, r); if (rs.has(rk)) continue; rs.add(rk); out.push(A(seat, { a: 'play', id, rep: r }, 'play')); } } else out.push(A(seat, { a: 'play', id }, 'play')); } }
   if (hw) { out.push(A(seat, { a: 'skip' }, 'skip')); return out; }
-  if (!R.fl.played && !R.fl.hint && !R.fl.nh && P.file.length) out.push(A(seat, { a: 'hint' }, 'hint'));
+  // 넥스트 힌트: 엔진·사람 UI 처럼 손패 사용 뒤에도, 여러 번(8→7→6 처럼 FILE 을 써서 추가 사용) 후보가 된다. v1.5.0 전에는 "아무것도 안 했을 때 1회"만 후보였다.
+  //   · 손패 사용 전: v1.5.0 이전과 같다 (아무것도 안 했을 때 1회)
+  //   · 손패 사용 후(추가 사용): 힌트 뒤에도 FILE 5 이상이 남을 때만 후보 — 그 아래로 내려가는 연속 힌트는 다음 턴 전개를 무너뜨리므로(FILE 5 를 깨지 않는다) 탐색 폭을 아낀다
+  const hintNow = !R.fl.played && !R.fl.hint, hintMore = (R.fl.played || R.fl.hint) && P.file.length - 1 >= 5;
+  if (!R.fl.nh && P.file.length && (hintNow || hintMore)) out.push(A(seat, { a: 'hint' }, 'hint'));
   for (const [sid, list] of Object.entries(acts)) { const id = +sid; for (const a of list) {
     if (a.k === 'reason') { const sig = 'r' + (id === P.partner ? 'p' : ckey(R, id)); if (seenSig.has(sig)) continue; seenSig.add(sig); out.push(A(seat, { a: 'reason', who: id === P.partner ? 'p' : id }, 'reason')); }
     else if (a.k === 'assist') out.push(A(seat, { a: 'assist' }, 'assist'));

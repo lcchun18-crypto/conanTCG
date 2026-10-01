@@ -1,0 +1,165 @@
+{
+  "note": "외부 고수 자료(note.com) 중 제1탄 환경(2024년 5~6월) 글에서 추출한 판단 기준. 환경이 오래되어 confidence 가 자동으로 낮아진다(env.json). 카드 이름이 아닌 게임 구조 원칙만 옮겼다. quote 는 글에서 추출한 짧은 원문 구절(요약 도구 사용, 2026-10-01 확인)이며 정확한 문맥은 링크에서 확인하세요.",
+  "entries": [
+    {
+      "id": "kazamona-file-output",
+      "title": "FILE 을 많이 남길수록 다음 턴 최대 출력이 커진다 / FILE 5 를 깨지 않는다",
+      "principle": "file-preservation",
+      "quote": "FILEを多く返すほど手数の最大値も出力も増える / ネクストヒントは溜めた方が強い / FILE5を割ってはいけない",
+      "text": "넥스트 힌트는 모아 둘수록 강하다(같은 3행동이라도 7→6→5 보다 8→7→6). FILE 5 아래로 내려가지 않는다.",
+      "source": {
+        "name": "かざも「【コナンカード】わかった気になれる一般論・知見集」",
+        "url": "https://note.com/80029581/n/n39a9c3f77d87",
+        "author": "かざも (@kazamona)"
+      },
+      "env": "第1弾 (2024)",
+      "date": "2024-06-06",
+      "archetype": "any",
+      "matchup": "any",
+      "side": "any",
+      "confidence": 0.6,
+      "effects": {
+        "features": {
+          "nextTurnFileRequirement": 1.2,
+          "fileFloor": 1.0
+        },
+        "fileFloor": {
+          "floor": 5,
+          "fromTurn": 5
+        },
+        "prune": {
+          "hintFileFloor": {
+            "floor": 5
+          }
+        }
+      }
+    },
+    {
+      "id": "kazamona-partner-reason-when-file-enough",
+      "title": "FILE 이 충분해 어시스트가 필요 없으면 파트너는 추리",
+      "principle": "partner-vs-assist",
+      "quote": "FILE数が充足しておりアシストを必要としない場合、パートナーを推理に回して証拠を得る",
+      "text": "FILE 이 충분해 어시스트가 필요 없으면 파트너를 추리에 돌려 증거를 얻는다.",
+      "source": {
+        "name": "かざも「【コナンカード】わかった気になれる一般論・知見集」",
+        "url": "https://note.com/80029581/n/n39a9c3f77d87",
+        "author": "かざも (@kazamona)"
+      },
+      "env": "第1弾 (2024)",
+      "date": "2024-06-06",
+      "archetype": "any",
+      "matchup": "any",
+      "side": "any",
+      "confidence": 0.65,
+      "effects": {
+        "features": {
+          "assistResidual": 1.0
+        },
+        "priors": {
+          "partnerChoice": 3
+        }
+      }
+    },
+    {
+      "id": "kazamona-attack-formation-bait",
+      "title": "공격 진형: 약한 카드로 낚고 강한 카드로 친다",
+      "principle": "sequence",
+      "quote": "攻撃陣形（弱カードで釣り、強カードで叩く）",
+      "text": "상대에게 가드/컷인 자원이 있으면 약한 공격자로 먼저 방어 자원을 소비시키고 강한 공격자로 마무리한다.",
+      "source": {
+        "name": "かざも「【コナンカード】わかった気になれる一般論・知見集」",
+        "url": "https://note.com/80029581/n/n39a9c3f77d87",
+        "author": "かざも (@kazamona)"
+      },
+      "env": "第1弾 (2024)",
+      "date": "2024-06-06",
+      "archetype": "any",
+      "matchup": "any",
+      "side": "any",
+      "confidence": 0.5,
+      "effects": {
+        "priors": {
+          "baitAttack": 3
+        }
+      }
+    },
+    {
+      "id": "donka-reason-low-ap-first",
+      "title": "미스리드가 있으면 낮은 AP 캐릭터부터 추리",
+      "principle": "sequence",
+      "quote": "低APキャラから先に推理することで、相手に「ミスリード」を困難にさせる",
+      "text": "상대 필드에 미스리드가 있으면 추리 순서를 바꿔(낮은 AP 부터) 미스리드를 쓰기 어렵게 한다.",
+      "source": {
+        "name": "どんかファミリー探偵団「名探偵コナンTCGの基本的な思考と各色の特徴」",
+        "url": "https://note.com/penguinandpolar/n/n9cb56d867ac8",
+        "author": "どんかファミリー探偵団"
+      },
+      "env": "第1弾 (2024)",
+      "date": "2024-05-13",
+      "archetype": "any",
+      "matchup": "any",
+      "side": "any",
+      "confidence": 0.5,
+      "effects": {
+        "priors": {
+          "lowApReasonFirst": 3
+        }
+      }
+    },
+    {
+      "id": "donka-hint-stop-at-5",
+      "title": "넥스트 힌트는 FILE 5 에서 멈춘다",
+      "principle": "file-preservation",
+      "quote": "ファイルは5まででネクストヒントを止めることが大切 / ファイルが5枚以下になると迅速も出せない",
+      "text": "FILE 5 이하가 되면 다음 턴 전개가 크게 약해지므로 넥스트 힌트는 FILE 5 에서 멈춘다.",
+      "source": {
+        "name": "どんかファミリー探偵団「名探偵コナンTCGの基本的な思考と各色の特徴」",
+        "url": "https://note.com/penguinandpolar/n/n9cb56d867ac8",
+        "author": "どんかファミリー探偵団"
+      },
+      "env": "第1弾 (2024)",
+      "date": "2024-05-13",
+      "archetype": "any",
+      "matchup": "any",
+      "side": "any",
+      "confidence": 0.55,
+      "effects": {
+        "prune": {
+          "hintFileFloor": {
+            "floor": 5
+          }
+        },
+        "fileFloor": {
+          "floor": 5,
+          "fromTurn": 5
+        },
+        "features": {
+          "fileFloor": 1.0
+        }
+      }
+    },
+    {
+      "id": "donka-min-cards-removal",
+      "title": "최소한의 카드 수로 처리한다",
+      "principle": "action-economy",
+      "quote": "最低限の枚数で処理を行う必要があります",
+      "text": "상대 필드 처리는 가능한 적은 카드로 한다(처리 카드 수 차이가 승패를 가른다).",
+      "source": {
+        "name": "どんかファミリー探偵団「名探偵コナンTCGの基本的な思考と各色の特徴」",
+        "url": "https://note.com/penguinandpolar/n/n9cb56d867ac8",
+        "author": "どんかファミリー探偵団"
+      },
+      "env": "第1弾 (2024)",
+      "date": "2024-05-13",
+      "archetype": "any",
+      "matchup": "any",
+      "side": "any",
+      "confidence": 0.5,
+      "effects": {
+        "features": {
+          "actionEconomy": 1.2
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "note": "사용자가 v1.5.0 요청서(2026-10-01)로 제공한 상위권 플레이어의 판단 기준. 게임 구조(FILE/증거/추리/어시스트/해결편)에서 나온 원칙이라 덱·환경과 무관(env 'any')하게 모든 봇에 적용한다. 강제 규칙이 아니라 평가 특징·prior·멀리건 계산으로만 들어간다.",
+  "entries": [
+    {
+      "id": "user-evidence-vs-board",
+      "title": "증거와 필드의 기회비용: 제거할 수 있다고 무조건 제거하지 않는다",
+      "principle": "evidence-vs-board",
+      "text": "상대 캐릭터 제거 가치와 그 행동 대신 증거를 얻었을 때의 가치를 항상 비교한다. 방치해도 상대의 즉시 해결/다음 턴 치명적 이득으로 이어지지 않으면 증거가 더 강할 수 있고, 남겨 두는 것이 내 카드 조건을 만족시키거나 이후 다면 제거로 함께 처리할 수 있으면 지금 제거 가치는 낮아진다.",
+      "source": { "name": "사용자 제공 고수 판단 원칙 (v1.5.0 요청서)", "author": "사용자" },
+      "env": "any", "date": "2026-10-01", "archetype": "any", "matchup": "any", "side": "any", "confidence": 0.85,
+      "effects": { "features": { "evidenceTempo": 1.0, "boardLeakRisk": 1.0, "futureCleanupValue": 1.0, "turnsToWin": 1.0 } }
+    },
+    {
+      "id": "user-partner-deduction-vs-assist",
+      "title": "파트너 추리와 어시스트의 기회비용",
+      "principle": "partner-vs-assist",
+      "text": "파트너 추리는 FILE 없이 증거 진행도를 올린다. 어시스트가 가능하다고 매 턴 쓰지 않고, 이번 어시스트의 추가 가치와 파트너 추리로 얻을 증거·승리 턴 단축을 비교한다(고비용 전개·리살 턴이 아니면 추리 보존).",
+      "source": { "name": "사용자 제공 고수 판단 원칙 (v1.5.0 요청서)", "author": "사용자" },
+      "env": "any", "date": "2026-10-01", "archetype": "any", "matchup": "any", "side": "any", "confidence": 0.85,
+      "effects": { "features": { "assistResidual": 1.0 }, "priors": { "partnerChoice": 4 } }
+    },
+    {
+      "id": "user-action-economy",
+      "title": "Action Economy: 한 장/한 행동이 만드는 유효 행동 수",
+      "principle": "action-economy",
+      "text": "캐릭터 전개 + 상대 제거 + 증거 생성을 한 번에 하는 카드는 각각의 숫자를 따로 보는 것보다 훨씬 높은 템포를 가진다. 2개 이상 영역에 영향을 주는 플레이를 먼저 탐색한다.",
+      "source": { "name": "사용자 제공 고수 판단 원칙 (v1.5.0 요청서)", "author": "사용자" },
+      "env": "any", "date": "2026-10-01", "archetype": "any", "matchup": "any", "side": "any", "confidence": 0.85,
+      "effects": { "features": { "actionEconomy": 1.0 }, "priors": { "multiZone": 6 } }
+    },
+    {
+      "id": "user-file-not-mana",
+      "title": "FILE 은 마나가 아니다",
+      "principle": "file-preservation",
+      "text": "이번 턴에 FILE 을 쓸 수 있다고 다 쓰지 않는다. 남은 FILE 이 다음 턴 최대 전개·리살 루트·돌발 대응을 정한다. FILE 1장이 다음 턴 핵심 루트를 깨면 큰 감점.",
+      "source": { "name": "사용자 제공 고수 판단 원칙 (v1.5.0 요청서)", "author": "사용자" },
+      "env": "any", "date": "2026-10-01", "archetype": "any", "matchup": "any", "side": "any", "confidence": 0.85,
+      "effects": { "features": { "nextTurnFileRequirement": 1.0, "lethalFileRequirement": 1.0, "defensiveFileRequirement": 1.0 }, "priors": { "protectFileRoute": 6 } }
+    },
+    {
+      "id": "user-turns-to-win",
+      "title": "승리까지 남은 턴 수를 직접 평가 (myTurnsToWin vs oppTurnsToWin)",
+      "principle": "race",
+      "text": "현재 증거 개수만 보지 않고 내가/상대가 몇 턴 뒤 사건 해결이 가능한지 추정한다. 필드를 하나 더 제거하는 것보다 내 승리 턴을 1턴 앞당기는 증거 획득이 훨씬 높은 가치일 수 있다.",
+      "source": { "name": "사용자 제공 고수 판단 원칙 (v1.5.0 요청서)", "author": "사용자" },
+      "env": "any", "date": "2026-10-01", "archetype": "any", "matchup": "any", "side": "any", "confidence": 0.9,
+      "effects": { "features": { "turnsToWin": 1.0 } }
+    },
+    {
+      "id": "user-formation-lethal-package",
+      "title": "덱별 Formation 과 Lethal Package 를 깨지 않는다",
+      "principle": "formation",
+      "text": "전문 봇은 이상적인 중간 필드·필요한 손패 조각·FILE·증거·리살 순서를 가진다(프로필 formation / lethal.packages). 현재 점수만 올리는 플레이로 핵심 formation 을 깨지 않는다.",
+      "source": { "name": "사용자 제공 고수 판단 원칙 (v1.5.0 요청서)", "author": "사용자" },
+      "env": "any", "date": "2026-10-01", "archetype": "any", "matchup": "any", "side": "any", "confidence": 0.85,
+      "effects": { "features": { "formation": 1.0 }, "priors": { "formationBreak": 8 } }
+    },
+    {
+      "id": "user-mulligan-curve-failure",
+      "title": "멀리건: 초동 실패(패스) 확률과 승률 손실까지 계산",
+      "principle": "mulligan",
+      "text": "좋은 카드니까 킵이 아니라, 초동을 못 했을 때의 패스 확률과 전체 승률 감소를 본다. 덱별 requiredEarlyPlays / mulliganKeepGroups / curveFailurePenalty / 선후공 계획으로 조정한다.",
+      "source": { "name": "사용자 제공 고수 판단 원칙 (v1.5.0 요청서)", "author": "사용자" },
+      "env": "any", "date": "2026-10-01", "archetype": "any", "matchup": "any", "side": "any", "confidence": 0.85,
+      "effects": { "features": { "handCurve": 1.0 }, "mulligan": { "curveFailurePenalty": 6.0 } }
+    },
+    {
+      "id": "user-perfect-info-sequence",
+      "title": "손패 공개(Training Mode) 정보로 방어 자원 소비 순서를 정확히 계산",
+      "principle": "sequence",
+      "text": "상대가 실제로 할 수 있는 방어(가드·컷인·변장·미스리드)를 보고, 공격 A 로 무엇을 소비시키고 이후 공격 B 가 통하는지를 순서대로 탐색한다(치팅 이득이 아니라 시퀀스 검증 용도).",
+      "source": { "name": "사용자 제공 고수 판단 원칙 (v1.5.0 요청서)", "author": "사용자" },
+      "env": "any", "date": "2026-10-01", "archetype": "any", "matchup": "any", "side": "any", "confidence": 0.8,
+      "effects": { "priors": { "baitAttack": 3 } }
+    }
+  ]
+}

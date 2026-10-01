@@ -1,0 +1,18 @@
+{
+ "name": "(실제 카드·간이 상태) 상대 해결편·증거 1 부족 — 상대 遠山和葉(슬립, LP1)를 服部平次로 제거",
+ "reason": "상대는 해결편이고 증거가 1 부족하다. 遠山和葉를 남기면 상대 턴에 추리로 증거가 채워져 바로 해결된다. 내 추리 1장보다 상대 리살 차단이 우선.",
+ "source": "user-evidence-vs-board (boardLeakRisk) — 간이 상태(state) 형식 예시",
+ "date": "2026-10-01",
+ "tags": ["evidence-vs-board", "opp-lethal", "real-cards"],
+ "bot": "pro",
+ "seat": 0,
+ "expert": "A",
+ "candidates": { "A": "attack:id_0861>id_0419", "B": "reason:id_0861" },
+ "state": {
+  "first": 0, "turn": 0, "n": 9,
+  "P": [
+   { "deck": "../fixtures/deck_green.json", "hand": ["id_0652"], "field": [ { "k": "id_0861", "st": "a" } ], "file": 6, "evid": 3, "partner": "id_P010", "kase": "id_0666" },
+   { "deck": "../fixtures/deck_green.json", "hand": [], "field": [ { "k": "id_0419", "st": "s" } ], "file": 6, "evid": 5, "partner": "id_P010", "kase": { "k": "id_0666", "solved": 1 } }
+  ]
+ }
+}

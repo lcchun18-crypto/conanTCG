@@ -4,6 +4,7 @@
 //   → decks/fbi_red.json (내보낸 덱 JSON 그대로) + fbi_red.js (이 템플릿 기반) 를 만들고, data/cards.json 으로 덱을 검증합니다.
 // 아래 항목은 전부 선택입니다. 비워 두면 범용 Expert 와 같습니다. 탐색(search)은 언제나 범용 Expert 의 것을 그대로 씁니다:
 // 프로필은 "평가 점수 · 행동 순서 · 멀리건" 만 바꿉니다 (게임 상태를 바꾸거나 행동을 고정하지 않음).
+// v1.5.0: 모든 봇에 Expert Knowledge Layer(bot/expert, bot/knowledge)가 얹힙니다 — 비교용으로 끄려면 봇 id 뒤에 '@raw' 또는 BOT_KNOWLEDGE=0.
 // 점수 단위: 손패 1장의 가치 ≈ 1.0.  평가 가중치 이름은 bot/evaluate.js 의 W 참고.
 // ─────────────────────────────────────────────────────────────────────────────
 module.exports = {
@@ -51,6 +52,21 @@ module.exports = {
     matchups: [
       // { name: 'vs 청 OO', vs: { case: 'id_0000' /* 또는 cards:[..], allCards:[..], partner, color:'blue' */ }, weights: {}, cards: {}, combos: [] },
     ],
+
+    // ── v1.5.0 Expert Knowledge Layer 항목 (전체 예시: _example_green.js) ──────────────────────────
+    // archetype: ['green_heiji'],                    // 덱 성격 태그 → bot/knowledge/*.json 의 archetype.tags 범위와 매칭
+    // 이상적인 중간 필드 / 필요한 손패 조각 / FILE / 증거 → 평가의 '콤보/포메이션 진행'(setup progress · combo pieces ready), 깨는 플레이는 탐색 순서에서 뒤로
+    // formation: { name: '중반 필드', field: [{ role: 'heiji', n: 1 }, { cards: ['id_0000'], n: 1 }], hand: [{ role: 'cutin', n: 1 }], file: 6, evidence: 3, weight: 3, completeBonus: 1.5 },
+    // 리살 패키지(lethal package ready) — 리살 순서(sequence)는 설명 로그에 그대로 표시
+    // lethal: { weight: 1.2, packages: [{ name: '해결편 리살', field: [{ role: 'heiji' }], hand: [{ cards: ['id_0000'] }], file: 6, evidence: 4, solved: true, sequence: ['제거 이벤트', '사건 공격', '해결'], bonus: 2 }] },
+    // 멀리건 / 초동 실패 확률: 내 k번째 턴에 낼 카드가 필요 → 교체 조합마다 패스 확률 × 벌점으로 계산
+    // requiredEarlyPlays: [{ turn: 1, type: 'char', lvMax: 2 }, { turn: 2, type: 'char' }, { turn: 3, type: 'char' }, { turn: 4, type: 'char' }],
+    // mulliganKeepGroups: [{ name: '2코 컷인', cards: ['id_0000', 'id_0001'], min: 1, bonus: 1.0, force: false }],   // 또는 filter: { type: 'char', lvMin: 2, lvMax: 2 }
+    // curveFailurePenalty: [1.6, 3.0, 2.4, 1.6],     // 1~4턴 패스 벌점 (숫자 하나면 기본 비율 0.6/1.0/0.8/0.6 배)
+    // firstPlayerPlan: { notes: '', requiredEarlyPlays: [], mulliganKeepGroups: [], curveFailurePenalty: 3, formation: {}, partner: {}, fileFloor: { floor: 6, fromTurn: 7 } },
+    // secondPlayerPlan: { notes: '', fileFloor: { floor: 5 }, partner: { preserveDeduction: 0.6 } },   // preserveDeduction: 리살/고비용 전개가 아니면 어시스트 대신 파트너 추리 성향 (0~1)
+    // partner: { preserveDeduction: 0 }, fileFloor: { floor: 5, fromTurn: 5 },
+    // knowledge: { use: [/* 이 entry 만 */], exclude: ['entry-id'], entries: [ /* 이 봇 전용 knowledge entry (bot/knowledge/README.md 형식) */ ] },
 
     // 훅: 게임 상태를 "읽기 전용 view" 로만 받아 "숫자"만 돌려줍니다 (상태 변경 불가). 예외/비정상 값은 0 처리, 상한 적용.
     //   view.hand(s) field(s) fileCount(s) evidCount(s) evidNeed(s) solved(s) deckCount(s) deckKeys(s) removed(s) count(key,zone,s) def(key) isFirst() myTurn() turnNo()

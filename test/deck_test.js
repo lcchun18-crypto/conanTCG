@@ -20,7 +20,7 @@ const DF = chars[5].id; cards[DF].ab = [{ ic: 'deckfree' }];
 (async () => {
   const exe = ['/opt/pw-browsers/chromium'].find(p => fs.existsSync(p)); const br = await chromium.launch(exe ? { executablePath: exe } : {}); let fail = 0, pass = 0; const ok = (c, m) => { if (c) pass++; else { fail++; console.log('  ✗', m); } };
   const ctx = await br.newContext({ viewport: { width: 1920, height: 1080 }, acceptDownloads: true }); const pg = await ctx.newPage(); pg.errs = []; pg.on('pageerror', e => pg.errs.push(e.message));
-  await pg.addInitScript(() => { window.__sent = []; window.WebSocket = class { constructor() { window.__ws = this; } send(m) { window.__sent.push(JSON.parse(m)); } close() {} }; });
+  await pg.addInitScript(() => { window.__sent = []; window.WebSocket = class { constructor() { this.readyState = 1; window.__ws = this; } send(m) { window.__sent.push(JSON.parse(m)); } close() {} }; });
   // 카드 DB 는 브라우저에 주입하지 않는다: 서버가 data/cards.json(여기선 CARDS_JSON 임시 파일)을 읽어 /api/cards 로 주고, 페이지가 자동으로 받는다.
   const cf = path.join(os.tmpdir(), 'deck_cards_' + process.pid + '.json'); fs.writeFileSync(cf, JSON.stringify({ cards })); const PORT = 8900 + Math.floor(Math.random() * 500);
   const srv = spawn('node', [path.join(__dirname, '../server.js')], { env: { ...process.env, PORT, CARDS_JSON: cf, NODE_PATH: path.dirname(path.dirname(WSP)) }, stdio: 'ignore' }); process.on('exit', () => { srv.kill(); try { fs.unlinkSync(cf); } catch (e) {} }); await new Promise(r => setTimeout(r, 1200));

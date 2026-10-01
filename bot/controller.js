@@ -9,6 +9,7 @@ const { S, who, cloneable, clone, genMoves, stateKey } = SIM;
 const { D } = S;
 
 const num = (v, d) => { const x = Number(v); return Number.isFinite(x) && x > 0 ? x : d; };
+const VERSION = (() => { try { return require('../package.json').version; } catch (e) { return null; } })();
 const cfgFromEnv = () => { const think = num(process.env.BOT_THINK_MS, DEFAULTS.timeMs); return { timeMs: think, microMs: Math.min(num(process.env.BOT_MICRO_MS, 1500), think), maxNodes: DEFAULTS.maxNodes, delayMs: num(process.env.BOT_DELAY_MS, 650) }; };
 
 // ── worker 풀 (1개). 만들 수 없으면(예: 제한된 환경) 메인 스레드에서 같은 함수를 실행한다.
@@ -71,7 +72,8 @@ class BotCtl {
     if (this.stopped || ver !== this.tr.ver || R.phase === 'over') return;
     const mv = res.mv, e = this.deps.dispatch(R, mv.seat, mv.m);
     this.decisions++;
-    this.log.push({ n: this.decisions, at: new Date().toISOString(), state: sum, snap, kind: d.kind, chosen: { desc: describe(R, mv), move: mv.m }, top: (res.info.top || []), search: { ms: res.info.ms, nodes: res.info.nodes, iterations: res.info.iters, value: res.info.value, win: res.info.win, forced: res.info.forced, planned: res.info.planned, fallback: res.info.fallback, exact: res.info.exact, reply: res.info.reply, line: res.info.lineDesc }, error: e || undefined });
+    this.log.push({ n: this.decisions, at: new Date().toISOString(), state: sum, snap, kind: d.kind, chosen: { desc: describe(R, mv), move: mv.m }, top: (res.info.top || []), search: { ms: res.info.ms, nodes: res.info.nodes, iterations: res.info.iters, value: res.info.value, win: res.info.win, forced: res.info.forced, planned: res.info.planned, fallback: res.info.fallback, exact: res.info.exact, reply: res.info.reply, line: res.info.lineDesc, overrides: res.info.overrides },
+      explain: res.info.explain || undefined, mulligan: res.info.mulligan || undefined, error: e || undefined });   // v1.5.0: explain = 후보별 판단 요소 분해(증거 템포·보드·FILE·리살 거리·상대 위협·Action Economy·포메이션·손패) + 시퀀스
     if (e) { this.illegal++; this.fallback('illegal: ' + e); }
     this.deps.bc(R);
   }
@@ -82,7 +84,8 @@ class BotCtl {
   }
   logMsg() {
     const R = this.R; if (R.phase !== 'over') return { t: 'botlog', err: '게임이 끝난 뒤에만 AI 기록을 내려받을 수 있습니다 (진행 중 숨겨진 정보 보호)' };
-    return { t: 'botlog', log: { bot: 'EXPERT', botName: this.name || 'BOT / EXPERT', specialist: this.specialist || null, room: R.code, winner: R.winner, botSeat: this.seat, turns: R.n, thinkMs: this.cfg.timeMs, illegalAttempts: this.illegal, decisions: this.log } };
+    let knowledge = null; try { const id = this.cfg.specialist; if (id) { const k = require('./specialists/registry.js').policyFor(id, this.seat, R).knowledge; if (k) knowledge = { side: k.side, archetype: k.archetype, env: k.env, applied: k.applied, skipped: k.skipped, features: k.features, priors: k.priors, prunes: k.prunes, fileFloor: k.fileFloor, preserveDeduction: k.preserveDeduction }; } } catch (e) { knowledge = { error: String(e && e.message || e) }; }
+    return { t: 'botlog', log: { bot: 'EXPERT', version: VERSION, botName: this.name || 'BOT / EXPERT', specialist: this.specialist || null, room: R.code, winner: R.winner, botSeat: this.seat, turns: R.n, thinkMs: this.cfg.timeMs, illegalAttempts: this.illegal, knowledge, decisions: this.log } };
   }
 }
 

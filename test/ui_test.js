@@ -25,7 +25,7 @@ const DEF = R.defs, cid = { a, b, ov, oc }, imgOf = id => DEF[(mainView.P[s].fie
 (async () => {
   const exe = ['/opt/pw-browsers/chromium'].find(p => fs.existsSync(p)); const br = await chromium.launch(exe ? { executablePath: exe } : {}); let fail = 0; const ok = (c, m) => { if (!c) { fail++; console.log('  ✗', m); } };
   const open = async (w, h, view0, motion) => { const pg = await br.newPage({ viewport: { width: w, height: h } }); pg.errs = []; if (!motion) await pg.emulateMedia({ reducedMotion: 'reduce' }); pg.on('pageerror', e => pg.errs.push(e.message));
-    await pg.addInitScript(() => { window.__sent = []; window.WebSocket = class { constructor() { window.__ws = this; } send(m) { window.__sent.push(JSON.parse(m)); } close() {} }; });
+    await pg.addInitScript(() => { window.__sent = []; window.WebSocket = class { constructor() { this.readyState = 1; window.__ws = this; } send(m) { window.__sent.push(JSON.parse(m)); } close() {} }; });
     await pg.goto('file://' + path.resolve(__dirname, '../index.html')); await pg.evaluate(dd => window.__ws.onmessage({ data: JSON.stringify({ t: 'defs', defs: dd }) }), DEF); await push(pg, view0); return pg; };
   const push = (pg, v) => pg.evaluate(v => window.__ws.onmessage({ data: JSON.stringify(v) }), v);
   const box = (pg, sel) => pg.locator(sel).first().boundingBox();

@@ -1,5 +1,13 @@
 # 명탐정 코난 TCG 시뮬레이터
 
+## 🔌 v1.5.1 — WebSocket 연결 복구
+
+- 모든 전송은 `S()` 한 곳을 거치며 소켓이 `OPEN` 일 때만 `send` 합니다. 끊겨 있으면 예외 없이 무시하고 화면 위쪽에 상태만 표시합니다 (`서버 연결 중...` / `연결이 끊어졌습니다. 재연결 중...` / `서버에 다시 연결되었습니다.`).
+- `onclose`/`onerror` → 단일 타이머(0.5초부터 1.6배씩, 최대 8초)로 재연결. 9초 안에 열리지 않으면(Render 가 깨어나는 중) 포기하고 다시 시도합니다. 온라인 복귀·탭 활성화 때는 즉시 한 번 시도합니다.
+- 이벤트 핸들러는 자기 소켓이 현재 소켓일 때만 동작합니다 (죽은 소켓 참조 없음).
+- 방에 들어가면 서버가 `{code, seat, token}` 을 주고, 끊긴 뒤 같은 자리로 `resume` 합니다. 서버는 `RECONNECT_GRACE_MS`(기본 60000, 0 이면 예전처럼 즉시 종료) 동안 기다린 뒤에야 "상대가 나가서 종료" 처리합니다. 서버가 재시작되어 방이 사라졌으면 이유를 안내하고 로비로 돌아갑니다.
+- 서버 heartbeat ping 은 `OPEN` 인 소켓에만 보냅니다. 테스트: `npm run test:ws`.
+
 ## 실행
     npm install
     npm start            # http://localhost:3000
@@ -358,3 +366,53 @@ node test/specialist_eval.js fbi_red --games 12 [--vs all] [--heur 1]
 - 증거 선택: `chooseEvid`(8코 마츠다 id_0704 등 "증거를 1개까지 선택" 계열 공통)가 무작위 대신 증거 하나하나를 선택지로 내고(`opt` + `evp`), 클라이언트는 해당 증거를 강조해 직접 클릭/터치로 고른다. 서버는 선택지 번호를 엄격 검증(`null`/배열 등 거부). 봇은 같은 구조를 쓰되 뒷면 증거는 구별하지 않는다.
 - UI: 상단 턴 표시 옆 선공/후공 칩(`#firstb`), 해결편 사건 카드 강조(테두리·글로우·"✔ 해결편" 배지·구역 라벨, 전환 순간 짧은 애니메이션). 게임 규칙/판정 로직은 그대로.
 - 테스트: `npm run test:evidence`
+
+## 🧠 v1.5.0 — Expert Knowledge Layer (고수 판단 기준)
+self-play 점수만 올리는 대신, 상위권 플레이어가 **무엇을 가치 있게 보는지**를 탐색(search)·평가(evaluation)·행동 순서(action ordering)·pruning 에 넣었다. 강제 스크립트가 아니며, 실제 시뮬레이션 결과가 지식과 다르면 **탐색 결과가 이긴다**.
+```
+bot/expert/   features.js(상태 특징) layer.js(정책에 얹기) knowledge.js(지식 로드·범위) mulligan.js(초동 실패 확률) explain.js(설명 로그)
+              cases.js(고수 판단 회귀) cli.js(케이스 추가·설명·지식 점검) fx_profile.js(효과 영역 분석) profile_schema.js(프로필 확장 검증)
+bot/knowledge/*.json  지식 entry (source·env·date·archetype·matchup·side·confidence) — 형식: bot/knowledge/README.md
+test/expert_cases/    고수 판단 회귀 케이스            test/expert_test.js / test/expert_regress.js
+```
+모든 봇(범용 Expert = PRO 정책, 전문 봇)에 자동으로 얹힌다. 비교용: `pro_v12`(v1.2 PRO 그대로), 전문 봇 id 뒤 `@raw`, 환경변수 `BOT_KNOWLEDGE=0`.
+
+### 평가에 분리해 넣은 특징 (좌석별 절대값 → 나 − 상대, 반대칭 유지)
+| 요청 항목 | 구현 |
+|---|---|
+| evidenceTempo | (증거 + 다음 턴 추리 가능량) / 필요 증거 |
+| boardRemovalValue | 상대 필드 가치(기존 평가의 `base:oppBoard`) + 보정: 증거도 못 만들고 효과도 없고 상대를 잡지도 막지도 못하는 "무해한" 캐릭터는 가치 절반, 상대 필드가 무해한 캐릭터뿐이면 (PRO) 전멸 보너스의 70% 인정 |
+| boardLeakRisk | 차례인 쪽이 상대의 노출된(슬립) 캐릭터·증거에서 뽑아낼 기대 이득 (공격자 AP + 손패 컷인 vs 가드/컷인, 손패 공개 정보) |
+| futureCleanupValue | 다음 턴 쓸 수 있는 다면 제거(2장 이상/전체)가 함께 처리할 상대 캐릭터 → 지금 하나 제거하는 가치↓ |
+| turnsToSolve / myTurnsToWin / oppTurnsToWin | 규칙(해결편 = FILE+어시스트 7, 해결 = 해결편+파트너 액티브+증거) 기반으로 "몇 번째 내 턴에 해결 가능한가" 추정. 두 값의 차이(승리 ply)가 평가에 크게 들어간다 |
+| partnerDeductionValue / assistValue / assistOpportunityCost | 루트에서 비교해 행동 prior 로 사용 + 턴이 끝난 뒤 남는 "임시 FILE+1·파트너 액티브" 착시를 평가에서 제거(assistResidual) |
+| actionsGenerated zonesAffected cardsSpent fileSpent evidenceGenerated removalGenerated boardCreated | 매크로 행동마다 계산(Action Economy). 2개 이상 영역에 영향 → 라인 가산 + 효과 구조로 예상해 탐색 순서 우선 |
+| fileNow fileAfterAction nextTurnFileRequirement lethalFileRequirement defensiveFileRequirement | FILE 은 마나가 아님: 다음 턴 핵심 카드 레벨·해결편 시점·변장 FILE 조건이 깨지면 큰 감점, 자연 FILE 보다 쓴 만큼 감점(fileSpent), FILE 하한(지식) |
+| setup/formation progress · combo pieces ready · lethal package ready | 전문 봇 프로필 `formation` / `lethal.packages` (예: `bot/specialists/_example_green.js`). 깨는 플레이는 탐색 순서에서 뒤로 + 평가 감점 |
+
+### 탐색과의 결합 (강제 규칙 아님)
+* **행동 prior**: 다면 플레이, 약한 공격자로 방어 자원 먼저 소비(낚기), 미스리드가 있으면 낮은 AP 부터 추리, 파트너 추리/어시스트 비교, FILE 루트를 깨는 힌트는 뒤로, formation 을 깨는 스위치는 뒤로.
+* **소프트 pruning**: 지식이 "하지 말 것"이라고 하는 행동(예: v1.2 의 이른 넥스트 힌트, 낼 캐릭터가 있는데 턴 종료, FILE 5 아래로 힌트)은 계획 탐색에서 뒤로 미룬다. 루트에서는 두 번째 반복 뒤 같은 예산으로 따로 탐색해 **최선보다 1.5 + 4×confidence 이상 좋으면 다시 허용**(탐색이 지식을 이김, AI 기록 `overrides`).
+* **넥스트 힌트**: 사람 UI 처럼 손패 사용 뒤에도, 여러 번 후보가 된다(이전엔 "아무것도 안 했을 때 1회"만). 단, 손패 사용 뒤의 추가 힌트는 힌트 후 FILE 5 이상이 남을 때만 후보(그 아래는 다음 턴 전개를 무너뜨리므로 탐색 폭을 아낌). FILE 8 에서 8→7 같은 연속 행동을 탐색하고, FILE 보존 특징이 언제 멈출지 정한다.
+* **Perfect Information**: 상대 손패가 공개된 정보(Training Mode)는 "상대가 실제로 쓸 수 있는 가드·컷인·변장·미스리드"를 minimax 로 정확히 계산하는 데 쓰인다. 설명 로그의 `steps` 에 "공격 A ⇒ 상대 가드/컷인 소비 → 공격 B" 순서가 남는다.
+
+### 멀리건 = 초동 실패 확률
+교체 조합(최대 32가지)마다 덱(공개)에서 시드 몬테카를로로 첫 4턴(선공 FILE 1·3·5·7 / 후공 2·4·6·8)을 시뮬레이션: 낼 카드가 없으면 `curveFailurePenalty`, 그 턴 FILE 에 가까운 레벨을 내면 템포 가산, `mulliganKeepGroups` 충족 가산, 최종 손패 가치. 덱별 `requiredEarlyPlays` · `firstPlayerPlan` / `secondPlayerPlan` 으로 조정. AI 기록의 멀리건 결정에 턴별 패스 확률이 남는다.
+
+### 지식 entry 와 적용 범위
+entry 마다 `source · env(세트/환경) · date · archetype · matchup · side · bots · confidence`. 범위가 맞지 않으면 적용하지 않고(이유 기록), 오래된 환경의 지식은 confidence 가 자동으로 줄어든다. 카드 ID 를 쓰는 지식은 `archetype: "any"`(전체 적용)로 둘 수 없다.
+기본 지식: 사용자 원칙(v1.5.0, v1.2.0) + 외부 고수 글 3편(제1탄 2024: かざも·どんかファミリー探偵団 / 2025-04: sumomo 녹단 — 녹색 단색 덱에만). `npm run expert:kb -- --deck 덱.json --side second` 로 적용 목록 확인.
+
+### 고수 판단 회귀 (Decision Regression)
+```
+node bot/expert/cli.js case add --log conan-bot-log.json --n 12 --a "공격: 服部平次 → 遠山和葉" --b "추리: 服部平次" --expert B --reason "방치해도 해결선에 못 닿음, 증거로 승리 턴 단축"
+node bot/expert/cli.js case add --state 상황.json --a "reason:id_0861" --b "attack:id_0861>id_0419" --expert A --reason "…"   (간이 상태: FILE/증거는 장수만)
+npm run test:expert          # 모든 케이스를 다시 판단 (봇을 고칠 때마다)
+npm run expert:regress       # + v1.2 PRO 와 비교 표시
+```
+케이스 = 게임 상태 + 후보 A/B(행동 또는 "앞 몇 행동" 라인) + 고수의 선택 + 이유. 각 후보로 시작하는 최선 라인을 같은 탐색 예산으로 계산해 고수 후보가 더 높아야 통과(`check: "first"` 면 봇의 자유 선택도 일치해야 함). 실패하면 두 후보의 판단 요소 차이를 출력한다. 형식: `bot/expert/cases.js` 상단 주석, 예시: `test/expert_cases/`.
+
+### AI 설명 로그 (「AI 기록 다운로드」)
+* 상단 `knowledge`: 적용/제외된 지식(출처·환경·confidence·오래됨), 특징 크기, prior, 소프트 pruning.
+* 메인 결정마다 `explain`: `now`(내/상대 승리 턴, FILE 요구치, 파트너 추리 vs 어시스트 값, 상대 방어 자원), `candidates`(첫 행동이 서로 다른 후보 라인마다 **증거 템포 · 보드 가치 · FILE 보존 · 리살 거리 · 상대 리살 위협 · Action Economy · 콤보/포메이션 · 손패 품질 · 상대 응수 검증(탐색)** 이 점수에 준 영향 = 지금 상태 대비 Δ, 세부 항목, 라인 후 승리 턴, 단계별 상대 응수/영역), `why`(선택 vs 차선 차이 문장), 후보별 `vsChosen`, `pruned`/`overrides`.
+* `node bot/expert/cli.js why --log conan-bot-log.json --n 12` 로 읽기 좋게 출력. 예: "왜 캐릭터를 잡고 증거를 안 먹었어?" → 공격 후보와 추리 후보의 요소 차이(보드 +, 증거 템포 −, 리살 거리 …)를 그대로 본다.

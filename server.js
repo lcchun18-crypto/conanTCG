@@ -272,21 +272,37 @@ function main() {
     fs.readFile(path.join(__dirname, 'index.html'), (e, d) => { if (e) { r.writeHead(500); return r.end('index.html 을 읽을 수 없습니다'); } r.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' }); r.end(d); }); });
   const wss = new WebSocketServer({ server, maxPayload: 30e6 });
   wss.on('connection', ws => { ws.isAlive = true; ws.on('pong', () => { ws.isAlive = true; }); ws.on('error', () => {}); }); // 유휴 연결 유지용 ping (프록시가 조용한 WebSocket 을 끊는 것을 방지)
+  // ── 연결 끊김 처리 (v1.5.1) ── 끊기면 바로 패배 처리하지 않고 GRACE 동안 같은 자리로 재접속(resume)을 기다린다. (RECONNECT_GRACE_MS=0 이면 예전처럼 즉시 종료)
+  const GRACE = process.env.RECONNECT_GRACE_MS != null ? +process.env.RECONNECT_GRACE_MS : 60000;
+  const seatTok = (R, seat, ws) => { R.tok = R.tok || [null, null]; R.tok[seat] = require('crypto').randomBytes(12).toString('hex'); send(ws, { t: 'joined', code: R.code, seat, token: R.tok[seat] }); };
+  const endSeat = (R, seat) => { if (R.gt && R.gt[seat]) { clearTimeout(R.gt[seat]); R.gt[seat] = null; } if (R.ws[seat]) return;   // 그 사이 돌아왔으면 종료하지 않음
+    R.ws[seat] = null; if (R.bot) { R.bot.stop(); R.ws[1 - seat] = null; }
+    if (R.phase === 'play' || R.phase === 'mull') { R.phase = 'over'; R.winner = 1 - seat; say(R, '상대가 나가서 게임이 종료되었습니다.'); }
+    bc(R); if (!R.ws[0] && !R.ws[1]) delete rooms[R.code]; };
+  const resume = (ws, m) => { const R = rooms[cl(m.code, 8).toUpperCase().trim()], seat = +m.seat;
+    if (!R || (seat !== 0 && seat !== 1) || !R.tok || !m.token || R.tok[seat] !== m.token) return send(ws, { t: 'resumeFail', msg: '이전 방을 찾을 수 없습니다 (서버가 재시작되었거나 재접속 시간이 지났습니다). 로비로 돌아갑니다.' });
+    if (R.bot && seat !== 0) return send(ws, { t: 'resumeFail', msg: '잘못된 재접속 요청입니다.' });
+    const old = R.ws[seat]; if (old && old !== ws) { old.R = null; try { old.terminate(); } catch (e) {} }   // 서버가 아직 끊김을 모르는 죽은 소켓이면 정리
+    if (R.gt && R.gt[seat]) { clearTimeout(R.gt[seat]); R.gt[seat] = null; }
+    R.ws[seat] = ws; ws.R = R; ws.seat = seat; say(R, R.phase === 'over' ? '재접속했습니다.' : '상대가 재접속했습니다.'); send(ws, { t: 'joined', code: R.code, seat, token: R.tok[seat] }); send(ws, { t: 'defs', defs: R.defs }); bc(R); };
   wss.on('connection', ws => ws.on('message', raw => { let m; try { m = JSON.parse(raw); } catch { return; }
     if (m.t === 'create') { let c; do { c = Math.random().toString(36).slice(2, 6).toUpperCase(); } while (rooms[c]);
-      const R = rooms[c] = mkR(c); R.ws[0] = ws; ws.R = R; ws.seat = 0; return bc(R); }
+      const R = rooms[c] = mkR(c); R.ws[0] = ws; ws.R = R; ws.seat = 0; seatTok(R, 0, ws); return bc(R); }
+    if (m.t === 'resume') return resume(ws, m);
     if (m.t === 'join') { const R = rooms[cl(m.code, 8).toUpperCase().trim()];
       if (!R) return send(ws, { t: 'err', msg: '없는 방 코드입니다.' }); if (R.ws[1]) return send(ws, { t: 'err', msg: '방이 가득 찼습니다.' });
-      R.ws[1] = ws; ws.R = R; ws.seat = 1; say(R, '게스트가 입장했습니다.'); send(ws, { t: 'defs', defs: R.defs }); return bc(R); }
-    if (m.t === 'createBot') { if (ws.R) return; try { const R = require('./bot/controller').createRoom({ rooms, mkR, ready, dispatch, loadCards: () => ({ cards: cardsObj() }), say, cl, ws, m, send, bc }); ws.R = R; ws.seat = 0; return bc(R); } catch (err) { return send(ws, { t: 'err', msg: '봇 대전을 시작할 수 없습니다: ' + (err && err.message || err) }); } }
+      R.ws[1] = ws; ws.R = R; ws.seat = 1; seatTok(R, 1, ws); say(R, '게스트가 입장했습니다.'); send(ws, { t: 'defs', defs: R.defs }); return bc(R); }
+    if (m.t === 'createBot') { if (ws.R) return; try { const R = require('./bot/controller').createRoom({ rooms, mkR, ready, dispatch, loadCards: () => ({ cards: cardsObj() }), say, cl, ws, m, send, bc }); ws.R = R; ws.seat = 0; seatTok(R, 0, ws); return bc(R); } catch (err) { return send(ws, { t: 'err', msg: '봇 대전을 시작할 수 없습니다: ' + (err && err.message || err) }); } }
     if (m.t === 'leaveBot') { const R0 = ws.R; if (R0 && R0.bot) { R0.bot.stop(); delete rooms[R0.code]; ws.R = null; send(ws, { t: 'left' }); } return; }
     const R = ws.R; if (!R) return; let e;
     if (m.t === 'botlog') return send(ws, R.bot ? R.bot.logMsg() : { t: 'botlog', err: '봇 대전이 아닙니다' });
     e = dispatch(R, ws.seat, m);
-    if (e) send(ws, { t: 'err', msg: e }); bc(R); }).on('close', () => { const R = ws.R; if (!R) return; R.ws[ws.seat] = null; if (R.bot) { R.bot.stop(); R.ws[1 - ws.seat] = null; }
-      if (R.phase === 'play' || R.phase === 'mull') { R.phase = 'over'; R.winner = 1 - ws.seat; say(R, '상대가 나가서 게임이 종료되었습니다.'); }
-      bc(R); if (!R.ws[0] && !R.ws[1]) delete rooms[R.code]; }));
-  const hb = setInterval(() => { wss.clients.forEach(w => { if (!w.isAlive) return w.terminate(); w.isAlive = false; try { w.ping(); } catch (e) {} }); }, +process.env.WS_PING_MS || 25000); hb.unref();
+    if (e) send(ws, { t: 'err', msg: e }); bc(R); }).on('close', () => { const R = ws.R; if (!R || R.ws[ws.seat] !== ws) return;   // 이미 새 소켓으로 교체된(resume) 자리의 옛 소켓 close 는 무시
+      const seat = ws.seat; R.ws[seat] = null;
+      if (GRACE <= 0 || R.phase === 'over' || !R.ws[1 - seat]) return endSeat(R, seat);   // 유예 없음 / 이미 끝난 방 / 상대도 없는 방
+      R.gt = R.gt || []; clearTimeout(R.gt[seat]); R.gt[seat] = setTimeout(() => endSeat(R, seat), GRACE); R.gt[seat].unref && R.gt[seat].unref();
+      if (!R.bot) say(R, '⚠ 상대의 연결이 끊어졌습니다. 재접속을 기다리는 중입니다…'); bc(R); }));
+  const hb = setInterval(() => { wss.clients.forEach(w => { if (w.readyState !== 1) return; if (!w.isAlive) return w.terminate(); w.isAlive = false; try { w.ping(); } catch (e) {} }); }, +process.env.WS_PING_MS || 25000); hb.unref();
   process.on('uncaughtException', e => console.error('uncaught:', e && e.stack || e));
   const stop = () => { clearInterval(hb); wss.clients.forEach(w => w.close()); server.close(() => process.exit(0)); setTimeout(() => process.exit(0), 3000).unref(); };
   process.on('SIGTERM', stop); process.on('SIGINT', stop);

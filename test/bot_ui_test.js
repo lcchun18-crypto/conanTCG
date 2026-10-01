@@ -26,7 +26,7 @@ const AUTO = () => { // 사람 플레이어 자동 조종(페이지 안에서 �
     x = pick('actc'); if (x && x[1].tg.length) return A('action', { id: x[0], k: 'char', tid: x[1].tg[0] }); x = pick('actk'); if (x) return A('action', { id: x[0], k: 'case' });
     x = pick('reason'); if (x) return A('reason', { who: x[0] === (P.partner && P.partner.id) ? 'p' : x[0] });
     A('end'); } catch (e) { window.__errs.push(String(e)); } };
-  ws.addEventListener('message', () => setTimeout(step, 40)); setInterval(step, 600); };
+  NET.ws.addEventListener('message', () => setTimeout(step, 40)); setInterval(step, 600); };
 (async () => {
   await new Promise(r => setTimeout(r, 1300));
   const br = await chromium.launch(fs.existsSync('/opt/pw-browsers/chromium') ? { executablePath: '/opt/pw-browsers/chromium' } : {});

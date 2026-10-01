@@ -27,18 +27,19 @@ function evidPotential(R, s) {
 }
 const needOf = (R, s) => { const k = R.P[s].kase; return num(s === R.first ? D(R, k).lv : D(R, k).lv2); };
 
-// 한 좌석의 "전략 가산점" (양수 = 그 좌석에 유리). 최종 점수 = adj(me) - adj(opp)
-function adj(R, s) {
-  const P = R.P[s], O = R.P[1 - s]; let v = 0, n = 0;
-  for (const id of P.field) { const c = R.cards[id]; n++; v += K.lvChar * Math.min(9, FX.lvOf(R, id)); if (c.st === 's') v -= K.sleepPenalty; }
-  v += K.fieldN * Math.min(n, 5);
+// 한 좌석의 "전략 가산점" (양수 = 그 좌석에 유리). 최종 점수 = adj(me) - adj(opp).  adjParts: 설명용 분해(보드/FILE/리살) — adj = board + file + lethal
+function adjParts(R, s) {
+  const P = R.P[s]; let board = 0, n = 0, file = 0, lethal = 0;
+  for (const id of P.field) { const c = R.cards[id]; n++; board += K.lvChar * Math.min(9, FX.lvOf(R, id)); if (c.st === 's') board -= K.sleepPenalty; }
+  board += K.fieldN * Math.min(n, 5);
   // 8: 중반 이후 FILE 6장 유지
-  const f = fcount(R, s); if (R.n >= 7 && f < 6) v -= K.fileFloor * (6 - f);
+  const f = fcount(R, s); if (R.n >= 7 && f < 6) file -= K.fileFloor * (6 - f);
   // 4: 사건 해결 위협 (증거 + 캐릭터로 해결선에 닿는가). 해결편은 FILE 7(어시스트 포함)이 필요 → FILE 6 이상이면 임박
   const need = needOf(R, s), pot = evidPotential(R, s), solvedSoon = !!R.cards[P.kase].solved || fileEff(R, s) >= 7;
-  if (solvedSoon) { if (pot >= need) v += K.myThreat * (R.cards[P.kase].solved ? 1 : 0.7); else if (pot >= need - 1) v += K.myThreat * 0.35; }
-  return v;
+  if (solvedSoon) { if (pot >= need) lethal += K.myThreat * (R.cards[P.kase].solved ? 1 : 0.7); else if (pot >= need - 1) lethal += K.myThreat * 0.35; }
+  return { board, file, lethal };
 }
+function adj(R, s) { const p = adjParts(R, s); return p.board + p.file + p.lethal; }
 // 5: 상대 필드 정리 보너스는 "상대 캐릭터 수" 에 대한 함수 → 반대칭 유지를 위해 side 별로 계산
 function clearBonus(R, s) { const O = R.P[1 - s]; return O.field.length === 0 ? K.oppClear : 0; }
 
@@ -47,6 +48,12 @@ function policy(seat, R0) {
     score(R) {
       const o = 1 - seat; let v = adj(R, seat) - adj(R, o) + clearBonus(R, seat) - clearBonus(R, o);
       v -= 0.0; return v;
+    },
+    // 설명용 분해 (Σ v = score(R))
+    parts(R) {
+      const o = 1 - seat, a = adjParts(R, seat), b = adjParts(R, o);
+      return [{ cat: 'boardValue', term: 'pro:field', v: a.board - b.board }, { cat: 'boardValue', term: 'pro:oppClear', v: clearBonus(R, seat) - clearBonus(R, o) },
+        { cat: 'filePreservation', term: 'pro:fileFloor6', v: a.file - b.file }, { cat: 'lethalDistance', term: 'pro:myThreat', v: a.lethal }, { cat: 'oppLethalThreat', term: 'pro:oppThreat', v: -b.lethal }];
     },
     // 탐색 행동 순서(빔 우선순위)
     moveBonus(R, mv) {
@@ -86,4 +93,4 @@ function policy(seat, R0) {
   };
   return pol;
 }
-module.exports = { policy, W, K, targetFile, fileEff, evidPotential };
+module.exports = { policy, W, K, targetFile, fileEff, evidPotential, adjParts };

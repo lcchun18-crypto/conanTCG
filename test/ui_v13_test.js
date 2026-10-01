@@ -14,7 +14,7 @@ const J = x => JSON.parse(JSON.stringify(x)); let pass = 0, fail = 0; const ok =
   const UA = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36';
   const open = async (R, view, o = {}) => { const ctx = await br.newContext(o.mobile ? { viewport: { width: 390, height: 780 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, userAgent: UA } : { viewport: { width: 1366, height: 768 }, hasTouch: false });
     const pg = await ctx.newPage(); pg.errs = []; pg.on('pageerror', e => pg.errs.push(e.message)); if (!o.motion) await pg.emulateMedia({ reducedMotion: 'reduce' });
-    await pg.addInitScript(() => { window.__sent = []; window.WebSocket = class { constructor() { window.__ws = this; } send(m) { window.__sent.push(JSON.parse(m)); } close() {} }; });
+    await pg.addInitScript(() => { window.__sent = []; window.WebSocket = class { constructor() { this.readyState = 1; window.__ws = this; } send(m) { window.__sent.push(JSON.parse(m)); } close() {} }; });
     await pg.goto('file://' + path.resolve(__dirname, '../index.html')); await pg.evaluate(d => window.__ws.onmessage({ data: JSON.stringify({ t: 'defs', defs: d }) }), R.defs); await push(pg, view); return pg; };
   const push = (pg, v) => pg.evaluate(v => window.__ws.onmessage({ data: JSON.stringify(v) }), v);
   // ───────── A. 앞면 증거: 효과로 뒤집은 증거가 양쪽 화면에서 실제 카드 앞면으로 ─────────

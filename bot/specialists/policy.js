@@ -9,7 +9,8 @@ const SIM = require('../simulate.js'), EV = require('../evaluate.js');
 const { S } = SIM, { FX, D, fcount, tok } = S;
 
 const TOP = ['id', 'name', 'color', 'desc', 'deckFile', 'deck', 'profile'];
-const PROFILE_KEYS = ['notes', 'weights', 'weightsBy', 'matchups', 'roles', 'cards', 'combos', 'sequences', 'mulligan', 'file', 'evidence', 'hand', 'conserve', 'lethal', 'actions', 'limit', 'hooks'];
+const XS = require('../expert/profile_schema.js');
+const PROFILE_KEYS = ['notes', 'weights', 'weightsBy', 'matchups', 'roles', 'cards', 'combos', 'sequences', 'mulligan', 'file', 'evidence', 'hand', 'conserve', 'lethal', 'actions', 'limit', 'hooks', ...XS.EXPERT_KEYS];   // v1.5.0: Expert Knowledge Layer 항목(formation·초동·멀리건 그룹·선후공 계획·knowledge) 추가
 const CARD_FIELDS = ['role', 'hand', 'field', 'play', 'attack', 'target', 'keep', 'mulligan', 'conserve', 'note'];
 const ROLE_FIELDS = ['hand', 'field', 'play', 'attack', 'target', 'keep', 'conserve', 'note'];
 const ACTION_TAGS = ['play', 'atkc', 'atkk', 'reason', 'assist', 'solve', 'hint', 'skip', 'end', 'ability'];
@@ -43,7 +44,8 @@ function validateProfile(profile, o = {}) {
   if (p.file != null) curve(p.file, 'file'); if (p.evidence != null) curve(p.evidence, 'evidence');
   if (p.hand != null && obj(p.hand, 'hand') && p.hand.perCard != null) num(p.hand.perCard, 'hand.perCard');
   if (p.conserve != null && obj(p.conserve, 'conserve')) for (const [k, v] of Object.entries(p.conserve)) { if (!['cutin', 'cutinPlay'].includes(k)) errors.push(`conserve.${k}: cutin|cutinPlay`); else num(v, `conserve.${k}`); }
-  if (p.lethal != null && obj(p.lethal, 'lethal')) for (const [k, v] of Object.entries(p.lethal)) { if (k !== 'weight') errors.push(`lethal.${k}: weight 만 허용`); else num(v, 'lethal.weight'); }
+  if (p.lethal != null && obj(p.lethal, 'lethal')) for (const [k, v] of Object.entries(p.lethal)) { if (k === 'packages') continue; if (k !== 'weight') errors.push(`lethal.${k}: weight|packages 만 허용`); else num(v, 'lethal.weight'); }
+  XS.validateExpert(p, { errors, warn, cardId, roles: p.roles || {}, obj, num, DB });
   if (p.actions != null && obj(p.actions, 'actions')) for (const [k, v] of Object.entries(p.actions)) { if (!ACTION_TAGS.includes(k)) errors.push(`actions.${k}: 알 수 없는 행동 (허용: ${ACTION_TAGS.join(', ')})`); else num(v, `actions.${k}`); }
   if (p.limit != null) num(p.limit, 'limit');
   if (p.mulligan != null && obj(p.mulligan, 'mulligan')) { for (const k of Object.keys(p.mulligan)) if (!['keep', 'replace'].includes(k)) errors.push(`mulligan.${k}: keep|replace (콤보 유지는 combos[].keep:true)`); for (const k of ['keep', 'replace']) if (p.mulligan[k] != null) { if (!Array.isArray(p.mulligan[k])) errors.push(`mulligan.${k}: 카드 ID 배열`); else p.mulligan[k].forEach(id => cardId(id, `mulligan.${k}`, true)); } }
@@ -116,7 +118,7 @@ function buildPolicy(spec, { seat, R }) {
   const hasCutIn = (R_, id) => FX.hasCut(R_, id) || !!tok(D(R_, id)).cut;
 
   function parts(R_, out) {
-    let v = 0; const add = (t, x) => { if (x) { v += x; if (out) out.push({ term: t, value: Math.round(x * 100) / 100 }); } };
+    let v = 0; const add = (t, x) => { if (x) { v += x; if (out) out.push({ term: t, value: x }); } };
     const P = R_.P[seat], O = R_.P[opp];
     if (hasInfo || handPer || cutin) { let h = 0, c = 0; for (const id of P.hand) { const i = info[keyOf(R_, id)]; if (i) h += i.hand; h += handPer; if (cutin && hasCutIn(R_, id)) c += cutin; } add('손패(카드/역할/보존)', h); add('컷인 보존', c); }
     if (hasInfo) { let f = 0; for (const id of P.field) { const i = info[keyOf(R_, id)]; if (i) f += i.field * (stF[R_.cards[id].st || 'a'] || 1); } add('필드', f);
@@ -126,12 +128,15 @@ function buildPolicy(spec, { seat, R }) {
     if (prof.file) add('FILE', curve(prof.file, Math.min(fcount(R_, seat), 7)));
     if (prof.evidence) add('증거', curve(prof.evidence, P.evid.length));
     if (hooks.score) { view.__set(R_); let h = 0; try { h = hooks.score(view); } catch (e) { h = 0; } add('훅(score)', clamp(h, limit)); }
-    if (v > limit) v = limit; else if (v < -limit) v = -limit; return v;
+    if (out) out.raw = v; if (v > limit) v = limit; else if (v < -limit) v = -limit; return v;
   }
+  const CAT_OF = { '손패(카드/역할/보존)': 'handQuality', '컷인 보존': 'handQuality', '필드': 'boardValue', '상대 카드 제거 우선순위': 'boardValue', '콤보': 'formation', 'FILE': 'filePreservation', '증거': 'evidenceTempo', '훅(score)': 'other' };
   const pol = {
     id: spec.id, seat, W, applied, info: { limit, cards: Object.keys(info).length, combos: combos.length },
     score: R_ => parts(R_, null),
-    explain: R_ => { const out = []; const v = parts(R_, out); return { total: Math.round(v * 100) / 100, parts: out }; },
+    explain: R_ => { const out = []; const v = parts(R_, out); return { total: Math.round(v * 100) / 100, parts: out.map(x => ({ term: x.term, value: Math.round(x.value * 100) / 100 })) }; },
+    // 설명용 분해 (Σ v = score): 항목 → 판단 요소(category). limit 로 잘린 부분은 'spec:limit'
+    parts: R_ => { const out = []; const v = parts(R_, out); const r = out.map(x => ({ cat: CAT_OF[x.term] || 'other', term: 'spec:' + x.term, v: x.value })); if (out.raw != null && v !== out.raw) r.push({ cat: 'other', term: 'spec:limit', v: v - out.raw }); return r; },
     moveBonus(R_, mv) {
       let b = actions[mv.tag] || 0; const m = mv.m;
       if (mv.tag === 'play') { const k = keyOf(R_, m.id), i = info[k]; if (i) b += i.play; if (cutinPlay && hasCutIn(R_, m.id)) b += cutinPlay;

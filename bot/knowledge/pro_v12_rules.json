@@ -1,0 +1,23 @@
+{
+  "note": "v1.2.0 요청서에서 사용자가 준 운영 원칙 중 '하지 말 것' 두 가지. v1.2.0 에서는 강제 금지(ban)였고, v1.5.0 부터는 범용 Expert(PRO) 의 소프트 pruning 이다: 탐색 순서에서 뒤로 미루되, 루트에서 탐색이 그 행동이 확실히 더 좋다고 검증하면(차이 > 1.5) 탐색 결과를 따른다.",
+  "entries": [
+    {
+      "id": "pro-v12-hint-timing",
+      "title": "이른 넥스트 힌트를 미룬다 (선공 FILE 8 / 후공 9 전, 힌트 후 FILE 6 미만)",
+      "principle": "file-preservation",
+      "text": "선공은 어시스트 포함 FILE 8, 후공은 9 가 되기 전에는 넥스트 힌트를 하지 않는다. 그 뒤에도 힌트 후 FILE 6 미만이면 하지 않는다.",
+      "source": { "name": "사용자 제공 운영 원칙 9개 (v1.2.0 요청서) — 원칙 2·6·7", "author": "사용자" },
+      "env": "any", "date": "2026-10", "archetype": "any", "matchup": "any", "side": "any", "bots": ["pro"], "confidence": 0.9,
+      "effects": { "prune": { "proHintTiming": true } }
+    },
+    {
+      "id": "pro-v12-char-every-turn",
+      "title": "낼 캐릭터가 있으면 매 턴 1장은 낸다",
+      "principle": "tempo",
+      "text": "낼 수 있는 캐릭터가 있는데 아무것도 내지 않고 턴을 끝내지 않는다.",
+      "source": { "name": "사용자 제공 운영 원칙 9개 (v1.2.0 요청서) — 원칙 9", "author": "사용자" },
+      "env": "any", "date": "2026-10", "archetype": "any", "matchup": "any", "side": "any", "bots": ["pro"], "confidence": 0.9,
+      "effects": { "prune": { "proCharEveryTurn": true } }
+    }
+  ]
+}

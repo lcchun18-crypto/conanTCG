@@ -39,7 +39,7 @@ function decide(spec, searcher) {
   const pol = searcher ? searcher.policy : (spec.policy || (cfg.specialist ? require('./specialists/registry.js').policyFor(cfg.specialist, seat, R) : null));
   const S_ = searcher || new Searcher({ seed: cfg.seed, policy: pol });
   const fin = (mv, extra) => { info.ms = Date.now() - t0; info.nodes = S_.nodes; return { mv, info: { ...info, ...extra } }; };
-  if (d.kind === 'mull') { const mv = { seat, m: mulliganChoice(R, seat, pol), tag: 'mull' }; return fin(mv, { top: [{ desc: describe(R, mv), value: null }] }); }
+  if (d.kind === 'mull') { const mv = { seat, m: mulliganChoice(R, seat, pol), tag: 'mull' }; return fin(mv, { top: [{ desc: describe(R, mv), value: null }], mulligan: pol && pol.lastMulligan ? pol.lastMulligan : undefined }); }
   const moves = genMoves(R, val);
   if (!moves.length) return { err: 'no moves' };
   if (moves.length === 1) return fin(moves[0], { forced: true, top: [{ desc: describe(R, moves[0]), value: null }] });
@@ -49,12 +49,15 @@ function decide(spec, searcher) {
     if (d.kind === 'main') {
       if (!cloneable(R)) return { err: 'main state not cloneable' };
       const root = determinize(clone(R), detSeed >>> 0);
-      const res = S_.planTurn(root, seat, { iters: cfg.iters, noReply: cfg.noReply });
+      const res = S_.planTurn(root, seat, { iters: cfg.iters, noReply: cfg.noReply, rootFilter: cfg.rootFilter, overrideMargin: cfg.overrideMargin });
       if (!res.best || !res.best.line.length) return fin(moves[moves.length - 1], { fallback: 'no line' });
       const first = res.best.line[0].mv;
       const plan = res.best.line.map(l => ({ mv: l.mv, key: l.key }));
+      // v1.5.0 설명 로그: 후보마다 판단 요소별 점수 분해 + 시퀀스(상대 응수 소비) + 소프트 pruning/override 기록 (Expert Knowledge Layer 정책일 때)
+      let explain; if (pol && pol.expert && cfg.explain !== false) { try { explain = require('./expert/explain.js').explain(root, res, pol, seat, describe); } catch (e) { explain = { error: String(e && e.message || e) }; } }
       return fin(first, { value: res.best.value, win: !!res.win, iters: res.iters, reply: res.best.reply, plan, lineDesc: res.best.line.map(l => describe(root, l.mv)),
-        top: (res.cands && res.cands.length ? res.cands : [res.best]).slice(0, 5).map(c => ({ desc: c.line.map(l => describe(root, l.mv)).join(' → '), value: Math.round(c.value * 100) / 100, reply: c.reply })) });
+        top: (res.cands && res.cands.length ? res.cands : [res.best]).slice(0, 5).map(c => ({ desc: c.line.map(l => describe(root, l.mv)).join(' → '), value: Math.round(c.value * 100) / 100, reply: c.reply })),
+        explain, pruned: res.pruned && res.pruned.length ? res.pruned.length : undefined, overrides: res.overrides && res.overrides.length ? res.overrides : undefined });
     }
     // 미시 결정(가드/컨택트/미스리드/효과 선택/힌트 창)
     let node, R0 = R;
