@@ -54,7 +54,7 @@ body.m #firstb,body.m #turnb{white-space:nowrap}body.m #firstb{font-size:11px;pa
  background:radial-gradient(ellipse at 50% 45%,#1d3040 0%,#101b26 55%,#0a1118 100%)}
 #board::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;background:repeating-linear-gradient(45deg,#ffffff05 0 2px,transparent 2px 14px)}
 .half{position:relative;display:grid;grid-template-columns:var(--lw) minmax(0,1fr) var(--lw);column-gap:10px;row-gap:6px;padding:7px 10px;border-radius:14px;flex:none;min-width:0;border:1px solid #ffffff14;background:#0a141d99;transition:box-shadow .2s,border-color .2s}
-.half.opp{grid-template-areas:"bot bot bot" "case part info" "evid field info"}
+.half.opp{grid-template-areas:"bot bot bot" "evid part info" "case field info"}
 .half.me{grid-template-areas:"case field info" "evid part info" "bot bot bot"}
 .half.turn{border-color:#f2bd4bcc;box-shadow:0 0 0 1px #f2bd4b55,0 0 22px #f2bd4b33 inset,0 0 18px #f2bd4b22}
 .zone{position:relative;border:1px solid #ffffff1c;background:#ffffff08;border-radius:11px;min-width:0;display:flex;align-items:center;justify-content:center}
@@ -131,6 +131,7 @@ body.m #firstb,body.m #turnb{white-space:nowrap}body.m #firstb{font-size:11px;pa
 #endb{display:none;position:fixed;inset:0;z-index:60;align-items:center;justify-content:center;background:#000a;pointer-events:none}#endb.on{display:flex;animation:ebin .5s ease-out}#endb .eb{text-align:center;pointer-events:auto;padding:30px 70px 22px;border-radius:22px;border:3px solid var(--gold);background:linear-gradient(#22303f,#111a24);box-shadow:0 0 80px #f2bd4b66,0 20px 60px #000c}#endb.lose .eb{border-color:#7b8ba0;box-shadow:0 0 60px #0008,0 20px 60px #000c}#endb .et{font-size:clamp(48px,9vw,120px);font-weight:900;letter-spacing:4px;color:var(--gold);text-shadow:0 4px 0 #8a5b0c,0 0 40px #f2bd4b88;line-height:1.1}#endb.lose .et{color:#aab6c6;text-shadow:0 4px 0 #2a3441}#endb .es{margin-top:8px;font-size:clamp(14px,2vw,22px);color:#dfe8f2}#endb .eclose{margin-top:16px}@media(prefers-reduced-motion:reduce){#endb.on{animation:none}}@keyframes ebin{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:none}}
 #ldg{display:none;position:fixed;inset:0;z-index:90;align-items:center;justify-content:center;background:#000b}#ldg.on{display:flex}#ldg .ldb{text-align:center;padding:26px 44px;border-radius:16px;border:1.5px solid var(--gold);background:linear-gradient(#22303f,#16212d);box-shadow:0 16px 50px #000c}#ldg .ldt{margin-top:14px;font-size:18px;font-weight:800;color:var(--gold)}#ldg small{display:block;margin-top:6px;color:var(--mut)}#ldg .spin{width:46px;height:46px;margin:0 auto;border-radius:50%;border:5px solid #f2bd4b33;border-top-color:var(--gold);animation:ldsp .9s linear infinite}@keyframes ldsp{to{transform:rotate(360deg)}}
 #effTog{display:none;position:fixed;z-index:95;top:54px;left:50%;transform:translateX(-50%);padding:8px 18px;font-size:14px;font-weight:800;border-radius:999px;color:#2b1b00;border:1px solid #ffdc8a;background:linear-gradient(#ffd167,#e19f26);box-shadow:0 3px 0 #8a5b0c,0 8px 20px #000a}body.effhide #ovl,body.effhide #effp{display:none!important}body.effhide #board:has(#effp .box)::after{display:none}body.m #effTog{top:auto;bottom:calc(var(--dockh,120px) + 8px);font-size:13px;padding:7px 14px}
+#leaveBtn{padding:5px 12px;font-size:12px;flex:none}body.mullph #turnb,body.mullph #info{display:none}
 #msg{flex:1 1 200px;font-size:14px;font-weight:600;color:#dfe8f2}#err{color:#ff9b94;flex:none;font-weight:600}
 #btns{display:flex;flex-wrap:wrap;gap:8px}#btns button{padding:9px 20px;font-size:14px}
 /* ── 오버레이(효과 선택/덱 확인) ── */
@@ -435,7 +436,7 @@ body.m #dbErr>div{max-width:94vw}
 <div class="rowb" id="botFirst"><label><input type="radio" name="bf" value="first"> 선공</label><label><input type="radio" name="bf" value="second"> 후공</label><label><input type="radio" name="bf" value="random" checked> 랜덤</label></div>
 <div id="botErr"></div><div class="rowb"><button class="pri" onclick="botStart()">대전 시작</button><button class="ghost" onclick="$('botm').style.display='none'">취소</button></div>
 <small>봇은 내 손패와 뒷면 세트 카드까지 볼 수 있지만, 앞으로의 덱 순서는 모릅니다. 난이도는 EXPERT 하나입니다(전문 봇은 같은 Expert 탐색 + 덱 전용 전략). 전문 봇은 정해진 덱을 씁니다. 저장한 덱(40장 + 사건 + 파트너)만 고를 수 있습니다.</small></div></div>
-<div id="game"><div id="top"><span class="brand">명탐정 코난 TCG</span><span id="turnb">-</span><span id="firstb" class="order" style="display:none" aria-live="polite"></span><span class="pill">방 코드 <b id="rc"></b></span><span class="pill" id="info"></span><span class="sp"></span><button class="mbtn" id="mLog">📜 로그</button><button class="mbtn" id="mMenu">☰ 메뉴</button><span id="botpill" class="pill" style="display:none">🤖 BOT / EXPERT</span><span id="botover" class="grp" style="display:none"><button class="pri" onclick="botRestart()">다시 대전</button><button onclick="botLog()">AI 기록 다운로드</button><button class="ghost" onclick="botLobby()">로비로</button></span>
+<div id="game"><div id="top"><span class="brand">명탐정 코난 TCG</span><span id="turnb">-</span><span id="firstb" class="order" style="display:none" aria-live="polite"></span><span class="pill">방 코드 <b id="rc"></b></span><span class="pill" id="info"></span><span class="sp"></span><button id="leaveBtn" class="ghost" type="button" title="로비로 나가기">🚪 로비로</button><button class="mbtn" id="mLog">📜 로그</button><button class="mbtn" id="mMenu">☰ 메뉴</button><span id="botpill" class="pill" style="display:none">🤖 BOT / EXPERT</span><span id="botover" class="grp" style="display:none"><button class="pri" onclick="botRestart()">다시 대전</button><button onclick="botLog()">AI 기록 다운로드</button></span>
 <span class="grp" id="topmenu"><select id="dsel"></select><button class="pri" onclick="loadDeck()">덱 등록</button><button onclick="openDB()">카드 / 덱 관리</button><button class="danger" onclick="confirm('항복할까요?')&&A('resign')">항복</button></span></div>
 <div id="main"><div id="logc"><div class="lh"><span>플레이 로그</span><button class="ghost" id="logt" onclick="toggleLog()">접기</button></div><div id="log"></div></div>
 <div id="board"><div id="oppl" class="half opp"></div>
@@ -617,7 +618,7 @@ function pl(id,P,mine){const el=$(id);el.innerHTML='';const me=V.me,tgt=actTg()|
  const rm=stk(P.rem.length,'리무브','dk rm','리무브 에리어: '+P.rem.length+'장 (클릭하면 카드 목록)',0,true);rm.id=pre+'-rem';rm.style.cursor='pointer';
  {const pl_=rm.querySelector('.pile');pl_.innerHTML='';const top=P.rem[P.rem.length-1],tf=top&&DEFS[top.d];if(top){const c=document.createElement('div');c.className='card'+(tf&&tf.img?'':' back');if(tf&&tf.img)c.style.backgroundImage=`url("${tf.img}")`;c.style.left='0';c.style.top='0';if(tf){c._pv=[tf,top];c.onmouseenter=()=>pv(tf,top);c.title='리무브 맨 위: '+(tf.n||'')}pl_.appendChild(c)}else{const e=document.createElement('div');e.className='empty';e.style.width=CWs+'px';e.style.height=CHs+'px';pl_.appendChild(e)}pl_.style.width=CWs+'px';pl_.style.height=CHs+'px'}
  rm.onmouseenter=()=>{const t=P.rem[P.rem.length-1],f=t&&DEFS[t.d];if(f)pv(f,t)};rm.onclick=e=>{e.stopPropagation();remShow=remShow===(mine?me:1-me)?null:(mine?me:1-me);render()};
- const zi=div('z-info',dk,rm);
+ const zi=mine?div('z-info',dk,rm):div('z-info',rm,dk);
  // 아래(상대는 위) 줄: 손패(왼쪽) | FILE(중앙) | 이름표(오른쪽)
  let hd;if(mine){hd=div('');hd.id='hand'}else{hd=div('oh');for(let i=0;i<Math.min(P.hand,16);i++){const c=document.createElement('div');c.className='card back';hd.appendChild(c)}hd.id='opp-hand'}
  const seatP=mine?me:1-me,ordOn=V.phase!=='setup'&&(V.first===0||V.first===1),ord=ordOn?(V.first===seatP?'<span class="ord f">선공</span>':'<span class="ord s">후공</span>'):'';
@@ -799,11 +800,12 @@ function ui(){const me=V.me,T=V.turn===me,s=V.sub,b=$('btns');b.innerHTML='';let
   if(V.fl.hw)B('스킵',()=>A('skip'),'pri');else{B('넥스트 힌트',()=>A('hint'));B('턴 종료',()=>{mode=null;A('end')},'pri')}}
 {const has=!!$('effp').querySelector('.box'),tg=$('effTog');if(!has)effHide=false;tg.style.display=has?'block':'none';document.body.classList.toggle('effhide',effHide&&has);tg.textContent=effHide?'📋 효과 창 다시 열기':'👁 필드 보기';tg.setAttribute('aria-pressed',effHide?'true':'false');if(!M&&has){const r=$('mid').getBoundingClientRect();if(r.height){tg.style.transform='none';tg.style.top=Math.round(r.top+r.height/2-17)+'px';tg.style.left=Math.max(8,Math.round(r.right-tg.offsetWidth-14))+'px'}}}
  $('msg').textContent=Tm(m);actUI()}
+$('leaveBtn').onclick=leaveGame;
 $('effTog').onclick=()=>{effHide=!effHide;V&&ui()};
 let prevSolved=null;const solvedFx=[0,0];
 function render(){if(!V)return;const me=V.me;$('botpill').style.display=V.bot?'':'none';if(V.bot)$('botpill').textContent='🤖 '+(V.botName||'BOT / EXPERT');$('botover').style.display=V.bot&&V.phase==='over'?'':'none';document.body.classList.toggle('botmode',!!V.bot);if(mode&&!canSel())mode=null;if(hsel&&!(handTurn()&&V.P[me].hand.some(x=>x.id===hsel)))hsel=null;$('rc').textContent=V.code;const PH={setup:'덱 준비',mull:'멀리건',over:'게임 종료'};$('info').textContent=V.phase==='play'?`${V.n}번째 턴`:(PH[V.phase]||V.phase);document.body.classList.toggle('playing',V.phase!=='setup');{const fb=$('firstb');if(V.phase!=='setup'&&(V.first===0||V.first===1)){fb.style.display='';const f=V.first===me;fb.className='order '+(f?'f':'s');fb.textContent=f?'선공':'후공';fb.title=f?'내가 선공입니다':'내가 후공입니다'}else fb.style.display='none'}
  {const sv=[0,1].map(i=>!!(V.P[i].kase&&V.P[i].kase.solved));if(prevSolved)sv.forEach((x,i)=>{if(x&&!prevSolved[i])solvedFx[i]=Date.now()+1400});prevSolved=sv}
- const tb=$('turnb');if(V.phase==='play'){tb.className=V.turn===me?'me':'opp';tb.textContent=V.turn===me?'▶ 내 턴':'상대 턴'}else{tb.className='';tb.textContent=PH[V.phase]||V.phase}
+ document.body.classList.toggle('mullph',V.phase!=='play');const tb=$('turnb');if(V.phase==='play'){tb.className=V.turn===me?'me':'opp';tb.textContent=V.turn===me?'▶ 내 턴':'상대 턴'}else{tb.className='';tb.textContent=PH[V.phase]||V.phase}
  pl('oppl',V.P[1-me],false);pl('mel',V.P[me],true);
  const h=$('hand');V.P[me].hand.forEach(c=>h.appendChild(mk(c,{click:()=>hClick(c),sel:selm.includes(c.id)||hsel===c.id})));fitHand();
  drawLog();
@@ -923,6 +925,7 @@ function botStart(cfg){if(!cfg){const my=$('botMy').value,dk=$('botDk').value,sp
  const spec=cfg.bot&&cfg.bot!=='expert',b=DB.decks[cfg.dk],m=DB.decks[cfg.my];if(!m||(!spec&&!b)){$('botErr').textContent='선택한 덱을 찾을 수 없습니다.';return}botCfg=cfg;botAuto=true;curDeck=cfg.my;$('dsel').value=cfg.my;$('botm').style.display='none';loading(true);
  if(!S(spec?{t:'createBot',first:cfg.first,bot:cfg.bot}:{t:'createBot',first:cfg.first,bot:'expert',botDeck:{cards:b.cards,partner:b.partner,kase:b.kase}}))loading(false)}
 function botRestart(){if(S({t:'leaveBot'})){botAuto='restart';loading(true)}}
+function leaveGame(){if(!V){toLobby();return}if(V.bot){botLobby();return}if((V.phase==='play'||V.phase==='mull')&&!confirm('게임 중에 나가면 패배 처리됩니다. 로비로 나갈까요?'))return;if(!S({t:'leaveRoom'})){sessPut(null);toLobby()}}
 function botLobby(){botAuto=false;if(S({t:'leaveBot'}))botAuto='lobby'}
 function botLog(){S({t:'botlog'})}
 

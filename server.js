@@ -293,6 +293,7 @@ function main() {
       if (!R) return send(ws, { t: 'err', msg: '없는 방 코드입니다.' }); if (R.ws[1]) return send(ws, { t: 'err', msg: '방이 가득 찼습니다.' });
       R.ws[1] = ws; ws.R = R; ws.seat = 1; seatTok(R, 1, ws); say(R, '게스트가 입장했습니다.'); send(ws, { t: 'defs', defs: R.defs }); return bc(R); }
     if (m.t === 'createBot') { if (ws.R) return; try { const R = require('./bot/controller').createRoom({ rooms, mkR, ready, dispatch, loadCards: () => ({ cards: cardsObj() }), say, cl, ws, m, send, bc }); ws.R = R; ws.seat = 0; seatTok(R, 0, ws); return bc(R); } catch (err) { return send(ws, { t: 'err', msg: '봇 대전을 시작할 수 없습니다: ' + (err && err.message || err) }); } }
+    if (m.t === 'leaveRoom') { const R0 = ws.R; if (R0 && !R0.bot) { const seat = ws.seat; if (R0.ws[seat] === ws) R0.ws[seat] = null; endSeat(R0, seat); ws.R = null; ws.seat = null; send(ws, { t: 'left' }); } else send(ws, { t: 'left' }); return; }
     if (m.t === 'leaveBot') { const R0 = ws.R; if (R0 && R0.bot) { R0.bot.stop(); delete rooms[R0.code]; ws.R = null; send(ws, { t: 'left' }); } return; }
     const R = ws.R; if (!R) return; let e;
     if (m.t === 'botlog') return send(ws, R.bot ? R.bot.logMsg() : { t: 'botlog', err: '봇 대전이 아닙니다' });

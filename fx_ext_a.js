@@ -15,6 +15,21 @@ module.exports = function (K, def) {
     const o = K.evOpts(R, t, cand), labels = o.labels.slice(); if (optional) labels.push('선택하지 않음');
     const i = yield { who: s, kind: 'opt', msg, labels, evp: o.evp }; const m = cand[+i]; return m === undefined ? null : m; }
 
+  // ── 자신의 증거를 손패에 넣는다 (FILE 이 아니라 증거 에리어). pos 'pick' = 직접 고름(뒷면은 위치만 보임), 'top' = 증거 맨 위(「上から」). opt = 「加えてもよい」
+  def('evidToHand', o => ({ op: 'evidToHand', pos: opt(o.pos, ['pick', 'top'], 'pick'), opt: !!o.opt }), function* (R, s, src, o, ctx) {
+    ctx.done = false; const P = R.P[s], E = P.evid; if (!E.length) return; let id;
+    if (o.pos === 'top') { id = E[E.length - 1]; if (o.opt && !(yield { who: s, kind: 'yn', msg: '증거 맨 위 1장을 손패에 넣을까요?' })) return; }
+    else { id = yield* chooseEvid(R, s, s, '손패에 넣을 증거를 선택', !!o.opt, 'any'); if (id == null) return; }
+    const c = R.cards[id], wasUp = !!c.up; P.evid = P.evid.filter(x => x !== id); c.up = false; P.hand.push(id); setReg(ctx, 'moved', [id]);
+    say(R, `[효과] ${nm(s)} 증거 1장을 손패에` + (wasUp ? ` (${D(R, id).n})` : '')); ctx.done = true; });
+
+  // ── 손패 n장을 골라 뒷면 증거로 얻는다
+  def('handToEvid', o => ({ op: 'handToEvid', n: Math.max(1, Math.min(num(o.n, 1), 5)) }), function* (R, s, src, o, ctx) {
+    ctx.done = false; const P = R.P[s], k = Math.min(o.n, P.hand.length); if (!k) return;
+    const ids = P.hand.length === k ? P.hand.slice() : yield pickReq(s, `뒷면 증거로 얻을 손패 ${k}장 선택`, P.hand.slice(), k, k);
+    for (const id of ids) { if (!P.hand.includes(id)) continue; P.hand = P.hand.filter(x => x !== id); R.cards[id].up = false; P.evid.push(id); }
+    say(R, `[효과] ${nm(s)} 손패 ${ids.length}장을 뒷면 증거로`); bus(R, 'evgain', { s, by: 'effect' }); setReg(ctx, 'moved', ids); ctx.done = ids.length > 0; });
+
   // ── 증거를 1개까지 골라 (그 증거의 소유자의) 덱 아래로 옮긴다 (리무브가 아니므로 히라메키 없음)
   def('evidToDeck', o => ({ op: 'evidToDeck', who: opt(o.who, ['self', 'opp'], 'opp'), opt: o.opt !== false }), function* (R, s, src, o, ctx) {
     const t = side(s, o.who); ctx.done = false; const id = yield* chooseEvid(R, s, t, '덱 아래로 옮길 증거를 선택', o.opt, 'any'); if (id == null) return;

@@ -61,12 +61,12 @@ const DEF = R.defs, cid = { a, b, ov, oc }, imgOf = id => DEF[(mainView.P[s].fie
         ok(r && r.w > r.h * 1.25 && (r.tr === 'none' || r.tr === '') && !/land/.test(r.cls) && /kase/.test(r.cls) && (r.bef === 'none' || r.bef === 'normal') && /url/.test(r.bg) && /100%/.test(r.bs), `${T} ${sel}: 사건 이미지 회전 없음(원본 방향) ${JSON.stringify(r)}`); } }
     ok(!/손패\s*\d/.test(await pg.locator('#board').innerText()), `${T} '손패 N' 표시 삭제`);
     for (const pre of ['me', 'opp']) { const dk = await box(pg, `#${pre}-deck .pile`), rm = await box(pg, `#${pre}-rem .pile`), lb = await pg.locator(`#${pre}-rem .lab`).innerText();
-      ok(/^리무브 \d+$/.test(lb) && rm.y > dk.y + dk.height - 4 && Math.abs(cx(rm) - cx(dk)) < 6 && rm.width > 20, `${T} ${pre}: 덱 N 은 덱 위치, 리무브 N 은 별도 리무브 영역(카드 위치)에 표시`); }
+      ok(/^리무브 \d+$/.test(lb) && (pre === 'opp' ? dk.y > rm.y + rm.height - 4 : rm.y > dk.y + dk.height - 4) && Math.abs(cx(rm) - cx(dk)) < 6 && rm.width > 20, `${T} ${pre}: 덱 N 은 덱 위치, 리무브 N 은 별도 리무브 영역에 표시 (상대는 리무브 위 / 덱 아래)`); }
     ok((await box(pg, '#me-field .card')).height > (await box(pg, '#me-field .card')).width * 1.25 && part.height > part.width * 1.25, `${T} 캐릭터/파트너는 세로 카드 유지`);
     // 3) 증거는 사건 바로 아래 (같은 열, 사건 위 / 증거 아래)
     const evc = await box(pg, '#me-lp .pile'), oevc = await box(pg, '#opp-lp .pile');
     ok(evc.y > kase.y + kase.height - 2 && Math.abs(cx(evc) - cx(kase)) < 8 && evc.y - (kase.y + kase.height) < kase.height * 1.2, `${T} 나: 사건 위 / 증거 바로 아래`);
-    ok(oevc.y > oCase.y + oCase.height - 2 && Math.abs(cx(oevc) - cx(oCase)) < 8, `${T} 상대: 사건 위 / 증거 아래`);
+    ok(oCase.y > oevc.y + oevc.height - 2 && Math.abs(cx(oevc) - cx(oCase)) < 8, `${T} 상대: 증거 위 / 사건 아래 (내 쪽과 상하 대칭)`);
     ok(kase.x + kase.width <= fld.x && (await box(pg, '#me-deck')).x > fld.x + fld.width * 4, `${T} 왼쪽 열: 사건/증거, 오른쪽 열: 덱`);
     ok(pvb.x >= bd.x + bd.width - 2 && act.x >= bd.x + bd.width - 2 && act.y > pvb.y + pvb.height, `${T} 오른쪽 독립 패널: 위=큰 카드 미리보기, 아래=행동 버튼`);
     { // 로그는 보드 왼쪽, 디버그 UI 는 숨김

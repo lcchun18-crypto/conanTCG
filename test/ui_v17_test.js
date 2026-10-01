@@ -77,5 +77,16 @@ const J = x => JSON.parse(JSON.stringify(x)); let pass = 0, fail = 0; const ok =
   { const R = mkR(); decorate(R); const s = R.turn; const ids = ['e0', 'e1', 'e2'].map(k => { const id = U.give(R, s, k, 'evid'); R.cards[id].up = false; return id; }); R.cards[ids[1]].up = true; const pg = await open(R, J(S.view(R, s)));
     const z = await pg.evaluate(() => [...document.querySelectorAll('#me-lp .pile .card')].map(e => ({ pos: +e.dataset.pos, z: +getComputedStyle(e).zIndex, up: e.classList.contains('upf') })).sort((a, b) => a.pos - b.pos));
     ok(z.length === 3 && z[1].up && z[0].z < z[1].z && z[1].z < z[2].z, `증거 더미 쌓임 순서 = 증거 순서 (z: ${z.map(x => x.pos + (x.up ? '앞' : '뒤') + ':' + x.z).join(', ')})`); await pg.screenshot({ path: OUT + '/10_evid_order.png', clip: { x: 170, y: 420, width: 200, height: 240 } }); await pg.context().close(); }
+  // ⑪ 상대 쪽 배치: 증거가 위·사건이 아래, 리무브가 위·덱이 아래 (내 쪽과 상하 대칭)
+  { const R = mkR(); decorate(R); const s = R.turn; const pg = await open(R, J(S.view(R, s)));
+    const y = await pg.evaluate(() => { const t = sel => document.querySelector(sel).getBoundingClientRect().top; return { oppEv: t('#opp-lp'), oppCase: t('#opp-case'), oppRem: t('#opp-rem'), oppDeck: t('#opp-deck'), meCase: t('#me-case'), meEv: t('#me-lp') }; });
+    ok(y.oppEv < y.oppCase, `상대: 증거(${Math.round(y.oppEv)}) 가 사건(${Math.round(y.oppCase)}) 위`); ok(y.oppRem < y.oppDeck, `상대: 리무브(${Math.round(y.oppRem)}) 가 덱(${Math.round(y.oppDeck)}) 위`); ok(y.meCase < y.meEv, '내 쪽: 사건이 증거 위 (기존 유지)'); await pg.screenshot({ path: OUT + '/11_layout.png' }); await pg.context().close(); }
+  // ⑫ 멀리건/준비/종료 단계의 상태 알약(턴/단계) 숨김, 진행 중에는 표시 + 로비로 버튼은 항상 표시
+  { const R = mkR(); decorate(R); const s = R.turn; const v = J(S.view(R, s)); const pg = await open(R, { ...v, phase: 'mull', mull: s });
+    const vis = id => pg.evaluate(i => getComputedStyle(document.getElementById(i)).display !== 'none', id);
+    ok(!(await vis('turnb')) && !(await vis('info')), '멀리건 단계: 단계 알약 두 개 숨김'); ok(await vis('leaveBtn'), '멀리건 중에도 로비로 버튼 표시');
+    await push(pg, v); ok((await vis('turnb')) && (await vis('info')) && await vis('leaveBtn'), '진행 중: 턴 알약 표시 + 로비로 버튼 표시');
+    await pg.evaluate(() => { window.confirm = () => true; }); await pg.click('#leaveBtn'); ok(await pg.evaluate(() => window.__sent.some(m => m.t === 'leaveRoom')), '로비로 버튼 → 서버에 leaveRoom 전송 (일반 대전)');
+    await push(pg, { ...v, bot: true, botName: 'BOT' }); await pg.click('#leaveBtn'); ok(await pg.evaluate(() => window.__sent.some(m => m.t === 'leaveBot')), '봇 대전: leaveBot 전송'); await pg.context().close(); }
   await br.close(); console.log(`\nui_v17_test: ${pass} 통과, ${fail} 실패`); process.exit(fail ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });
