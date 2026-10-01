@@ -87,7 +87,7 @@ class BotCtl {
 }
 
 function createRoom({ rooms, mkR, ready, dispatch, loadCards, say, cl, ws, m, send, bc }) {
-  const DB = loadCards().cards, specId = m.bot && m.bot !== 'expert' ? String(m.bot) : null; let bd = m.botDeck || {}, botName = 'BOT / EXPERT';
+  const DB = loadCards().cards, legacy = m.bot === 'classic', specId = m.bot && m.bot !== 'expert' && !legacy ? String(m.bot) : null; let bd = m.botDeck || {}, botName = 'BOT / EXPERT';
   if (specId) { const r = require('./specialists/registry.js').botDeck(specId, DB); bd = r.deck; botName = r.spec.name; } // 전문 봇: 등록된 고정 덱 (클라이언트가 보낸 덱은 무시), 검증 실패 시 이유를 담은 오류
   const cards = bd.cards || {}, list = [];
   for (const [id, n] of Object.entries(cards)) { if (!DB[id]) throw new Error('카드 DB에 없는 카드: ' + id); for (let i = 0; i < Math.max(0, Math.min(+n || 0, 40)); i++) list.push(id); }
@@ -96,7 +96,7 @@ function createRoom({ rooms, mkR, ready, dispatch, loadCards, say, cl, ws, m, se
   const R = rooms[c] = mkR(c); R.ws[0] = ws; R.firstPref = m.first === 'first' ? 0 : m.first === 'second' ? 1 : undefined;
   const fake = { readyState: 1, bot: true, send() {}, close() {} }; R.ws[1] = fake;
   const defs = {}; for (const id of [...new Set(list), bd.partner, bd.kase]) defs[id] = DB[id];
-  const ctl = new BotCtl(R, 1, { dispatch, bc }); R.bot = ctl; ctl.name = botName; ctl.specialist = specId; if (specId) ctl.cfg.specialist = specId;
+  const ctl = new BotCtl(R, 1, { dispatch, bc }); R.bot = ctl; ctl.name = botName; ctl.specialist = specId; if (specId) ctl.cfg.specialist = specId; else if (!legacy) ctl.cfg.specialist = 'pro';   // v1.2.0: 범용 Expert 는 PRO 전략 정책(bot/pro.js)을 쓴다. 'classic' 은 이전 방식
   const e = dispatch(R, 1, { t: 'ready', defs, list, partner: bd.partner, kase: bd.kase }); if (e) { delete rooms[c]; throw new Error('봇 덱이 규칙에 맞지 않습니다: ' + e); }
   say(R, '🤖 ' + botName + ' 와의 대전입니다. 내 덱을 등록하면 시작합니다.'); return R;
 }

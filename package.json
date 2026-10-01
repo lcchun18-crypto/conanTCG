@@ -1,6 +1,6 @@
 {
   "name": "conan-sim",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -14,7 +14,9 @@
     "test:mobile": "node test/mobile_test.js",
     "test:autoload": "node test/autoload_test.js",
     "test:add": "python3 test/addcards_test.py",
-    "test:bot": "node test/bot_units.js && node test/bot_regress.js && node test/bot_room_test.js",
+    "test:bot": "node test/bot_units.js && node test/bot_regress.js && node test/bot_pro_test.js && node test/bot_room_test.js",
+    "test:bot:pro": "node test/bot_pro_test.js",
+    "bot:match": "node test/bot_match.js",
     "test:bot:selfplay": "node test/bot_selfplay.js --games 100 --a expert --b heuristic --nodes 800",
     "test:bot:stress": "node test/bot_stress.js",
     "test:bot:ui": "node test/bot_ui_test.js",

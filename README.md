@@ -342,3 +342,10 @@ node test/specialist_eval.js fbi_red --games 12 [--vs all] [--heur 1]
 - 판별 우선순위: ① 좌상단 FILE 코스트 원 배경 → ② 프레임 고정 색 영역(상단 띠) → ③ 보조 마커(바깥 테두리) → ④ OCR/API 모델 색. 일러스트 분위기·옷·배경색은 쓰지 않는다. 6색 체계 유지.
 - FILE 원은 상대 좌표 탐색창에서 24방향 고리 대비로 위치를 찾고(해상도 무관), 원 안쪽 0.38~0.80R 4겹×24방향 96점을 HSV 로 투표한다(테두리·숫자·광택은 제외, 연한 파스텔은 채도 규칙으로 유채색 처리).
 - `python3 test/color_test.py` (fixture: test/fixtures/color/jodie_red.png → red), `python3 test/color_scan.py [--fix]` → `color_suspects.csv`. `--fix` 는 '확실'한 단일색 불일치의 color 필드만 교정(백업 생성), 나머지는 CSV 보류.
+
+## v1.2.0 — 봇 AI 강화 (PRO 전략 정책)
+- `bot/pro.js` (신규): 탐색 엔진 위에 얹는 전략 정책. 기본 봇(범용 Expert)이 이 정책을 쓰며, 이전 방식은 `createBot` 의 `bot:'classic'` 으로만 남아 있다.
+- 반영한 원칙: ①서 있는 캐릭터가 죽는 가드 감점(액티브 캐릭터 가치↑) ②·⑥·⑦ 이른 넥스트 힌트 금지(선공은 어시스트 포함 FILE 8, 후공은 9 가 되기 전까지 탐색에서 제외, 힌트 후 FILE 6 미만 금지) ③ 결과를 못 바꾸는 컷인 낭비 감점(손패 가치↑) ④ 상대 캐릭터+증거로 사건 해결선에 닿으면 큰 감점(내가 닿으면 가점) ⑤ 상대 필드 전멸 보너스 ⑧ 중반 이후 FILE 6 유지 ⑨ 낼 수 있는 캐릭터가 있으면 턴 종료 금지 + 멀리건에서 FILE 곡선(선공 1·3·5·7 / 후공 2·4·6·8)에 맞는 캐릭터 확보. 높은 레벨(9·8·7) 우선 플레이는 행동 순서·필드 레벨 가점으로 반영.
+- 킬각은 기존 탐색(승리 라인 즉시 채택)이 그대로 최우선이다.
+- `search.js`: 정책의 `ban(R, mv, moves)` 훅(메인 페이즈 계획에서 금지할 행동) 추가. `test/bot_pro_test.js`(규칙 테스트), `test/bot_match.js`(덱 파일로 두 봇 대결 + 행동 품질 지표).
+- 사용: `node test/bot_match.js --deck my.json --a expert --b spec:pro --games 40 --nodes 1500` (expert = 이전 방식, spec:pro = 강화판)

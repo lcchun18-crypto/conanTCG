@@ -57,7 +57,7 @@ function botDeck(id, DB) {
   const ck = check(s, DB); if (!ck.ok) throw new Error(`"${s.name}" 의 덱/프로필이 올바르지 않습니다 — ` + ck.errors.slice(0, 4).join(' / '));
   return { spec: s, deck: DF.toBotDeck(s.deck) };
 }
-function policyFor(id, seat, R) { const s = get(id); if (!s) throw new Error('등록되지 않은 전문 봇: ' + id); return POL.buildPolicy(s, { seat, R }); }
+function policyFor(id, seat, R) { if (id === 'pro') return require('../pro.js').policy(seat, R); const s = get(id); if (!s) throw new Error('등록되지 않은 전문 봇: ' + id); return POL.buildPolicy(s, { seat, R }); }
 // 테스트 전용: 파일 없이 mock specialist 등록/해제
 function _register(mod) { const r = readSpec(mod, 'mock'); if (!r.spec) throw new Error(r.errors.join('; ')); _extra.set(r.spec.id, r.spec); if (_specs) _specs.set(r.spec.id, r.spec); return r.spec; }
 function _unregister(id) { _extra.delete(id); if (_specs) _specs.delete(id); }

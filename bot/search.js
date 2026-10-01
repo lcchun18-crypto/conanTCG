@@ -110,7 +110,8 @@ class Searcher {
       const next = new Map();
       for (const e of layer) {
         this.check();
-        let moves = genMoves(e.R, val); const endMv = moves.find(m => m.tag === 'end');
+        let moves = genMoves(e.R, val); const pb = this.policy && this.policy.ban; if (pb) { const all = moves, f = all.filter(m => !pb(e.R, m, all)); if (f.length) moves = f; }   // 정책이 금지한 행동(조기 힌트·낼 캐릭터가 있는데 턴 종료) 제외
+        const endMv = moves.find(m => m.tag === 'end');
         if (moves.length > it.cap) { moves = moves.map(m => [priority(e.R, m, this.policy), m]).sort((a, b) => b[0] - a[0]).slice(0, it.cap).map(x => x[1]); if (endMv && !moves.includes(endMv)) moves.push(endMv); }
         else moves = moves.map(m => [priority(e.R, m, this.policy), m]).sort((a, b) => b[0] - a[0]).map(x => x[1]);
         for (const mv of moves) {
