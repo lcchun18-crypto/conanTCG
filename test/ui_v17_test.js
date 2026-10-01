@@ -46,5 +46,12 @@ const J = x => JSON.parse(JSON.stringify(x)); let pass = 0, fail = 0; const ok =
     await pg.screenshot({ path: OUT + `/5_${w ? 'win' : 'lose'}.png` }); await pg.click('#endb .eclose'); ok(await pg.evaluate(() => !document.getElementById('endb').classList.contains('on')), '닫기 버튼으로 배너 닫힘'); await pg.context().close(); }
   // ③ 덱 빌더 카드 상세에도 ID — 기존 deck UI 테스트가 있는 전역 함수 직접 확인
   { const R = mkR(); const pg = await open(R, J(S.view(R, R.turn))); const t = await pg.evaluate(() => { DB.cards = { id_9999: { id: 'id_9999', n: 'X', type: 'char', color: 'red', lv: '1', ap: '1000', lp: '1' } }; bPv('id_9999'); return document.getElementById('dbChips').textContent; }); ok(/카드 ID: id_9999/.test(t), `덱 빌더 카드 상세에 카드 ID (${t})`); await pg.context().close(); }
+  // ⑥ 봇 대전 시작 시 로딩 표시: 시작 직후 표시 → 게임 상태(v)를 받으면 사라짐, 오류 시에도 사라짐
+  { const R = mkR(); const pg = await open(R, J(S.view(R, R.turn))); await pg.evaluate(() => { document.getElementById('game').style.display = 'none'; document.getElementById('lobby').style.display = ''; });
+    await pg.evaluate(() => { DB.cards = { id_1: { id: 'id_1', n: 'x', type: 'char' } }; DB.decks = { d1: { name: 'd', cards: { id_1: 40 }, partner: 'id_1', kase: 'id_1' } }; botStart({ my: 'd1', dk: 'd1', bot: 'expert', first: 'random' }); });
+    const shown = await pg.evaluate(() => ({ on: document.getElementById('ldg').classList.contains('on'), sent: window.__sent.some(m => m.t === 'createBot'), txt: document.getElementById('ldg').textContent }));
+    ok(shown.on && shown.sent && /준비하는 중/.test(shown.txt), '봇 대전 시작 직후 로딩 표시 (' + shown.txt.slice(0, 20) + ')');
+    await push(pg, J(S.view(R, R.turn))); ok(await pg.evaluate(() => !document.getElementById('ldg').classList.contains('on')), '게임 화면 수신 후 로딩 표시 사라짐');
+    await pg.evaluate(() => loading(true)); await pg.evaluate(() => window.__ws.onmessage({ data: JSON.stringify({ t: 'err', msg: 'x' }) })); ok(await pg.evaluate(() => !document.getElementById('ldg').classList.contains('on')), '오류 수신 시에도 로딩 표시 사라짐'); await pg.screenshot({ path: OUT + '/6_loading.png' }); await pg.context().close(); }
   await br.close(); console.log(`\nui_v17_test: ${pass} 통과, ${fail} 실패`); process.exit(fail ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });

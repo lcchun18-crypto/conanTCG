@@ -128,6 +128,7 @@ body.m #firstb,body.m #turnb{white-space:nowrap}body.m #firstb{font-size:11px;pa
 /* ── 중앙 바 ── */
 #mid{flex:none;min-height:46px;display:flex;align-items:center;gap:12px;padding:5px 14px;border-radius:12px;background:linear-gradient(#1c2938,#141e2a);border:1px solid #ffffff1c;box-shadow:0 4px 14px #0007;position:relative;z-index:2}
 #endb{display:none;position:fixed;inset:0;z-index:60;align-items:center;justify-content:center;background:#000a;pointer-events:none}#endb.on{display:flex;animation:ebin .5s ease-out}#endb .eb{text-align:center;pointer-events:auto;padding:30px 70px 22px;border-radius:22px;border:3px solid var(--gold);background:linear-gradient(#22303f,#111a24);box-shadow:0 0 80px #f2bd4b66,0 20px 60px #000c}#endb.lose .eb{border-color:#7b8ba0;box-shadow:0 0 60px #0008,0 20px 60px #000c}#endb .et{font-size:clamp(48px,9vw,120px);font-weight:900;letter-spacing:4px;color:var(--gold);text-shadow:0 4px 0 #8a5b0c,0 0 40px #f2bd4b88;line-height:1.1}#endb.lose .et{color:#aab6c6;text-shadow:0 4px 0 #2a3441}#endb .es{margin-top:8px;font-size:clamp(14px,2vw,22px);color:#dfe8f2}#endb .eclose{margin-top:16px}@media(prefers-reduced-motion:reduce){#endb.on{animation:none}}@keyframes ebin{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:none}}
+#ldg{display:none;position:fixed;inset:0;z-index:90;align-items:center;justify-content:center;background:#000b}#ldg.on{display:flex}#ldg .ldb{text-align:center;padding:26px 44px;border-radius:16px;border:1.5px solid var(--gold);background:linear-gradient(#22303f,#16212d);box-shadow:0 16px 50px #000c}#ldg .ldt{margin-top:14px;font-size:18px;font-weight:800;color:var(--gold)}#ldg small{display:block;margin-top:6px;color:var(--mut)}#ldg .spin{width:46px;height:46px;margin:0 auto;border-radius:50%;border:5px solid #f2bd4b33;border-top-color:var(--gold);animation:ldsp .9s linear infinite}@keyframes ldsp{to{transform:rotate(360deg)}}
 #msg{flex:1 1 200px;font-size:14px;font-weight:600;color:#dfe8f2}#err{color:#ff9b94;flex:none;font-weight:600}
 #btns{display:flex;flex-wrap:wrap;gap:8px}#btns button{padding:9px 20px;font-size:14px}
 /* ── 오버레이(효과 선택/덱 확인) ── */
@@ -425,6 +426,7 @@ body.m #dbErr>div{max-width:94vw}
 <button class="pri" onclick="S({t:'create'})">방 만들기 (호스트)</button> <button class="bot" id="botBtn" onclick="botOpen()">🤖 봇과 대전</button><br>
 <input id="code" placeholder="방 코드" maxlength="4" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="go" onkeydown="if(event.key==='Enter'){S({t:'join',code:this.value});this.blur()}" style="text-transform:uppercase;width:130px;text-align:center"><button onclick="S({t:'join',code:code.value})">입장 (게스트)</button>
 <div id="cdbErrL" class="dberr"><b class="dbm"></b><br><small>서버의 data/cards.json 을 읽지 못했습니다. 서버 관리자에게 알려 주세요.</small><br><button onclick="retryDb()">다시 시도</button></div><br><button class="ghost" onclick="openDB()">카드 / 덱 관리</button><p id="lerr"></p></div>
+<div id="ldg" role="status" aria-live="polite"><div class="ldb"><div class="spin"></div><div class="ldt">봇 대전을 준비하는 중…</div><small>덱과 AI를 불러오고 있습니다. 잠시만 기다려 주세요.</small></div></div>
 <div id="botm"><div><b>🤖 봇과 대전</b>
 <div id="botList"></div>
 <label>내 덱 <select id="botMy"></select></label><label id="botDkL">봇 덱 <select id="botDk"></select></label><div id="botFixed" style="display:none"></div>
@@ -497,11 +499,11 @@ const A=(a,o={})=>{if(M)closeSheet();S({t:'act',a,...o})};
 function onMsg(e){let m;try{m=JSON.parse(e.data)}catch{return}
  if(m.t==='joined')sessPut({code:m.code,seat:m.seat,token:m.token});
  else if(m.t==='resumeFail'){sessPut(null);toLobby();netUI('warn',m.msg||'방을 복구하지 못했습니다.')}
- else if(m.t==='err'){$('lerr').textContent=m.msg;$('err').textContent=m.msg;setTimeout(()=>$('err').textContent='',4000)}
+ else if(m.t==='err'){loading(false);$('lerr').textContent=m.msg;$('err').textContent=m.msg;setTimeout(()=>$('err').textContent='',4000)}
  else if(m.t==='defs'){DEFS=m.defs;V&&render()}
  else if(m.t==='left'){sessPut(null);toLobby();if(botAuto==='restart'&&botCfg)botStart(botCfg);else botAuto=false}
  else if(m.t==='botlog'){if(m.err)return alert(m.err);const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(m.log,null,1)],{type:'application/json'}));a.download='conan-bot-log.json';a.click()}
- else if(m.t==='v'){V=m;if(m.phase==='over'&&NET.sess)sessPut(null);if(V.bot&&botAuto===true&&V.phase==='setup'&&!V.P[0].ready){botAuto=false;loadDeck()}$('lobby').style.display='none';$('game').style.display='flex';document.body.classList.add('ing');sizes();if(!V.sub||V.sub.who!==V.me)selm=selm;render()}}
+ else if(m.t==='v'){loading(false);V=m;if(m.phase==='over'&&NET.sess)sessPut(null);if(V.bot&&botAuto===true&&V.phase==='setup'&&!V.P[0].ready){botAuto=false;loadDeck()}$('lobby').style.display='none';$('game').style.display='flex';document.body.classList.add('ing');sizes();if(!V.sub||V.sub.who!==V.me)selm=selm;render()}}
 function toLobby(){V=null;prevSolved=null;document.body.classList.remove('ing','topopen','logopen');try{closeSheet()}catch{}$('game').style.display='none';$('lobby').style.display=''}
 netUI('conn','서버 연결 중...');netConnect();
 const kw=f=>String(f.kw||'').toLowerCase();
@@ -902,10 +904,11 @@ function botSync(){const sp=botSpecs.find(x=>x.id===botSel);if(botSel!=='expert'
 async function botLoadSpecs(){try{const r=await fetch('/api/specialists',{cache:'no-store'});const j=await r.json();botSpecs=j.specialists||[]}catch(e){botSpecs=[]}if(botSel!=='expert'&&!botSpecs.some(x=>x.id===botSel&&x.ok))botSel='expert';botRenderList();botSync()}
 function botOpen(){if(cdbErr)return alert('카드 DB를 불러올 수 없습니다.');const L=botDecks();$('botErr').textContent=L.length?'':'저장된 완성 덱(40장 + 사건 + 파트너)이 없습니다. "카드 / 덱 관리"에서 먼저 덱을 저장하세요.';
  const o=L.map(([k,d])=>`<option value="${k}">${esc(d.name)}</option>`).join('');$('botMy').innerHTML=o;$('botDk').innerHTML=o;if(L.length&&botCfg){if(DB.decks[botCfg.my])$('botMy').value=botCfg.my;if(DB.decks[botCfg.dk])$('botDk').value=botCfg.dk;if(botCfg.bot)botSel=botCfg.bot}botRenderList();botSync();botLoadSpecs();$('botm').style.display='flex'}
+let ldT=0;function loading(on){const e=$('ldg');if(!e)return;e.classList.toggle('on',!!on);clearTimeout(ldT);if(on)ldT=setTimeout(()=>loading(false),30000)}
 function botStart(cfg){if(!cfg){const my=$('botMy').value,dk=$('botDk').value,spec=botSel!=='expert';if(!my||(!spec&&!dk)){$('botErr').textContent='덱을 선택하세요.';return}cfg={my,dk,bot:botSel,first:(document.querySelector('input[name=bf]:checked')||{}).value||'random'}}
- const spec=cfg.bot&&cfg.bot!=='expert',b=DB.decks[cfg.dk],m=DB.decks[cfg.my];if(!m||(!spec&&!b)){$('botErr').textContent='선택한 덱을 찾을 수 없습니다.';return}botCfg=cfg;botAuto=true;curDeck=cfg.my;$('dsel').value=cfg.my;$('botm').style.display='none';
- S(spec?{t:'createBot',first:cfg.first,bot:cfg.bot}:{t:'createBot',first:cfg.first,bot:'expert',botDeck:{cards:b.cards,partner:b.partner,kase:b.kase}})}
-function botRestart(){if(S({t:'leaveBot'}))botAuto='restart'}
+ const spec=cfg.bot&&cfg.bot!=='expert',b=DB.decks[cfg.dk],m=DB.decks[cfg.my];if(!m||(!spec&&!b)){$('botErr').textContent='선택한 덱을 찾을 수 없습니다.';return}botCfg=cfg;botAuto=true;curDeck=cfg.my;$('dsel').value=cfg.my;$('botm').style.display='none';loading(true);
+ if(!S(spec?{t:'createBot',first:cfg.first,bot:cfg.bot}:{t:'createBot',first:cfg.first,bot:'expert',botDeck:{cards:b.cards,partner:b.partner,kase:b.kase}}))loading(false)}
+function botRestart(){if(S({t:'leaveBot'})){botAuto='restart';loading(true)}}
 function botLobby(){botAuto=false;if(S({t:'leaveBot'}))botAuto='lobby'}
 function botLog(){S({t:'botlog'})}
 
