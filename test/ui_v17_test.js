@@ -65,5 +65,17 @@ const J = x => JSON.parse(JSON.stringify(x)); let pass = 0, fail = 0; const ok =
     const bs = await pg.evaluate(() => [...document.querySelectorAll('#act button')].map(b => ({ t: b.textContent, fs: parseFloat(getComputedStyle(b).fontSize), w: b.scrollWidth <= b.clientWidth + 1 })));
     ok(bs[0].t.includes('짧은 능력') && !/능력 \d 사용/.test(bs[0].t), `${T}: 능력 1 버튼에 실제 텍스트 (${bs[0].t})`); ok(bs[1].t === LONG, `${T}: 능력 2 버튼에 능력 전체 텍스트`); ok(bs[1].fs < bs[0].fs && bs[1].fs >= 10, `${T}: 긴 텍스트는 작은 글씨 (${bs[0].fs}px → ${bs[1].fs}px)`); ok(bs.every(b => b.w), `${T}: 버튼 안에서 가로로 넘치지 않음`);
     if (!mobile) await pg.screenshot({ path: OUT + '/8_ability_btn.png' }); await pg.context().close(); }
+  // ⑨ 효과 팝업 숨기기/다시 열기 (필드 확인용)
+  for (const mobile of [false, true]) { const T = mobile ? '모바일' : 'PC'; const R = mkR(); decorate(R); const s = R.turn; for (const k of ['e0', 'e1']) { const id = U.give(R, s, k, 'evid'); R.cards[id].up = false; } U.play(R, s, U.hand(R, s, 'ask')); const v = J(S.view(R, s)); const pg = await open(R, v, { mobile });
+    const st = () => pg.evaluate(() => ({ popup: !!document.querySelector('#effp .box') && getComputedStyle(document.getElementById('effp')).display !== 'none', btn: getComputedStyle(document.getElementById('effTog')).display !== 'none', txt: document.getElementById('effTog').textContent, dim: getComputedStyle(document.getElementById('board'), '::after').display }));
+    let a1 = await st(); ok(a1.popup && a1.btn, `${T}: 효과 팝업 + 토글 버튼 표시 (${a1.txt})`);
+    await pg.click('#effTog'); let a2 = await st(); ok(!a2.popup && a2.btn && /다시 열기/.test(a2.txt) && a2.dim === 'none', `${T}: 눌러서 팝업/어둡게 제거 → 필드 보임 (${a2.txt})`); await pg.screenshot({ path: OUT + `/9_hidden_${mobile ? 'm' : 'pc'}.png` });
+    const clickable = await pg.evaluate(() => { const e = document.querySelector('#me-field .card, #hand .card'); const r = e.getBoundingClientRect(); const t = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return !!t && (t === e || e.contains(t) || t.contains(e)); }); ok(clickable, `${T}: 숨긴 동안 필드 카드가 가려지지 않음`);
+    await pg.click('#effTog'); let a3 = await st(); ok(a3.popup && /필드 보기/.test(a3.txt), `${T}: 다시 누르면 팝업 복귀`);
+    await push(pg, J({ ...v, eff: null })); ok(!(await st()).btn, `${T}: 효과가 끝나면 버튼 사라짐`); await pg.context().close(); }
+  // ⑩ 증거 더미 정렬: 앞면이 된 증거도 원래 순서대로 쌓인다 (뒤에 있는 뒷면 카드가 앞면 위로 올라와야 함)
+  { const R = mkR(); decorate(R); const s = R.turn; const ids = ['e0', 'e1', 'e2'].map(k => { const id = U.give(R, s, k, 'evid'); R.cards[id].up = false; return id; }); R.cards[ids[1]].up = true; const pg = await open(R, J(S.view(R, s)));
+    const z = await pg.evaluate(() => [...document.querySelectorAll('#me-lp .pile .card')].map(e => ({ pos: +e.dataset.pos, z: +getComputedStyle(e).zIndex, up: e.classList.contains('upf') })).sort((a, b) => a.pos - b.pos));
+    ok(z.length === 3 && z[1].up && z[0].z < z[1].z && z[1].z < z[2].z, `증거 더미 쌓임 순서 = 증거 순서 (z: ${z.map(x => x.pos + (x.up ? '앞' : '뒤') + ':' + x.z).join(', ')})`); await pg.screenshot({ path: OUT + '/10_evid_order.png', clip: { x: 170, y: 420, width: 200, height: 240 } }); await pg.context().close(); }
   await br.close(); console.log(`\nui_v17_test: ${pass} 통과, ${fail} 실패`); process.exit(fail ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });
