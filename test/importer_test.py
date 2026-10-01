@@ -14,7 +14,7 @@ def mkimgs(d, n_green=3, n_orange=2, n_blue=3, corrupt=0):
     d.mkdir(parents=True, exist_ok=True); k = 0
     for name, col, cnt in (("B", (30, 150, 60), n_green), ("E", (230, 150, 20), n_orange), ("C", (30, 70, 200), n_blue)):
         for i in range(cnt):
-            im = Image.new("RGB", (630 + i, 880), col); ImageDraw.Draw(im).rectangle((25, 25, 605, 855), fill=(240, 235, 220)); im.save(d / f"{name}{i:02d}001_p.png"); k += 1
+            im = Image.new("RGB", (630 + i, 880), col); dr = ImageDraw.Draw(im); dr.rectangle((25, 25, 605, 855), fill=(240, 235, 220)); dr.ellipse((54 - 37, 64 - 37, 54 + 37, 64 + 37), fill=col, outline=(245, 245, 245), width=8); im.save(d / f"{name}{i:02d}001_p.png"); k += 1
     for i in range(corrupt): (d / f"Z{i:02d}999_bad.png").write_bytes(b"not an image at all")
     return d
 
@@ -127,9 +127,9 @@ def _():
     d2 = {"color": "blue", "flags": [], "type": "char"}; IC.check_color(d2, im); ok(d2["flags"] == [], f"오탐 플래그가 남음: {d2['flags']}")
 
 
-@t("색 판별: 빨강/초록/보라/노랑 배지 + 반대 색 테두리, 가로형 사건 카드, 실제 20장 썸네일 전부 blue")
+@t("색 판별: 빨강/초록/노랑 배지 + 반대 색 테두리, 가로형 사건 카드, 실제 20장 썸네일 전부 blue")
 def _():
-    for col, rgb in (("red", (210, 30, 40)), ("green", (30, 160, 70)), ("purple", (130, 50, 170)), ("yellow", (235, 200, 20)), ("blue", (30, 80, 210))):
+    for col, rgb in (("red", (210, 30, 40)), ("green", (30, 160, 70)), ("yellow", (235, 200, 20)), ("blue", (30, 80, 210))):
         im = Image.new("RGB", (172, 240), (245, 245, 240)); d = ImageDraw.Draw(im); d.rectangle((0, 0, 171, 239), outline=(20, 90, 200) if col != "blue" else (200, 40, 40), width=6); d.ellipse((6, 8, 26, 28), fill=rgb)
         ok(IC.card_color(im) == (col, "badge"), f"{col}: {IC.card_color(im)}")
     im = Image.new("RGB", (240, 172), (245, 245, 240)); ImageDraw.Draw(im).ellipse((6, 6, 26, 26), fill=(30, 80, 210)); ok(IC.card_color(im) == ("blue", "badge"), f"가로형 사건 카드 {IC.card_color(im)}")
@@ -139,8 +139,10 @@ def _():
 
 @t("색 판별: 배지로 못 정하면 테두리는 '참고'로만 표시(불일치 확정 플래그 아님), 모델 색이 없을 때만 보정에 사용")
 def _():
-    im = Image.new("RGB", (172, 240), (20, 20, 20)); d = {"color": "red", "flags": [], "type": "char"}; IC.check_color(d, im)
-    ok(all("참고" in f for f in d["flags"]) or not d["flags"], d["flags"]); d = {"color": "", "flags": [], "type": "char"}; IC.check_color(d, im); ok(d["color"] == "black" and d["flags"], d)
+    im = Image.new("RGB", (172, 240), (225, 225, 220)); ImageDraw.Draw(im).ellipse((6, 8, 26, 28), fill=(20, 20, 20), outline=(240, 240, 240), width=2)
+    d = {"color": "red", "flags": [], "type": "char"}; IC.check_color(d, im); ok(d["color"] == "red" and any("색 불일치" in f for f in d["flags"]), f"무채색 원은 자동 교정하지 않고 표시만: {d}")
+    d = {"color": "", "flags": [], "type": "char"}; IC.check_color(d, im); ok(d["color"] == "black" and d["flags"], d)
+    blank = Image.new("RGB", (172, 240), (20, 20, 20)); d = {"color": "red", "flags": [], "type": "char"}; IC.check_color(d, blank); ok(d["color"] == "red" and not d["flags"], f"원이 안 보이면 모델 색 유지(4순위): {d}")
 
 
 @t("규칙 변환: 실제 20장의 모델 출력 → manual 13장이 모두 골든 구조와 일치 (API 없음)")

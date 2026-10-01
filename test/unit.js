@@ -52,8 +52,8 @@ t('컷인: 자기 턴 AP+3000 / 상대 턴 AP+1000 조건 분기', () => { const
   act(R, s, { a: 'action', id: a, k: 'char', tid: d }); act(R, o, { a: 'guard', id: null }); ok(R.sub && R.sub.type === 'contact', 'contact'); if (R.sub.who !== s) act(R, R.sub.who, { a: 'pass' });
   eq(act(R, s, { a: 'cin', id: c }), undefined, 'cutin'); eq(S.ap(R, a), 5000, 'AP+3000 (my turn)'); });
 
-t('수동 처리 폴백: manual op는 로그만 남기고 진행', () => { const R = game({ m: ch('M', { ab: [{ ic: 'onplay', ops: [{ op: 'manual', txt: '複雑な効果' }, { op: 'draw', n: 1 }] }] }) }, ['m']); const s = cur(R);
-  const id = give(R, s, 'm'); const h = R.P[s].hand.length; act(R, s, { a: 'play', id }); ok(R.log.some(l => l.includes('수동 처리 필요')), 'log'); eq(R.P[s].hand.length, h, 'drew after manual'); });
+t('미지원 op: 사용자에게 수동 처리를 요구하지 않고 건너뛰며 나머지 효과는 진행', () => { const R = game({ m: ch('M', { ab: [{ ic: 'onplay', ops: [{ op: 'manual', txt: '複雑な効果' }, { op: 'draw', n: 1 }] }] }) }, ['m']); const s = cur(R);
+  const id = give(R, s, 'm'); const h = R.P[s].hand.length; act(R, s, { a: 'play', id }); ok(!R.log.some(l => /수동/.test(l)), '수동 문구 없음'); eq(R.P[s].hand.length, h, 'drew after skip'); });
 
 t('이벤트: 효과 해결 동안 리무브 에리어에 없고, 해결 후 이동', () => { const R = game({ ev: { n: 'Ev', type: 'event', color: 'red', lv: '0', ab: [{ ic: 'event', ops: [{ op: 'discard', n: 1 }] }] } }, ['ev']); const s = cur(R);
   const id = give(R, s, 'ev'); act(R, s, { a: 'play', id }); ok(R.eff, 'prompt'); ok(!R.P[s].rem.includes(id), 'not in rem yet'); act(R, s, { a: 'ans', v: [R.P[s].hand[0]] }); ok(R.P[s].rem.includes(id), 'in rem after'); });

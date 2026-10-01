@@ -4,3 +4,4 @@ data/backups/
 data/reports/
 *.log
 .env
+color_suspects.csv

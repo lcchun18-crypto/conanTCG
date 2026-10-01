@@ -71,7 +71,7 @@ const DEF = R.defs, cid = { a, b, ov, oc }, imgOf = id => DEF[(mainView.P[s].fie
     ok(pvb.x >= bd.x + bd.width - 2 && act.x >= bd.x + bd.width - 2 && act.y > pvb.y + pvb.height, `${T} 오른쪽 독립 패널: 위=큰 카드 미리보기, 아래=행동 버튼`);
     { // 로그는 보드 왼쪽, 디버그 UI 는 숨김
       const lg = await box(pg, '#logc'); ok(lg.x + lg.width <= bd.x + 2 && (lg.width >= 100 || w < 1200) && lg.height > 300, `${T} 플레이 로그는 왼쪽 열 (${Math.round(lg.width)}px)`);
-      ok(await pg.evaluate(() => getComputedStyle(document.getElementById('devp')).display === 'none' && !/효과 도구|효과 자동/.test(document.getElementById('side').innerText) && document.getElementById('log').scrollHeight >= 0), `${T} 효과 도구/자동처리 표시는 일반 화면에서 숨김`); }
+      ok(await pg.evaluate(() => !document.getElementById('devp') && !document.getElementById('menu') && typeof cmenu === 'undefined' && !document.getElementById('shMan') && !/효과 도구|수동|직접 처리|개발자/.test(document.body.innerText) && document.getElementById('log').scrollHeight >= 0), `${T} 효과 도구/자동처리 표시는 일반 화면에서 숨김`); }
     // 4) 카드 위 AP / 증거 / 코스트 텍스트 오버레이 없음
     ok(await pg.evaluate(() => [...document.querySelectorAll('#board .card')].every(c => !/AP\s?\d|증거\s?\d|cost|코스트|Lv\s?\d/i.test(c.innerText))), `${T} 카드 위에 AP/증거/코스트 텍스트가 없다`);
     { // 캐릭터 에어리어는 5칸만큼만 (타이트)

@@ -46,7 +46,7 @@ const realN = Object.keys(JSON.parse(fs.readFileSync(REAL, 'utf8')).cards).lengt
     ok(await X.pg.locator('#cdbErrL').isVisible() && /카드 DB를 불러올 수 없습니다\./.test(await X.pg.locator('#cdbErrL').innerText()), `DB ${nm}: 로비에 "카드 DB를 불러올 수 없습니다." 표시`);
     await X.pg.evaluate(() => openDB()); ok(await X.pg.locator('#cdbErrB').isVisible() && await X.pg.locator('#dbGrid .cc').count() === 0, `DB ${nm}: 덱 빌더는 빈 목록 대신 오류 표시`);
     ok(await X.pg.evaluate(() => Object.keys(DB.cards).length) === 0 && await X.pg.locator('#dsel').isDisabled(), `DB ${nm}: 덱 등록 불가`);
-    if (nm === '없음') { fs.writeFileSync(cf, JSON.stringify({ cards: JSON.parse(fs.readFileSync(REAL, 'utf8')).cards })); await X.pg.evaluate(() => retryDb()); await X.pg.waitForTimeout(600);
+    if (nm === '없음') { fs.writeFileSync(cf, JSON.stringify({ cards: JSON.parse(fs.readFileSync(REAL, 'utf8')).cards })); await X.pg.evaluate(() => retryDb()); await X.pg.waitForFunction(n => Object.keys(DB.cards).length === n, realN, { timeout: 20000 }).catch(() => {});  /* 실제 크기(약 20MB) DB 는 로딩에 시간이 걸린다 */
       ok(await X.pg.evaluate(() => Object.keys(DB.cards).length) === realN && !(await X.pg.locator('#cdbErrB').isVisible()), '파일을 복구하고 "다시 시도" → 서버 재시작 없이 복구'); }
     await X.ctx.close(); B.c.kill(); }
   // ── 6) 카드 추가(add_new_cards.py 가 파일을 바꾼 상황): 재시작 없이 새 카드가 보임

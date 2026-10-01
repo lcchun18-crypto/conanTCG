@@ -1,16 +1,31 @@
 {
   "name": "conan-sim",
-  "version": "1.0.0",
+  "version": "1.1.1",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node test/unit.js && node test/spec_examples.js && node test/patterns.js && node test/patterns100.js && node test/patterns_v11.js && node test/patterns_v12.js && node test/acts_test.js && node test/fuzz.js 200 && node test/ui_test.js && node test/deck_test.js && node test/e2e_ui.js && node test/deploy_test.js && node test/autoload_test.js",
-    "test:importer": "python test/importer_test.py",
+    "test": "node test/unit.js && node test/run_cards.js && node test/spec_examples.js && node test/patterns.js && node test/patterns100.js && node test/patterns_v11.js && node test/patterns_v12.js && node test/acts_test.js && node test/fuzz.js 200 && node test/ui_test.js && node test/deck_test.js && node test/e2e_ui.js && node test/deploy_test.js && node test/autoload_test.js && node test/bot_units.js && node test/bot_regress.js && node test/bot_room_test.js && node test/specialist_deck_test.js && node test/specialist_cli_test.js && node test/specialist_test.js && node test/specialist_regress.js",
+    "test:importer": "python test/importer_test.py && python3 test/ext_wiring_test.py && python3 test/color_test.py",
+    "test:color": "python3 test/color_test.py",
+    "color:scan": "python3 test/color_scan.py",
     "report:fixture": "python test/fixture_report.py",
     "test:deploy": "node test/deploy_test.js",
-    "test:ui": "node test/ui_test.js && node test/deck_test.js && node test/e2e_ui.js && node test/deploy_test.js",
+    "test:ui": "node test/ui_test.js && node test/deck_test.js && node test/e2e_ui.js && node test/deploy_test.js && node test/mobile_test.js",
+    "test:mobile": "node test/mobile_test.js",
     "test:autoload": "node test/autoload_test.js",
-    "test:add": "python3 test/addcards_test.py"
+    "test:add": "python3 test/addcards_test.py",
+    "test:bot": "node test/bot_units.js && node test/bot_regress.js && node test/bot_room_test.js",
+    "test:bot:selfplay": "node test/bot_selfplay.js --games 100 --a expert --b heuristic --nodes 800",
+    "test:bot:stress": "node test/bot_stress.js",
+    "test:bot:ui": "node test/bot_ui_test.js",
+    "test:specialist": "node test/specialist_deck_test.js && node test/specialist_cli_test.js && node test/specialist_test.js && node test/specialist_regress.js",
+    "test:specialist:ui": "node test/specialist_ui_test.js",
+    "specialist": "node bot/specialists/cli.js",
+    "specialist:check": "node bot/specialists/cli.js check",
+    "specialist:eval": "node test/specialist_eval.js",
+    "test:cards": "node test/run_cards.js",
+    "test:ext": "python3 test/ext_wiring_test.py",
+    "test:bot:fulldb": "node test/bot_fulldb.js --games 60 --a random --b heuristic --seed 100 && node test/bot_fulldb.js --games 12 --a expert --b expert --nodes 150 --seed 500"
   },
   "engines": {
     "node": ">=18"

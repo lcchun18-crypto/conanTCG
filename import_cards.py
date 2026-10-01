@@ -74,65 +74,43 @@ def prep(p, send_px, crop_px, thumb_px):
     return b64(full), b64(box), "data:image/jpeg;base64," + base64.b64encode(b.getvalue()).decode(), im
 
 
-def _hue_color(h):
-    return "red" if h < 20 or h >= 340 else "yellow" if h < 70 else "green" if h < 170 else "blue" if h < 255 else "purple"
+import card_color as CC
 
 
-def badge_box(w, h):
-    """좌상단 레벨/사건 배지 영역(비율). 세로 카드(캐릭터/이벤트)와 가로 카드(사건)가 다르다."""
-    return (0.02, 0.03, 0.14, 0.14) if h >= w else (0.02, 0.02, 0.11, 0.15)
-
-
-def badge_hist(im):
-    """좌상단 배지의 채도 높은 픽셀 색상 분포 [(색, 비율), ...] (많은 순). 배지가 안 보이면 []"""
-    W, H = im.size; b = badge_box(W, H); box = (int(b[0] * W), int(b[1] * H), max(int(b[2] * W), int(b[0] * W) + 2), max(int(b[3] * H), int(b[1] * H) + 2))
-    hsv = im.crop(box).convert("HSV"); px = list(hsv.get_flattened_data() if hasattr(hsv, "get_flattened_data") else hsv.getdata())
-    col = [h * 360 / 255 for h, s_, v in px if s_ > 80 and v > 70]  # 흰 숫자/회색 글자는 제외
-    if len(col) < max(20, len(px) * 0.08): return []
-    cnt = collections.Counter(_hue_color(h) for h in col); return [(c, n / len(col)) for c, n in cnt.most_common()]
+# 이전 API 호환(테스트/외부 스크립트용): 내부 구현은 전부 card_color.py
+def card_color(im):
+    r = CC.detect(im); return r["color"], r["source"]
 
 
 def badge_color(im):
-    """좌상단 배지의 지배 색상. (색, 근거 비율) — 결정 못 하면 ('', 0)
-    배지는 카드 색으로 칠해진 원이라 금박/노란 테두리 장식의 영향을 받지 않는다.
-    1위가 60% 이상이거나, 50% 이상이면서 2위의 1.5배 이상이면 확정(원 가장자리의 번짐/글자 그림자로 2위 색이 섞이는 경우)."""
-    h = badge_hist(im)
-    if not h: return "", 0.0
-    (c, r), r2 = h[0], (h[1][1] if len(h) > 1 else 0.0)
-    return (c, r) if r >= 0.6 or (r >= 0.5 and r >= 1.5 * r2) else ("", r)
+    bc, conf, _n = CC.badge_color(im, False); return ("/".join(bc), conf) if bc else ("", conf)
+
+
+def badge_hist(im):
+    bc, conf, _n = CC.badge_color(im, False); return [("/".join(bc), conf)] if bc else []
 
 
 def ring_color(im):
-    """카드 테두리 색(보조용: 금박/장식에 취약). 모르면 ''."""
-    im = im.resize((120, 168)); hsv = im.convert("HSV"); px = hsv.load(); W, H = hsv.size; ring = []
-    for x in range(W):
-        for y in list(range(2, 6)) + list(range(H - 6, H - 2)): ring.append(px[x, y])
-    for y in range(H):
-        for x in list(range(2, 6)) + list(range(W - 6, W - 2)): ring.append(px[x, y])
-    col = [(h, s_, v) for h, s_, v in ring if s_ > 90 and v > 60]
-    if len(col) < len(ring) * 0.25:
-        v = sum(p[2] for p in ring) / len(ring); return "white" if v > 170 else "black" if v < 70 else ""
-    hs = sorted(h * 360 / 255 for h, s_, v in col); return _hue_color(hs[len(hs) // 2])
-
-
-def card_color(im):
-    """(색, 근거) — 근거: 'badge'(신뢰) | 'ring'(참고용, 배지로 못 정했을 때만) | ''"""
-    c, _ = badge_color(im)
-    if c: return c, "badge"
-    c = ring_color(im)
-    return (c, "ring") if c else ("", "")
+    oc, _c, _n = CC.outer_ring_color(im); return "/".join(oc)
 
 
 def check_color(d, im):
-    """모델 색과 픽셀 색을 대조해 d['color'], d['flags'] 갱신. 배지 기준 불일치만 '색 불일치', 테두리 기준은 참고로만 표시."""
-    pc, src = card_color(im); mc = d.get("color", "")
-    if not pc: 
+    """카드 색 판별: 1) 좌상단 FILE 원 배경 → 2) 프레임 고정 색 영역 → 3) 보조 마커(바깥 테두리) → 4) 모델/OCR/API 색(마지막).
+    일러스트 분위기·옷 색·배경색은 쓰지 않는다(card_color.py 참고). 6색 체계 유지.
+    - 모델 색이 비어 있으면 픽셀 색으로 채운다.
+    - 픽셀 색이 '확실(certain)'하고 모델 색(단일색)과 다르면 픽셀 색으로 교정하고 flags 에 남긴다(우선순위 1~3 > 4).
+    - 확실하지 않으면 값은 건드리지 않고 '색 불일치' 로만 표시한다."""
+    r = CC.detect(im, d.get("type", "")); pc, src = r["color"], r["source"]; mc = d.get("color", "")
+    if not pc:
         if not mc: d["flags"].append("색 없음")
         return
-    if not mc: d["color"] = pc; d["flags"].append(f"색을 픽셀로 보정({pc}, 근거={src})")
-    elif pc not in mc.split("/"):
-        if src != "badge" and any(c in mc.split("/") for c, r in badge_hist(im)[:2]): return  # 배지 색 상위 2개 안에 모델 색이 있으면(판별 불가) 오탐으로 보고 표시하지 않음
-        d["flags"].append(f"색 불일치: 모델={mc} 픽셀={pc}" if src == "badge" else f"색 불일치(테두리 기준·참고만, 배지 판별 불가): 모델={mc} 픽셀={pc}")
+    if not mc: d["color"] = pc; d["flags"].append(f"색을 픽셀로 보정({pc}, 근거={src})"); return
+    if set(pc.split("/")) == set(mc.split("/")): return
+    if r["certain"] and "/" not in mc and "/" not in pc:
+        d["flags"].append(f"색 자동 교정: 모델={mc} → {pc} (FILE 원 기준, 신뢰도 {r['conf']:.2f})"); d["color"] = pc; return
+    if src == "badge": d["flags"].append(f"색 불일치: 모델={mc} 픽셀={pc} (신뢰도 {r['conf']:.2f})")
+    elif not set(pc.split("/")) & {"white", "black"}:   # 프레임/테두리 기준의 흰·검은 틀 색일 뿐이라 표시하지 않는다(FILE 원이 없을 때의 보조 근거)
+        d["flags"].append(f"색 불일치({'프레임' if src=='band' else '테두리'} 기준·참고만, FILE 원 판별 불가): 모델={mc} 픽셀={pc}")
 
 
 # ───────────────────────── API 호출 계층 ─────────────────────────
@@ -457,14 +435,14 @@ def spec_hash(model, txt, ctype, name):
     return hashlib.sha1(json.dumps([SPEC, TOOL2, model, txt, ctype, name], ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()[:10]
 
 
-def apply_rules(st, txt, ctype=""):
+def apply_rules(st, txt, ctype="", cid=None):
     """모델이 manual 로 남긴 문장 중 규칙으로 구조화할 수 있는 것을 구조화(API 없음). st 를 새 dict 로 반환.
     모델이 능력을 하나도 못 만든 경우엔 원문을 줄 단위로 규칙 변환에 넘겨 본다(못 바꾸는 줄은 manual 로 남김)."""
     if effect_rules is None or ctype == "partner": return st, 0
     ab = st.get("abilities") or []
     if hasattr(effect_rules, "compile_card") and (txt or "").strip():
         # 원문 줄이 진실의 원천: 줄마다 규칙 변환 → 못 바꾼 줄만 모델 결과 → 그래도 없으면 manual
-        new = effect_rules.compile_card(txt, ctype or "char", st.get("kw", ""), ab)
+        new = effect_rules.compile_card(txt, ctype or "char", st.get("kw", ""), ab, cid=cid)
         return {**st, "abilities": new}, sum(1 for a in ab if effect_rules.has_manual([a])) - sum(1 for a in new if effect_rules.has_manual([a]))
     if not ab and (txt or "").strip():
         ab = [{"ic": "manual", "txt": ln.strip(), "ops": [{"op": "manual", "txt": ln.strip()}]} for ln in txt.splitlines() if ln.strip()]
@@ -482,7 +460,7 @@ def structure(cli, model, d, cache, stem, rules=True):
                       [{"type": "text", "text": f"카드 종류: {d['type']}\n카드 이름: {d['name']}\n카드 텍스트:\n{txt}"}], TOOL2, 6000, stem)
             if not isinstance(out.get("abilities"), list): out["abilities"] = []
             out["kw"] = str(out.get("kw") or ""); cf.write_text(json.dumps(out, ensure_ascii=False), "utf-8")
-    if rules: out, _ = apply_rules(out, txt, d['type'])  # 규칙 변환은 캐시에 넣지 않는다(규칙을 고치면 바로 반영)
+    if rules: out, _ = apply_rules(out, txt, d['type'], d.get('id') or stem)  # 규칙 변환은 캐시에 넣지 않는다(규칙을 고치면 바로 반영)
     return out
 
 
@@ -529,10 +507,11 @@ def effects_only(cli, a, out):
     if not Path(src).exists(): print(f"기존 카드 DB를 찾을 수 없습니다: {src}\n(--effects-only [기존 JSON 경로] 또는 --out 이 기존 결과 파일이어야 합니다)"); return None
     base = base_from_db(src); cache = out.with_suffix(".cache"); cache.mkdir(exist_ok=True); rows, cards, fails = [], {}, []
     if a.limit: base = base[:a.limit]
+    _SRC_CARDS = json.loads(Path(src).read_text("utf-8"))["cards"] if a.rules_only else {}
     def one(cid, d):
         apply_type(d); recheck_color(d); txt = (d.get("fx_ja") or "").strip()
         if a.rules_only:  # API 없이: 기존 ab 에 규칙 변환만 다시 적용
-            old = json.loads(Path(src).read_text("utf-8"))["cards"][cid].get("ab", []); st = {"kw": d.get("kw", ""), "abilities": old}; st, _ = apply_rules(st, txt, d["type"])
+            old = _SRC_CARDS[cid].get("ab", []); st = {"kw": d.get("kw", ""), "abilities": old}; st, _ = apply_rules(st, txt, d["type"], cid)
         else: st = structure(cli, a.struct_model, d, cache, cid, rules=not a.no_rules)
         return card_entry(cid, d, st)
     if a.rules_only:

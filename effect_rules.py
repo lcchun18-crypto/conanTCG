@@ -130,6 +130,12 @@ def parse_np(text):
     if len(parts) == 1: return _parse_alt(t)
     subs = [_parse_alt(x) for x in parts]
     if any(s is None for s in subs): return None
+    # 「レベル7以下の【青】か【緑】のキャラ」: 앞쪽의 레벨/AP/LP 조건은 뒤의 색 대안에도 걸린다(【緑】 만 조건 없이 통과하는 오류 방지)
+    _CK = ("lvMax", "lvMin", "lvEq", "apMax", "apMin", "lpMax", "lpMin")
+    if len(subs) > 1 and "color" in subs[0] and any(k in subs[0] for k in _CK) and all(set(x) <= {"color", "type"} and "color" in x for x in subs[1:]):
+        for x in subs[1:]:
+            for k in _CK:
+                if k in subs[0]: x[k] = subs[0][k]
     ty = next((s["type"] for s in reversed(subs) if "type" in s), None)
     for s in subs:
         if "type" not in s and ty and not any(k in s for k in ("hasIc", "hasKw")): s["type"] = ty
@@ -1700,7 +1706,15 @@ def parse_ability_multi(ln, ctype="char"):
     a = parse_ability_text(ln, ctype); return None if a is None else [a]
 
 
-def compile_card(fx, ctype="char", kw="", model_ab=None):
+def _ext_lookup(cid, ln):
+    try:
+        import effect_ext
+        return effect_ext.lookup(cid, ln)
+    except ImportError:
+        return None
+
+
+def compile_card(fx, ctype="char", kw="", model_ab=None, cid=None):
     """카드 1장 → ab 리스트. fx 줄 단위로 규칙 변환, 못 바꾸는 줄은 모델 결과 → 그래도 없으면 manual"""
     out = []
     lines = logical_lines(fx)
@@ -1708,9 +1722,17 @@ def compile_card(fx, ctype="char", kw="", model_ab=None):
     for ln in lines:
         if is_kwline(ln):
             out += kw_abilities(ln); continue
+        ex = _ext_lookup(cid, ln)
+        if ex is not None and ex.get("pre"):  # 공통 규칙이 잘못 해석하는 줄(카드별 데이터 우선)
+            for a in copy.deepcopy(ex["ab"]): a.setdefault("txt", ln); out.append(a)
+            continue
         try: ab = parse_ability_multi(ln, ctype)
         except Exception: ab = None
         if ab is not None: out += ab; continue
+        if ex is not None:
+            if ex.get("merge") and out: out.pop()
+            for a in copy.deepcopy(ex["ab"]): a.setdefault("txt", ln); out.append(a)
+            continue
         mm = _model_match(ln, model_ab)
         if mm: out += copy.deepcopy(mm); continue
         out.append({"ic": "manual", "txt": ln, "ops": [{"op": "manual", "txt": ln}]})

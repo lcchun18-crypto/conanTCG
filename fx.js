@@ -1,12 +1,13 @@
 const inZoneFx = (R, x) => R.P.some(P => [P.hand, P.evid, P.pa, P.rem, P.deck, P.file, P.field, P.kase].some(z => z && z.some && z.some(e => e === x || (e && e.id === x))));
 // 카드 효과 엔진: 카드의 ab(효과 데이터, DSL)를 해석해서 실행한다.
-// 이해하지 못하는 텍스트는 {op:'manual'} 로 남고, 로그에 "[수동 처리 필요]"로 표시된다.
+// 파서가 이해하지 못한 텍스트는 {op:'manual'} 표식으로 남지만(개발 중 점검용), 현재 DB 는 0건이며 실행 시 사용자에게 수동 처리를 요구하지 않는다.
+let FXX = null;
 module.exports = function (A) {
   const { D, say, shuf, pull, chk, gain, nm, fcount, cols } = A;
 
   // ───────────── 데이터 정리(서버가 클라이언트 입력을 신뢰하지 않음) ─────────────
   const IC = ['onplay', 'onremoved', 'flash', 'declare', 'static', 'cutin', 'onact', 'oncontact', 'onreason', 'event', 'onend', 'ondisguise', 'disguise', 'deckfree', 'ontrig', 'usecond', 'ignorecolor', 'onhint', 'onkill', 'onally', 'enter', 'hand', 'grant',
-    'onsolve', 'onmain', 'onallyremoved', 'onallykill', 'onallycontact', 'onremleave', 'replace', 'mr', 'winalt', 'manual'];
+    'onchosen', 'onsolve', 'onmain', 'onallyremoved', 'onallykill', 'onallycontact', 'onremleave', 'replace', 'mr', 'winalt', 'manual'];
   const str = (x, n = 60) => String(x == null ? '' : x).slice(0, n);
   const num = (x, d = 0) => { x = Math.trunc(+x); return Number.isFinite(x) ? Math.max(-99999, Math.min(99999, x)) : d; };
   const opt = (x, arr, d = '') => arr.includes(x) ? x : d;
@@ -21,7 +22,8 @@ module.exports = function (A) {
     o.names = (Array.isArray(f.names) ? f.names : []).slice(0, 5).map(x => str(x, 40)).filter(Boolean);
     o.st = opt(f.st, ['a', 's', 'x', 'sx']); o.notSelf = !!f.notSelf; o.self = !!f.self; o.type = opt(f.type, ['char', 'event']);
     o.hasIc = opt(f.hasIc, IC, ''); o.hasKw = str(f.hasKw, 20).toLowerCase(); o.acting = !!f.acting; o.contacting = !!f.contacting;
-    o.plain = !!f.plain; o.nameCtx = !!f.nameCtx; o.lvIn = opt(f.lvIn, ['disc'], ''); o.traitOf = opt(f.traitOf, ['ent'], '');
+    o.plain = !!f.plain; o.bang = !!f.bang; o.nameCtx = !!f.nameCtx; o.lvIn = opt(f.lvIn, ['disc'], ''); o.traitOf = opt(f.traitOf, ['ent'], '');
+    o.apGt = f.apGt === 'self' ? 'self' : '';
     o.any = depth < 1 ? (Array.isArray(f.any) ? f.any : []).slice(0, 4).map(x => cleanFilter(x, depth + 1)) : [];
     return o; };
   const WHO_ = ['self', 'opp'];
@@ -29,15 +31,16 @@ module.exports = function (A) {
   const cleanCond = c => { c = c && typeof c === 'object' ? c : {}; const r = { turn: opt(c.turn, ['self', 'opp']), pcolor: str(c.pcolor, 12).toLowerCase(),
     ccolor: str(c.ccolor, 30).toLowerCase(), ctrait: str(c.ctrait, 30), fileMin: num(c.fileMin), cstate: opt(c.cstate, ['kase', 'solve']), bond: str(c.bond, 40),
     fieldMin: num(c.fieldMin), selfSt: opt(c.selfSt, ['a', 's', 'sx']), trace: opt(c.trace, ['found', 'unfound']), selfApMin: num(c.selfApMin), killed: !!c.killed,
-    handMax: c.handMax == null || c.handMax === '' ? null : num(c.handMax), swapName: str(c.swapName, 40), fhN: Math.max(0, Math.min(num(c.fhN, 1), 10)), fhDist: !!c.fhDist, noEnter: !!c.noEnter, hayAny: !!c.hayAny, cnot: str(c.cnot, 12).toLowerCase(),
-    via: (Array.isArray(c.via) ? c.via : []).slice(0, 4).map(v => v && ({ type: opt(v.type, ['char', 'event'], ''), lvMin: num(v.lvMin) })).filter(Boolean) };
+    handMax: c.handMax == null || c.handMax === '' ? null : num(c.handMax), ohandMax: c.ohandMax == null || c.ohandMax === '' ? null : num(c.ohandMax), swapName: str(c.swapName, 40), fhN: Math.max(0, Math.min(num(c.fhN, 1), 10)), fhDist: !!c.fhDist, noEnter: !!c.noEnter, hayAny: !!c.hayAny, cnot: str(c.cnot, 12).toLowerCase(),
+    via: (Array.isArray(c.via) ? c.via : []).slice(0, 4).map(v => v && ({ type: opt(v.type, ['char', 'event'], ''), lvMin: num(v.lvMin), color: str(v.color, 12).toLowerCase() })).filter(Boolean),
+    lpSumMax: c.lpSumMax == null || c.lpSumMax === '' ? null : num(c.lpSumMax), cname: str(c.cname, 40) };
     r.cnt = (Array.isArray(c.cnt) ? c.cnt : []).slice(0, 4).map(x => x && ({ src: opt(x.src, SRC, 'hand'), op: opt(x.op, ['le', 'ge', 'lt', 'gt', 'eq'], 'ge'), n: num(x.n), ref: opt(x.ref, SRC, ''), plus: num(x.plus), f: x.f && typeof x.f === 'object' ? cleanFilter(x.f) : null })).filter(Boolean);
-    r.nth = Math.max(0, Math.min(num(c.nth), 5)); r.conly = str(c.conly, 12).toLowerCase();
-    for (const k of ['fh', 'fa', 'paHas', 'cin']) if (c[k] && typeof c[k] === 'object') r[k] = cleanFilter(c[k]);
+    r.viaHint = !!c.viaHint; r.dstName = str(c.dstName, 40); r.noMrSel = !!c.noMrSel; r.guarded = !!c.guarded; r.viaEffect = !!c.viaEffect; r.cutinPlayed = !!c.cutinPlayed; r.swapLpMin = c.swapLpMin == null ? null : num(c.swapLpMin); r.swapColor = str(c.swapColor, 12).toLowerCase(); r.nth = Math.max(0, Math.min(num(c.nth), 5)); r.conly = str(c.conly, 12).toLowerCase();
+    for (const k of ['fh', 'fa', 'paHas', 'cin', 'fnone']) if (c[k] && typeof c[k] === 'object') r[k] = cleanFilter(c[k]);
     if (c.ftop && typeof c.ftop === 'object') r.ftop = { who: opt(c.ftop.who, WHO_, 'self'), type: opt(c.ftop.type, ['char', 'event', 'case'], '') };
     if (c.found && typeof c.found === 'object') r.found = { named: !!c.found.named, filter: cleanFilter(c.found.filter) };
     return r; };
-  const WHO = ['self', 'opp'], DO = ['sleep', 'stun', 'active', 'remove', 'hand', 'deckBottom', 'deckTop', 'deckTopOrBottom', 'ap', 'lp', 'kw', 'lv', 'gab', 'mark', 'setDeck', 'lpBase', 'apBase', 'kwLose', 'evid', 'pa'];
+  const WHO = ['self', 'opp'], DO = ['sleep', 'stun', 'active', 'remove', 'hand', 'deckBottom', 'deckTop', 'deckTopOrBottom', 'ap', 'lp', 'kw', 'lv', 'gab', 'mark', 'setDeck', 'lpBase', 'apBase', 'kwLose', 'evid', 'evidUp', 'pa', 'hold'];
   const UNTIL = ['turn', 'contact', 'oppEnd'];
   const IFC = ['done', 'notdone', 'played', 'win', 'lose', 'remHas', 'costHas', 'picked', 'found', 'reg'];
   const REGS = ['self', 'sel', 'played', 'seen', 'hit', 'chosen', 'chosen2', 'rest', 'revealed', 'removed', 'drawn', 'moved', 'cost', 'costRev', 'last', 'ent', 'cin'];
@@ -45,7 +48,7 @@ module.exports = function (A) {
   const PFROM = REGS.concat(['hand', 'rem', 'pa', 'evid', 'evidUp', 'evidDown', 'file']);
   const regN = x => opt(x, REGS, '');
   const dynN = o => ({ nref: o.nref && typeof o.nref === 'object' ? { ref: opt(o.nref.ref, REGS, 'removed'), by: opt(o.nref.by, ['count', 'lv', 'ap1000'], 'count') } : null,
-    ncnt: o.ncnt && typeof o.ncnt === 'object' ? { src: opt(o.ncnt.src, SRC, 'field'), f: o.ncnt.f && typeof o.ncnt.f === 'object' ? cleanFilter(o.ncnt.f) : null } : null });
+    ncnt: o.ncnt && typeof o.ncnt === 'object' ? { src: opt(o.ncnt.src, SRC, 'field'), f: o.ncnt.f && typeof o.ncnt.f === 'object' ? cleanFilter(o.ncnt.f) : null } : null, nmul: o.nmul ? Math.max(1, Math.min(num(o.nmul), 20)) : null });
   function cleanActs(o) { const list = Array.isArray(o.acts) && o.acts.length ? o.acts : [{ do: o.do, v: o.v, until: o.until, per: o.per, g: o.g }];
     return list.slice(0, 4).map(a => { const g = a && a.g && a.g.ic !== 'grant' ? cleanAb([a.g])[0] : null; return { do: opt(a && a.do, DO, 'sleep'), v: str(a && a.v, 40), until: opt(a && a.until, UNTIL, 'turn'), per: opt(a && a.per, ['flip'], ''), g: g || null }; }); }
   function cleanOps(a, depth = 0) { if (!Array.isArray(a) || depth > 6) return []; return a.slice(0, 14).map(o => cleanOp(o, depth)).filter(Boolean); }
@@ -63,7 +66,7 @@ module.exports = function (A) {
       case 'pick': return { ...p, msg: str(o.msg, 30), from: opt(o.from, PFROM, 'seen'), own: opt(o.own, ['self', 'opp'], 'self'), filter: cleanFilter(o.filter), n: n(), min: Math.max(0, Math.min(num(o.min, 0), 20)), as: regN(o.as) || 'chosen', reveal: !!o.reveal, chooser: opt(o.chooser, WHO, 'self'),
         groups: (Array.isArray(o.groups) ? o.groups : []).slice(0, 3).map(g => g && ({ filter: cleanFilter(g.filter), n: Math.max(1, Math.min(num(g.n, 1), 10)), diffColor: !!g.diffColor })).filter(Boolean), sumLv: o.sumLv == null ? null : num(o.sumLv), distinct: !!o.distinct, all: !!o.all, ...dynN(o) };
       case 'turnPk': return { ...p, key: opt(o.key, ['nocutin', 'nodisev', 'noevent', 'nodisguise'], 'nocutin'), who: opt(o.who, WHO, 'opp'), until: opt(o.until, ['turn', 'action'], 'turn') };
-      case 'delay': return { ...p, evs: (Array.isArray(o.evs) ? o.evs : []).map(x => opt(x, EVS, '')).filter(Boolean).slice(0, 3), who: opt(o.who, WHO, ''), ops: cleanOps(o.ops, depth + 1) };
+      case 'delay': return { ...p, evs: (Array.isArray(o.evs) ? o.evs : []).map(x => opt(x, EVS, '')).filter(Boolean).slice(0, 3), who: opt(o.who, WHO, ''), ops: cleanOps(o.ops, depth + 1), keep: !!o.keep, sf: o.sf && typeof o.sf === 'object' ? cleanFilter(o.sf) : null };
       case 'hayIgn': return p;
       case 'nameSel': return p;
       case 'gain': case 'loseEvid': return { ...p, n: n(), who: who(), opt: !!o.opt };
@@ -73,12 +76,12 @@ module.exports = function (A) {
       case 'shuffle': return { ...p, who: opt(o.who, ['self', 'opp', 'both'], 'self') };
       case 'look': return { ...p, n: n(), from: opt(o.from, ['top', 'bottom'], 'top'), filter: cleanFilter(o.filter), max: Math.max(0, Math.min(num(o.max, 1), 20)), by: opt(o.by, ['opp'], ''),
         then: opt(o.then, ['hand', 'field', 'fieldSleep', 'rem'], 'hand'), rest: opt(o.rest, ['bottom', 'shuffleBottom', 'top', 'rem', 'hand', 'keep'], 'bottom') };
-      case 'select': return { ...p, opt: !!o.opt, all: !!o.all, n: n(), filter: cleanFilter(o.filter), acts: cleanActs(o), do: opt(o.do, DO, 'sleep'), v: str(o.v, 40), until: opt(o.until, UNTIL, 'turn'),
+      case 'select': return { ...p, force: !!o.force, opt: !!o.opt, all: !!o.all, n: n(), filter: cleanFilter(o.filter), acts: cleanActs(o), do: opt(o.do, DO, 'sleep'), v: str(o.v, 40), until: opt(o.until, UNTIL, 'turn'),
         alt: o.alt && typeof o.alt === 'object' ? { cond: cleanCond(o.alt.cond), do: opt(o.alt.do, DO, 'remove') } : null, when: opt(o.when, ['lpLeOwnMax'], ''), sumLv: o.sumLv == null ? null : num(o.sumLv), ...dynN(o),
         groups: (Array.isArray(o.groups) ? o.groups : []).slice(0, 3).map(g => g && ({ filter: cleanFilter(g.filter), n: Math.max(1, Math.min(num(g.n, 1), 10)) })).filter(Boolean), pairSt: !!o.pairSt };
       case 'self': return { ...p, do: opt(o.do, DO, 'sleep'), v: str(o.v, 40), until: opt(o.until, UNTIL, 'turn'), opt: !!o.opt, mul: o.mul && typeof o.mul === 'object' ? { ref: opt(o.mul.ref, REGS, 'removed'), by: opt(o.mul.by, ['count', 'lv', 'ap1000'], 'count') } : null,
         pc: o.pc && typeof o.pc === 'object' ? { src: opt(o.pc.src, SRC, 'field'), f: o.pc.f && typeof o.pc.f === 'object' ? cleanFilter(o.pc.f) : null } : null };
-      case 'play': return { ...p, distinct: !!o.distinct, n: n(), from: opt(o.from, ['hand', 'rem', 'handrem', 'picked'], 'hand'), filter: cleanFilter(o.filter), asleep: !!o.asleep };
+      case 'play': return { ...p, distinct: !!o.distinct, dlv: !!o.dlv, n: n(), from: opt(o.from, ['hand', 'rem', 'handrem', 'picked', 'rempa'], 'hand'), filter: cleanFilter(o.filter), asleep: !!o.asleep };
       case 'choose': return { ...p, opts: (Array.isArray(o.opts) ? o.opts : []).slice(0, 4).map(x => ({ lab: str(x && x.lab, 60), ops: cleanOps(x && x.ops, depth + 1) })) };
       case 'chooseMulti': return { ...p, max: Math.max(1, Math.min(num(o.max, 1), 6)), opts: (Array.isArray(o.opts) ? o.opts : []).slice(0, 6).map(x => ({ lab: str(x && x.lab, 80), ops: cleanOps(x && x.ops, depth + 1) })) };
       case 'if': return { ...p, c: opt(o.c, IFC, 'done'), name: str(o.name, 40), n: num(o.n), filter: cleanFilter(o.filter), ops: cleanOps(o.ops, depth + 1), else: cleanOps(o.else, depth + 1),
@@ -101,36 +104,37 @@ module.exports = function (A) {
       case 'stack': return { ...p, n: n(), filter: cleanFilter(o.filter), distinct: !!o.distinct };
       case 'flip': return { ...p, n: n(), who: who(), opt: !!o.opt };
       case 'flashFlipped': return { ...p, bang: !!o.bang, filter: cleanFilter(o.filter) };
-      case 'rmAll': return { ...p, scope: opt(o.scope, ['all', 'contact'], 'all') };
+      case 'rmAll': return { ...p, scope: opt(o.scope, ['all', 'contact', 'others'], 'all') };
       case 'traitAll': return { ...p, trait: str(o.trait, 30) };
       case 'nohint': case 'rps': return p;
       case 'pickPaid': return { ...p, who: who() };
       case 'set': return { ...p, filter: cleanFilter(o.filter) };
       case 'solve': return p;
-      case 'manual': default: return { op: 'manual', txt: str(o.txt || o.op, 200) }; } }
-  const EVS = ['act', 'reason', 'contact', 'evgain', 'evrem', 'removed', 'enter', 'declared', 'cutin', 'disguise', 'useev', 'actend', 'sleep', 'guard', 'setOff', 'sleepEv', 'mis', 'hint', 'turnEnd', 'fileHand', 'setOn', 'fdOff'];
-  const COSTS = ['sleepSelf', 'discard', 'deckrem', 'selfBottom', 'sleepOther', 'flipEvid', 'fieldBottom', 'selfRem', 'selfPa', 'unset', 'unstack', 'remBottom', 'revealHand', 'fileRem', 'paRem', 'sleepAny', 'fieldRem', 'stackCost', 'either', 'lpSelf', 'discardTo'];
-  const cleanCost = (a, depth = 0) => (Array.isArray(a) ? a : []).slice(0, 5).map(c => c && ({ c: opt(c.c, COSTS, ''), n: Math.max(1, Math.min(num(c.n, 1), 10)), filter: cleanFilter(c.filter), var: !!c.var, fd: !!c.fd, scope: opt(c.scope, ['self', 'any', 'opp', 'mine'], 'self'),
+      case 'manual': default: { const r = X.clean(o, depth, p.op); return r || { op: 'manual', txt: str(o.txt || o.op, 200) }; } } }
+  const EVS = ['handRem', 'act', 'reason', 'contact', 'evgain', 'evrem', 'removed', 'enter', 'declared', 'cutin', 'disguise', 'useev', 'actend', 'sleep', 'guard', 'setOff', 'holdLeft', 'sleepEv', 'mis', 'hint', 'turnEnd', 'fileHand', 'setOn', 'fdOff', 'hrev'];
+  const COSTS = ['sleepSelf', 'discard', 'deckrem', 'selfBottom', 'sleepOther', 'flipEvid', 'fieldBottom', 'selfRem', 'selfPa', 'unset', 'unstack', 'remBottom', 'revealHand', 'fileRem', 'paRem', 'sleepAny', 'fieldRem', 'stackCost', 'either', 'lpSelf', 'discardTo', 'handDeckTop'];
+  const cleanCost = (a, depth = 0) => (Array.isArray(a) ? a : []).slice(0, 5).map(c => c && ({ ...(c.c && X.hasCost(c.c) ? X.costClean(c) : {}), c: COSTS.includes(c.c) || X.hasCost(c.c) ? c.c : '', n: Math.max(1, Math.min(num(c.n, 1), 10)), filter: cleanFilter(c.filter), var: !!c.var, fd: !!c.fd, scope: opt(c.scope, ['self', 'any', 'opp', 'mine'], 'self'),
     to: opt(c.to, ['sleep', 'stun'], 'sleep'), orSelf: !!c.orSelf, from: opt(c.from, ['field', 'hand'], 'field'), onto: opt(c.onto, ['self', 'pick'], 'self'), ontoF: c.ontoF && typeof c.ontoF === 'object' ? cleanFilter(c.ontoF) : null, v: num(c.v), order: !!c.order,
     per: c.per && typeof c.per === 'object' ? { src: opt(c.per.src, SRC, 'field'), f: c.per.f && typeof c.per.f === 'object' ? cleanFilter(c.per.f) : null } : null,
     alts: depth < 1 ? (Array.isArray(c.alts) ? c.alts : []).slice(0, 3).map(x => cleanCost(x, depth + 1)) : [] })).filter(c => c && c.c);
   function cleanAb(list) { if (!Array.isArray(list)) return []; return list.slice(0, 10).map(a => { if (!a || typeof a !== 'object') return null;
-    const ic = opt(a.ic, IC, 'manual'), r = { ic, cond: cleanCond(a.cond), lim: Math.max(0, Math.min(num(a.lim), 2)), cost: cleanCost(a.cost), ops: cleanOps(a.ops),
+    const ic = opt(a.ic, IC, 'manual'), r = { ic, cond: cleanCond(a.cond), lim: Math.max(0, Math.min(num(a.lim), 3)), cost: cleanCost(a.cost), ops: cleanOps(a.ops),
       v: num(a.v), on: { k: opt(a.on && a.on.k, ['char', 'case']), by: opt(a.on && a.on.by, ['contact', 'effect']) }, lab: str(a.lab, 60), txt: str(a.txt, 400) };
-    if (a.pa) r.pa = true; if (a.bang) r.bang = true;
+    if (a.pa) r.pa = true; if (a.bang) r.bang = true; if (a.fromHand) r.fromHand = true; if (a.fromRem) r.fromRem = true; if (a.fromUp) r.fromUp = true; if (a.es) r.es = true;
     if (a.ef) r.ef = cleanFilter(a.ef);
-    r.hay = !!a.hay;
+    r.hay = !!a.hay; r.first = !!a.first;
     if (ic === 'enter') r.st = opt(a.st, ['s'], 's');
     if (ic === 'cutin' && a.alt && typeof a.alt === 'object') r.alt = { cond: cleanCond(a.alt.cond), v: num(a.alt.v) };
     if (ic === 'cutin' && a.per && typeof a.per === 'object') r.per = { src: opt(a.per.src, SRC, 'field'), f: a.per.f && typeof a.per.f === 'object' ? cleanFilter(a.per.f) : null };
     if (ic === 'ontrig') { r.evs = (Array.isArray(a.evs) ? a.evs : []).map(x => opt(x, EVS, '')).filter(Boolean).slice(0, 4); if (!r.evs.length) { r.ic = 'manual'; r.ops = [{ op: 'manual', txt: r.txt }]; }
       r.who = opt(a.who, ['self', 'opp'], ''); r.sub = opt(a.sub, ['self', 'notSelf', 'orSelf'], ''); r.sf = a.sf && typeof a.sf === 'object' ? cleanFilter(a.sf) : null; r.tf = a.tf && typeof a.tf === 'object' ? cleanFilter(a.tf) : null;
-      r.tself = !!a.tself; r.dself = !!a.dself; r.hw = opt(a.hw, ['self', 'opp'], ''); r.hself = !!a.hself; r.k = opt(a.k, ['char', 'case'], ''); r.by = opt(a.by, ['contact', 'effect', 'reason', 'action', 'hint', 'hand', 'mis', 'cost'], ''); r.cz = opt(a.cz, ['self', 'opp'], ''); r.turnEnd = !!a.turnEnd; }
+      r.tself = !!a.tself; r.dself = !!a.dself; r.hw = opt(a.hw, ['self', 'opp'], ''); r.hself = !!a.hself; r.k = opt(a.k, ['char', 'case'], ''); r.by = opt(a.by, ['contact', 'effect', 'reason', 'action', 'hint', 'hand', 'mis', 'cost'], ''); r.cz = opt(a.cz, ['self', 'opp'], ''); r.turnEnd = !!a.turnEnd; r.sw = !!a.sw; r.incl = !!a.incl; }
     if (ic === 'hand') { r.lv = Math.max(0, Math.min(num(a.lv), 20)); r.lvd = a.lvd == null ? null : Math.max(-9, Math.min(num(a.lvd), 9)); if (a.per && typeof a.per === 'object') r.per = { src: opt(a.per.src, SRC, 'field'), f: a.per.f && typeof a.per.f === 'object' ? cleanFilter(a.per.f) : null }; }
-    if (ic === 'replace') { r.rep = { to: opt(a.rep && a.rep.to, ['hand', 'deckBottom', 'deckTop', 'rem'], 'hand') }; }
+    if (ic === 'replace') { r.rep = { to: opt(a.rep && a.rep.to, ['hand', 'deckBottom', 'deckTop', 'rem', 'stay'], 'hand'), unsetSelf: !!(a.rep && a.rep.unsetSelf) }; r.forced = !!a.forced; r.msg = str(a.msg, 80); }
     if (ic === 'grant') { const g = a.g && a.g.ic !== 'grant' ? cleanAb([a.g]) : []; r.g = g[0] || null; if (!r.g) r.ic = 'manual', r.ops = [{ op: 'manual', txt: r.txt }]; }
     if (ic === 'static') { const t = a.tgt || {}; r.tgt = { sel: opt(t.sel, ['self', 'allies', 'opp', 'all'], 'self'), filter: cleanFilter(t.filter), notSelf: !!t.notSelf };
-      r.ap = num(a.ap); r.lp = num(a.lp); r.lv = num(a.lv); r.kw = str(a.kw, 60); r.tr = str(a.tr, 30); r.nm = str(a.nm, 40); if (a.per && typeof a.per === 'object') r.per = { src: opt(a.per.src, SRC, 'field'), f: a.per.f && typeof a.per.f === 'object' ? cleanFilter(a.per.f) : null }; r.pk = opt(a.pk, ['noflash', 'nocutin', 'nodisev', 'onlytrait'], ''); }
+      r.ap = num(a.ap); r.lp = num(a.lp); r.lv = num(a.lv); r.kw = str(a.kw, 60); r.tr = str(a.tr, 30); r.nm = str(a.nm, 40); if (a.per && typeof a.per === 'object') r.per = { src: opt(a.per.src, SRC, 'field'), f: a.per.f && typeof a.per.f === 'object' ? cleanFilter(a.per.f) : null }; r.pk = opt(a.pk, ['pcolorAll', 'nocutinOwn', 'handLv', 'evcase','noflash', 'nocutin', 'nodisev', 'onlytrait', 'field4', 'handcut', 'altdecl', 'noremtrig', 'nosolve', 'norefresh'], ''); }
+    if (ic === 'static') { if (a.az) r.az = true; if (r.tgt && a.tgt && a.tgt.zone === 'hand') r.tgt.zone = 'hand'; if (a.gab && typeof a.gab === 'object' && a.gab.ic !== 'static') { const g = cleanAb([a.gab]); if (g[0] && g[0].ic !== 'manual') r.gab = g[0]; } }
     if (ic === 'manual' && !r.ops.length) r.ops = [{ op: 'manual', txt: r.txt }];
     return r; }).filter(Boolean); }
 
@@ -139,28 +143,51 @@ module.exports = function (A) {
   let _inTr = 0;
   const hasTrDef = R => { if (R.phase === 'setup') return false; if (R._trD === undefined) R._trD = Object.values(R.defs || {}).some(d => (d.ab || []).some(a => a.tr)); return R._trD; };
   const traitsId = (R, id) => { const c = R.cards[id]; let l = traitsOf(D(R, id)).concat(c && R.tt ? R.tt[c.o] || [] : []);
-    if (!_inTr && c && hasTrDef(R)) { _inTr = 1; try { const g = stat(R, id).tr; if (g) l = l.concat(g.split(/\s+/).filter(Boolean)); } finally { _inTr = 0; } } return l; };
+    if (!_inTr && c && hasTrDef(R)) { _inTr = 1; try { const g = stat(R, id).tr; if (g) l = l.concat(g.split(/\s+/).filter(Boolean)); } finally { _inTr = 0; } } if (c && c.tmod) l = l.filter(x => !c.tmod.lose.includes(x)).concat(c.tmod.add); return l; };
   const isMR = (R, id) => (D(R, id).ab || []).some(a => a.ic === 'mr');
   const inPa = (R, id) => !!R.cards[id] && R.P[R.cards[id].o].pa.includes(id);
   const onField = (R, id) => !!R.cards[id] && R.P[R.cards[id].o].field.includes(id);
   // 세트(セット)된 카드가 부여한 능력 + 이번 턴 임시로 받은 능력까지 합친 능력 목록
-  const abList = (R, id) => { const c = R.cards[id], d = D(R, id); let l = d.ab || [];
-    if (c && c.sets && c.sets.length) for (const sid of c.sets) for (const a of (D(R, sid).ab || [])) if (a.ic === 'grant' && a.g) l = l.concat([a.g]);
+  const abList = (R, id) => { const c = R.cards[id], d = D(R, id); let l = c && c.blank ? [] : (d.ab || []);   // blank: 이번 턴 동안 원래의 능력을 잃음(세트/임시 부여 능력은 유지)
+    if (c && c.sets && c.sets.length) for (const sid of c.sets) for (const a of (D(R, sid).ab || [])) if (a.ic === 'grant' && a.g) l = l.concat([{ ...a.g, _from: sid }]);
     if (c && c.tab && c.tab.length) l = l.concat(c.tab);
+    if (R._gaD === undefined && R.phase !== 'setup') R._gaD = Object.values(R.defs || {}).some(x => (x.ab || []).some(a => a.ic === 'static' && a.gab));
+    if (R._gaD && !_inGab && c && R.P[c.o].field.includes(id)) { _inGab = 1;   // 다른 카드의 상시 능력(static gab)이 부여하는 능력
+      try { for (const t of [0, 1]) for (const sid of [...R.P[t].field, ...R.P[t].pa]) { const paS = R.P[t].pa.includes(sid);
+        for (const a of (D(R, sid).ab || [])) { if (a.ic !== 'static' || !a.gab || (paS && !a.pa)) continue; const g = a.tgt || { sel: 'self' };
+          const hit = g.sel === 'self' ? sid === id : g.sel === 'allies' ? c.o === t && !(g.notSelf && sid === id) && fOk(R, t, id, g.filter, sid, true) : g.sel === 'opp' ? c.o !== t && fOk(R, t, id, g.filter, sid, true) : !(g.notSelf && sid === id) && fOk(R, t, id, g.filter, sid, true);
+          if (hit && condOk(R, t, sid, a)) l = l.concat([{ ...a.gab, _from: sid }]); } } } finally { _inGab = 0; } }
     return l; };
+  let _inGab = 0;
+  // 손패의 카드 레벨 증감(static pk:'handLv', v=증감, tgt.filter=대상 카드): 예) 자신의 손패에 있는 【白】의 특징[YAIBA]의 이벤트를 레벨-1
+  let _inHL = 0;
+  function handLvMod(R, s, id) { if (R.phase === 'setup' || _inHL) return 0; if (R._hlD === undefined) R._hlD = Object.values(R.defs || {}).some(x => (x.ab || []).some(a => a.ic === 'static' && a.pk === 'handLv')); if (!R._hlD) return 0;
+    let m = 0; _inHL = 1; try { const P = R.P[s]; for (const sid of [...P.field, P.kase, ...P.pa]) { if (sid == null) continue; const paS = P.pa.includes(sid);
+      for (const a of abList(R, sid)) if (a.ic === 'static' && a.pk === 'handLv' && !(paS && !a.pa) && condOk(R, s, sid, a) && fOk(R, s, id, a.tgt && a.tgt.filter, sid, true)) m += a.v || 0; } } finally { _inHL = 0; } return m; }
   function lvOf(R, id, noStat) { const d = D(R, id), c = R.cards[id]; let lv = +d.lv || 0;
     if (d.ab && R.P[c.o].hand.includes(id)) for (const a of d.ab) if (a.ic === 'hand' && condOk(R, c.o, id, a)) { if (a.lvd != null) lv += a.lvd * (a.per ? countOf(R, c.o, id, a.per) : 1); else lv = a.lv; }
+    if (R.P[c.o].hand.includes(id)) lv += handLvMod(R, c.o, id);
     if (R.P[c.o].field.includes(id)) { lv += c.lvm || 0; if (!noStat) lv += stat(R, id).lv; }
     return Math.max(0, lv); }
   const enterSt = (R, id) => ((D(R, id).ab || []).some(a => a.ic === 'enter' && condOk(R, R.cards[id].o, id, a)) ? 's' : 'a');
-  const kwHas = (R, id, w) => (stat(R, id).kw + ' ' + (R.cards[id].tkw || '')).includes(w) && !(R.cards[id].lose || '').includes(w);
+  const kwHas = (R, id, w) => (stat(R, id).kw + ' ' + (R.cards[id].tkw || '') + ' ' + (R.cards[id].ckw || '')).includes(w) && !(R.cards[id].lose || '').includes(w);
   const noTarget = (R, id, src) => kwHas(R, id, 'untarget') || (src != null && R.cards[src] && D(R, src).type === 'event' && kwHas(R, id, 'evsafe')), noAct = (R, id) => kwHas(R, id, 'noact');
   const cardKw = (R, id) => String(D(R, id).kw || '').toLowerCase();
   let _inNm = 0;
   const aliasHit = (R, id, f) => { if (_inNm || R.phase === 'setup' || !(f.name || (f.names && f.names.length))) return false; if (R._nmD === undefined) R._nmD = Object.values(R.defs || {}).some(d => (d.ab || []).some(a => a.nm)); if (!R._nmD) return false;
-    _inNm = 1; try { const g = (stat(R, id).nm || '').split('\n').map(x => x.trim()).filter(Boolean); return g.some(n => (!f.name || n.includes(f.name)) && (!f.names || !f.names.length || f.names.some(x => n.includes(x)))); } finally { _inNm = 0; } };
+    _inNm = 1; try { let g = (stat(R, id).nm || '').split('\n').map(x => x.trim()).filter(Boolean);
+      { const c0 = R.cards[id]; if (c0 && !onField(R, id) && (R.P[c0.o].deck.includes(id) || R.P[c0.o].rem.includes(id))) g = g.concat((D(R, id).ab || []).filter(a => a.ic === 'static' && a.az && a.nm).map(a => a.nm)); }   // static az: 덱/리무브 에리어에서만 해당 카드명으로도 취급
+      return g.some(n => (!f.name || n.includes(f.name)) && (!f.names || !f.names.length || f.names.some(x => n.includes(x)))); } finally { _inNm = 0; } };
+  const effN = (R, id) => (R.fl && R.fl.nmx && R.fl.nmx[id] != null && onField(R, id)) ? R.fl.nmx[id] : D(R, id).n;   // 「ターン終了時までカード名を書き換える」効果を反映した現在のカード名
   const nameHit = (d, f) => (!f.name || d.n.includes(f.name)) && (!f.names || !f.names.length || f.names.some(x => d.n.includes(x)));
   function condOk(R, s, id, ab, ctx) { const c = ab.cond || {}, P = R.P[s], x = ctx || {};
+    if (c.viaEffect && !x.viaEffect) return false;
+    if (c.viaHint && !R.fl.hw) return false;   // 넥스트 힌트로 얻은 사용 기회 중일 때만(예: 「ネクストヒントで手札から使用する場合」)
+    if (c.dstName && !(x.dst != null && R.cards[x.dst] && D(R, x.dst).n.includes(c.dstName))) return false;
+    if (c.noMrSel && R.fl.mrSel && R.fl.mrSel[id]) return false;
+    if (c.guarded && !(R.fl.guarded && R.fl.guarded[id])) return false;
+    if (c.cutinPlayed && R.cards[id].cinN !== R.n) return false;
+    if (c.swapLpMin != null && !(x.swLp >= c.swapLpMin)) return false; if (c.swapColor && !(x.swCols || []).includes(c.swapColor)) return false;
     if (c.fieldMin && R.P[0].field.length + R.P[1].field.length < c.fieldMin) return false;
     if (c.selfSt) { const st = R.cards[id].st || 'a'; if (c.selfSt === 'a' ? st !== 'a' : st === 'a') return false; }
     if (c.conly) { const cc = cols(D(R, P.kase)); if (!cc.length || cc.some(k => k !== c.conly)) return false; }
@@ -168,21 +195,24 @@ module.exports = function (A) {
     if (c.noEnter && R.fl.entCnt && R.fl.entCnt[s]) return false; if (c.hayAny && !(R.fl.hayAny && R.fl.hayAny[s])) return false;
     if (c.cnt && c.cnt.length) for (const d of c.cnt) { const l = countOf(R, s, id, d, x) + (d.ref ? (d.plus || 0) : 0), r = d.ref ? countOf(R, s, id, { src: d.ref }, x) : d.n;
       if (!(d.op === 'le' ? l <= r : d.op === 'ge' ? l >= r : d.op === 'lt' ? l < r : d.op === 'gt' ? l > r : l === r)) return false; }
-    if (c.via && c.via.length) { if (x.by !== 'effect' || !c.via.some(v => (!v.type || x.stype === v.type) && (x.slv || 0) >= v.lvMin)) return false; }
+    if (c.via && c.via.length) { if (x.by !== 'effect' || !c.via.some(v => (!v.type || x.stype === v.type) && (x.slv || 0) >= v.lvMin && (!v.color || (x.scol || []).includes(v.color)))) return false; }
+    if (c.lpSumMax != null && P.field.reduce((t, y) => t + A.lpOf(R, y), 0) > c.lpSumMax) return false;
+    if (c.cname && !D(R, P.kase).n.includes(c.cname)) return false;
     if (c.turn === 'self' && R.turn !== s) return false; if (c.turn === 'opp' && R.turn === s) return false;
-    if (c.pcolor && !cols(D(R, P.partner)).includes(c.pcolor)) return false;
+    if (c.pcolor && !cols(D(R, P.partner)).includes(c.pcolor) && !pk(R, s, 'pcolorAll')) return false;
     if (c.ccolor) { const cc = cols(D(R, P.kase)); if (!c.ccolor.split(/[&,]/).filter(Boolean).every(k => cc.includes(k))) return false; }
     if (c.ctrait && !traitsOf(D(R, P.kase)).includes(c.ctrait)) return false;
     if (c.cnot && !cols(D(R, P.kase)).some(k => k !== c.cnot)) return false;
     if (c.fileMin && fcount(R, s) < c.fileMin) return false;
     if (c.cstate === 'kase' && R.cards[P.kase].solved) return false; if (c.cstate === 'solve' && !R.cards[P.kase].solved) return false;
-    if (c.bond && !P.field.some(y => y !== id && D(R, y).n.includes(c.bond))) return false;
+    if (c.bond && !P.field.some(y => y !== id && effN(R, y).includes(c.bond))) return false;
     if (c.trace === 'found' && !P.tr) return false; if (c.trace === 'unfound' && P.tr) return false;
-    if (c.selfApMin && A.ap(R, id) < c.selfApMin) return false;
+    if (c.selfApMin) { const gd = (condOk._g = condOk._g || new Set()); if (gd.has(id)) return false; gd.add(id); let v; try { v = A.ap(R, id); } finally { gd.delete(id); } if (v < c.selfApMin) return false; }  // AP 조건부 상시 능력이 자기 AP 계산을 다시 부르는 무한 재귀 방지(조건 평가 중에는 자기 자신을 제외한 AP 로 판정)
     if (c.killed && !(R.fl.kills && R.fl.kills[id])) return false;
-    if (c.handMax != null && P.hand.length > c.handMax) return false;
+    if (c.handMax != null && P.hand.length > c.handMax) return false; if (c.ohandMax != null && R.P[1 - s].hand.length > c.ohandMax) return false;
     if (c.swapName && !(x.swapped != null && D(R, x.swapped).n.includes(c.swapName))) return false;
-    if (c.fh) { const need = c.fhN || 1, nm_ = new Set(); let k = 0; for (const t of [0, 1]) for (const y of R.P[t].field) if (fOk(R, s, y, c.fh, id, true)) { k++; nm_.add(D(R, y).n); } if ((c.fhDist ? nm_.size : k) < need) return false; }
+    if (c.fh) { const need = c.fhN || 1, nm_ = new Set(); let k = 0; for (const t of [0, 1]) for (const y of R.P[t].field) if (fOk(R, s, y, c.fh, id, true)) { k++; nm_.add(effN(R, y)); } if ((c.fhDist ? nm_.size : k) < need) return false; }
+    if (c.fnone) { for (const y of P.field) { if (fOk(R, s, y, c.fnone, id, true) || (R.cards[y].sets || []).some(z => fOk(R, s, z, c.fnone, id, true))) return false; } }   // 自分の現場(キャラと、それにセットされた表向きのカード)に該当するカードがない
     if (c.fa) { if (!P.field.length || !P.field.every(y => fOk(R, s, y, c.fa, id, true))) return false; }
     if (c.paHas && !P.pa.some(y => fOk(R, s, y, c.paHas, id, true))) return false;
     if (c.cin && !(x.cin != null && onField(R, x.cin) && fOk(R, s, x.cin, c.cin, id, true))) return false;
@@ -196,7 +226,7 @@ module.exports = function (A) {
       case 'oppField': return O.field.length; case 'fieldBoth': return R.P[0].field.length + R.P[1].field.length;
       case 'hand': return P.hand.filter(fo).length; case 'oppHand': return O.hand.length;
       case 'file': return fcount(R, s); case 'oppFile': return fcount(R, 1 - s);
-      case 'evid': return P.evid.length; case 'oppEvid': return O.evid.length; case 'evidUp': return up(s); case 'evidDown': return P.evid.length - up(s);
+      case 'evid': return f ? P.evid.filter(fo).length : P.evid.length; case 'oppEvid': return O.evid.length; case 'evidUp': return up(s); case 'evidDown': return P.evid.length - up(s);
       case 'rem': return P.rem.filter(fo).length; case 'oppRem': return O.rem.length; case 'pa': return P.pa.filter(fo).length;
       case 'sets': return [...((R.cards[id] || {}).fd || []), ...((R.cards[id] || {}).sets || [])].filter(fo).length; case 'fdSets': return ((R.cards[id] || {}).fd || []).filter(fo).length;
       case 'setsAll': return P.field.reduce((n, y) => n + (R.cards[y].fd || []).length, 0);
@@ -211,8 +241,9 @@ module.exports = function (A) {
       if (lvm != null && lv > lvm) return false; if (lvn != null && lv < lvn) return false;
       if (f.lvEq != null && lv !== f.lvEq) return false; if (f.lvSet && !f.lvSet.includes(lv)) return false; }
     if (f.apMax != null || f.apMin != null || f.apEq != null) { const a = apv(), mx = sv('apMax'), mn = sv('apMin'), eq = sv('apEq'); if (mx != null && a > mx) return false; if (mn != null && a < mn) return false; if (eq != null && a !== eq) return false; }
+    if (f.apGt === 'self' && R.cards[src] && !(apv() > A.ap(R, src))) return false;
     if (f.lpBase != null && (c.bLp != null ? c.bLp : (+d.lp || 0)) !== f.lpBase) return false;
-    if (f.sameName && !(R.cards[src] && D(R, src).n === d.n)) return false;
+    if (f.sameName && !(R.cards[src] && effN(R, src) === effN(R, id))) return false;
     if (f.hayFired && !(R.fl.hayFired && R.fl.hayFired[id])) return false; if (f.hasHay && !(d.ab || []).some(a => a.hay)) return false;
     if (f.acted) { const a = R.fl.acted && R.fl.acted[id]; if (!a || (f.acted !== 'any' && a !== f.acted && a !== 'both')) return false; }
     if (f.sets) { const nf = (c.fd || []).length, ns = nf + (c.sets || []).length; if (f.sets === 'any' ? !ns : f.sets === 'none' ? ns : f.sets === 'fdAny' ? !nf : nf) return false; }
@@ -223,9 +254,11 @@ module.exports = function (A) {
     const cl = cols(d);
     if (f.color && !cl.includes(f.color)) return false; if (f.colorNot && !cl.some(k => k !== f.colorNot)) return false;
     if (f.trait && !traitsId(R, id).includes(f.trait)) return false; if (f.traitAny && !f.traitAny.some(t => traitsId(R, id).includes(t))) return false;
-    if (!nameHit(d, f) && !aliasHit(R, id, f)) return false; if (f.nameNot && d.n.includes(f.nameNot)) return false;
+    { const rn = R.fl && R.fl.nmx && R.fl.nmx[id] != null && onField(R, id) ? R.fl.nmx[id] : null;
+      if (rn != null) { if (!nameHit({ n: rn }, f)) return false; } else if (!nameHit(d, f) && !aliasHit(R, id, f)) return false; if (f.nameNot && (rn != null ? rn : d.n).includes(f.nameNot)) return false; }
     if (f.hasIc) { if (f.hasIc === 'cutin' ? !(/cutin/.test(cardKw(R, id)) || (d.ab || []).some(a => a.ic === 'cutin')) : !(d.ab || []).some(a => a.ic === f.hasIc)) return false; }
     if (f.hasKw && !cardKw(R, id).includes(f.hasKw)) return false;
+    if (f.bang && !(d.ab || []).some(a => a.ic === 'flash' && a.bang)) return false;
     if (f.plain && !((d.ab || []).every(a => a.ic === 'cutin' || a.ic === 'flash') && !/[a-z]/.test(cardKw(R, id).replace(/cutin[:=]?\d*/g, '')))) return false;
     if (f.acting && R.actor !== id) return false; if (f.contacting && !(R.sub && (R.sub.atk === id || R.sub.def === id))) return false;
     if (f.st) { const st = (!R.P[c.o].field.includes(id) && c.pst) ? c.pst : (c.st || 'a'); if (f.st === 'sx' ? !(st === 's' || st === 'x') : st !== f.st) return false; }
@@ -248,7 +281,7 @@ module.exports = function (A) {
   // 상시 능력(static) 합산: 필드 캐릭터·사건에 붙은 static 능력을 대상 카드에 적용
   function stat(R, id) { const c = R.cards[id], out = { ap: 0, lp: 0, lv: 0, kw: '' }; if (!c || R.phase === 'setup') return out;
     for (const t of [0, 1]) { const P = R.P[t]; for (const sid of [...P.field, P.kase, ...P.pa]) { if (sid == null) continue; const d = D(R, sid); if (!d.ab && !(R.cards[sid].sets || []).length && !(R.cards[sid].tab || []).length) continue; const pa = P.pa.includes(sid);
-      for (const ab of abList(R, sid)) { if (ab.ic !== 'static' || (pa && !ab.pa) || !condOk(R, t, sid, ab)) continue; const g = ab.tgt || { sel: 'self' };
+      for (const ab of abList(R, sid)) { if (ab.ic !== 'static' || ab.az || (pa && !ab.pa) || !condOk(R, t, sid, ab)) continue; const g = ab.tgt || { sel: 'self' };
         const hit = g.sel === 'self' ? sid === id : g.sel === 'allies' ? c.o === t && !(g.notSelf && sid === id) && fOk(R, t, id, g.filter, sid, true)
           : g.sel === 'opp' ? c.o !== t && fOk(R, t, id, g.filter, sid, true) : !(g.notSelf && sid === id) && fOk(R, t, id, g.filter, sid, true);
         if (hit && (sid === id || R.P[c.o].field.includes(id))) { const m = ab.per ? countOf(R, t, sid, ab.per) : 1; out.ap += (ab.ap || 0) * m; out.lp += (ab.lp || 0) * m; out.lv += (ab.lv || 0) * m; if (ab.kw) out.kw += ' ' + ab.kw; if (ab.tr) out.tr = (out.tr || '') + ' ' + ab.tr; if (ab.nm) out.nm = (out.nm || '') + '\n' + ab.nm; } } } }
@@ -265,30 +298,37 @@ module.exports = function (A) {
     return out; }
   // ───────────── 트리거 / 큐 ─────────────
   function fire(R, ic, id, ctx = {}) { const c = R.cards[id]; if (!c) return; const pa = inPa(R, id);
-    abList(R, id).forEach((ab, i) => { if (ab.ic !== ic || (pa && !ab.pa)) return; if (ctx.gonly && i < (D(R, id).ab || []).length) return; if (ab.on) { if (ab.on.k && ctx.k !== ab.on.k) return; if (ab.on.by && ctx.by !== ab.on.by) return; }
+    (ic === 'onremoved' && c.lkiAb && c.lkiAb.length ? abList(R, id).concat(c.lkiAb) : abList(R, id)).forEach((ab, i) => { if (ab.ic !== ic || (pa && !ab.pa)) return; if (ctx.gonly && i < (D(R, id).ab || []).length && !(ctx.oppEnd && ab.cond && ab.cond.turn === 'opp')) return; if (ab.on) { if (ab.on.k && ctx.k !== ab.on.k) return; if (ab.on.by && ctx.by !== ab.on.by) return; }
       const s = c.o; if (ab.ef && !(ctx.ent != null && fOk(R, s, ctx.ent, ab.ef, id))) return; if (!condOk(R, s, id, ab, ctx)) return;
       if (ab.lim) { c.u = c.u || {}; if ((c.u[i] || 0) >= ab.lim) return; c.u[i] = (c.u[i] || 0) + 1; }
       if (ab.hay) { R.fl.hayFired = R.fl.hayFired || {}; R.fl.hayFired[id] = 1; R.fl.hayAny = R.fl.hayAny || [0, 0]; R.fl.hayAny[s] = 1; }
-      R.q.push({ kind: 'ab', s, src: id, ab, ctx }); }); }
+      R.q.push({ kind: 'ab', s, src: id, ab, ctx }); }); if (ic === 'onremoved') c.lkiAb = null; }
   function noteEnter(R, s, id) { R.fl.entCnt = R.fl.entCnt || [0, 0]; R.fl.entN = R.fl.entN || {}; R.fl.entCnt[s]++; let n = R.fl.entCnt[s]; if (R.fl.hayIgn && R.fl.hayIgn[s]) { R.fl.hayIgn[s] = 0; n = 1; } R.fl.entN[id] = n; }
   function carry(R, s) { Object.values(R.cards).forEach(c => { c.bAp = c.bLp = null; c.lose = ''; }); Object.entries(R.cards).forEach(([id, c]) => { const nx = c.nx; c.nx = null; if (!nx) return; for (const e of nx) if (e.t === s && onField(R, +id)) { const keep = R.turn; applyTo(R, s, +id, +id, e.d, e.v, 'turn', e.g); } }); }
   // 범용 이벤트 버스: 게임 중 일어난 사건(ev)을 현장·사건·파트너·파트너 에리어의 ic:'ontrig' 능력에 알린다
   function bus(R, ev, ctx = {}) { if (R.phase !== 'play') return; const seen = new Set();
-    if (R.fl.tmp && R.fl.tmp.length) { const keep = []; for (const e of R.fl.tmp) { if (e.evs.includes(ev) && (!e.who || ((ctx.s === e.s) === (e.who === 'self')))) R.q.push({ kind: 'ab', s: e.s, src: e.src, ab: { ic: 'ontrig', ops: e.ops, txt: '예약 효과', evs: [ev] }, ctx: { ...ctx } }); else keep.push(e); } R.fl.tmp = keep; }
+    if (ev === 'guard' && ctx.tid != null) (R.fl.guarded = R.fl.guarded || {})[ctx.tid] = 1;   // 이 턴에 이 캐릭터의 액션이 가드되었다(조건 guarded)
+    if (R.fl.tmp && R.fl.tmp.length) { const keep = []; for (const e of R.fl.tmp) { if (e.evs.includes(ev) && (!e.who || ((ctx.s === e.s) === (e.who === 'self'))) && (!e.sf || (ctx.ent != null && R.cards[ctx.ent] && fOk(R, e.s, ctx.ent, e.sf, e.src, true)))) { R.q.push({ kind: 'ab', s: e.s, src: e.src, ab: { ic: 'ontrig', ops: e.ops, txt: '예약 효과', evs: [ev] }, ctx: { ...ctx } }); if (e.keep) keep.push(e); } else keep.push(e); } R.fl.tmp = keep; }
     const holders = []; for (const t of [0, 1]) { const P = R.P[t]; for (const h of [...P.field, P.kase, P.partner, ...P.pa]) if (h != null && !seen.has(h)) { seen.add(h); holders.push(h); } }
-    if ((ev === 'removed' || ev === 'setOff') && ctx.ent != null && !seen.has(ctx.ent)) holders.push(ctx.ent);
+    if ((ev === 'removed' || ev === 'setOff' || ev === 'handRem' || ev === 'holdLeft') && ctx.ent != null && !seen.has(ctx.ent)) holders.push(ctx.ent);
+    if (ev === 'disguise' && ctx.swapped != null && !seen.has(ctx.swapped)) holders.push(ctx.swapped);   // 변장으로 교체되어 떠난 카드의 「…와 교체되었을 때」
+    for (const t of [0, 1]) for (const h of R.P[t].rem) if (!seen.has(h) && abList(R, h).some(a => a.ic === 'ontrig' && a.fromRem)) { seen.add(h); holders.push(h); }
     for (const h of holders) { const c = R.cards[h]; if (!c) continue; const d = D(R, h); if (!d || !abList(R, h).some(a => a.ic === 'ontrig')) continue; const s = c.o, pa = inPa(R, h), away = !onField(R, h) && !inPa(R, h) && R.P[s].partner !== h && R.P[s].kase !== h;
       abList(R, h).forEach((ab, i) => { if (ab.ic !== 'ontrig' || !ab.evs.includes(ev) || (pa && !ab.pa)) return;
-        if (away && !((ev === 'removed' || ev === 'setOff') && ctx.ent === h && ab.sub === 'self')) return;
+        if (ab.sw && ctx.swapped !== h) return;
+        if (away && !((ev === 'removed' || ev === 'setOff' || ev === 'handRem' || ev === 'holdLeft') && ctx.ent === h && (ab.sub === 'self' || ab.incl)) && !(ev === 'disguise' && ab.sw && ctx.swapped === h) && !(ab.fromRem && R.P[s].rem.includes(h))) return;
         if (ab.who && ((ctx.s === s) !== (ab.who === 'self'))) return;
         if (ab.sub === 'self' && ctx.ent !== h) return; if (ab.sub === 'notSelf' && ctx.ent === h) return;
         if (ab.sf && !(ab.sub === 'orSelf' && ctx.ent === h) && !(ctx.ent != null && R.cards[ctx.ent] && fOk(R, s, ctx.ent, ab.sf, h, true))) return;
         if (ab.sub === 'orSelf' && !ab.sf && ctx.ent !== h) return;
+        if (ab.es && !(ab._from != null && ctx.ent === ab._from)) return;
         if (ab.tself && ctx.tid !== h) return; if (ab.dself && ctx.dst !== h) return; if (ab.hself && ctx.holder !== h) return; if (ab.hw && (ctx.holder == null || !R.cards[ctx.holder] || (R.cards[ctx.holder].o === s) !== (ab.hw === 'self'))) return; if (ab.tf && !(ctx.tid != null && R.cards[ctx.tid] && fOk(R, s, ctx.tid, ab.tf, h, true))) return;
         if (ab.k && ctx.k !== ab.k) return; if (ab.by && ctx.by !== ab.by) return; if (ab.cz && (ctx.cz == null || (ctx.cz === s) !== (ab.cz === 'self'))) return;
         if (!condOk(R, s, h, ab, ctx)) return;
         if (ab.lim) { c.u = c.u || {}; if ((c.u[i] || 0) >= ab.lim) return; c.u[i] = (c.u[i] || 0) + 1; }
-        R.q.push({ kind: 'ab', s, src: h, ab, ctx }); }); } }
+        R.q.push({ kind: 'ab', s, src: h, ab, ctx, first: !!ab.first }); }); } }
+  const nameBanned = (R, s, id) => !!(R.fl.noName && R.fl.noName[s] && R.fl.noName[s].some(n => D(R, id).n.includes(n)));
+  const fieldMax = (R, s) => pk(R, s, 'field4') ? 4 : 5;
   const fieldPa = (R, s) => [...R.P[s].field, ...R.P[s].pa];
   // 자신의 현장(과 파트너 에리어) 캐릭터 전원에게 '다른 캐릭터가 …했을 때' 트리거를 알린다
   const fireAlly = (R, s, ent, ctx) => fieldPa(R, s).forEach(x => fire(R, 'onally', x, { ...ctx, ent }));
@@ -303,17 +343,18 @@ module.exports = function (A) {
 
   const release = (R, id) => { const c = R.cards[id]; if (!c) return;
     if (c.sets && c.sets.length) { const ss = c.sets.slice(); c.sets = []; ss.forEach(x => { R.cards[x].setOn = null; R.P[R.cards[x].o].rem.push(x); bus(R, 'setOff', { s: R.cards[x].o, ent: x, holder: id }); }); }
+    if (c.fd && c.fd.length && kwHas(R, id, 'fdhand') && ((R.curS != null && R.curS !== c.o) || R._why === 'contact')) { const hs = c.fd.slice(); c.fd = []; hs.forEach(x => { R.cards[x].fdOn = null; R.P[R.cards[x].o].hand.push(x); }); say(R, `${D(R, id).n}: 뒷면 세트 카드 ${hs.length}장을 리무브하는 대신 손패로`); }
     if (c.fd && c.fd.length) { const fs = c.fd.slice(); c.fd.forEach(x => { R.cards[x].fdOn = null; R.P[R.cards[x].o].rem.push(x); }); c.fd = []; fs.forEach(x => bus(R, 'fdOff', { s: R.cards[x].o, ent: x, holder: id })); }
     if (c.under && c.under.length) { c.under.forEach(x => R.P[R.cards[x].o].rem.push(x)); c.under = []; } };
-  const leave = (R, id) => { const c = R.cards[id]; release(R, id); R.P[c.o].field = R.P[c.o].field.filter(x => x !== id);
-    c.st = 'a'; c.apm = c.cm = c.lpm = c.lvm = 0; c.sum = 0; c.tkw = ''; c.tab = []; c.bAp = c.bLp = null; c.nx = null; c.lose = ''; };
+  const leave = (R, id) => { const c = R.cards[id]; const sx = (c.sets || []).slice(); release(R, id); R.P[c.o].field = R.P[c.o].field.filter(x => x !== id); sx.forEach(x => bus(R, 'holdLeft', { s: c.o, ent: x, holder: id })); // 세트된 카드가 있던 캐릭터가 떠남(떠난 뒤의 현장 기준으로 조건 판정)
+    c.st = 'a'; c.apm = c.cm = c.lpm = c.lvm = 0; c.sum = 0; c.tkw = ''; c.tab = []; c.bAp = c.bLp = null; c.nx = null; c.lose = ''; c.hold = null; c.ckw = ''; c.blank = 0; c.tmod = null; };
   // 현장을 떠난 카드를 목적지로: MR 은 상대 턴에 떠나면 (어디로 가든) 파트너 에리어로 이동(룰: 대체 효과가 아님)
   function moveOut(R, id, to) { const c = R.cards[id], o = c.o, P = R.P[o]; const was = P.field.includes(id); leave(R, id);
     let z = to; if (was && isMR(R, id) && R.turn !== o) z = 'pa';
     if (z === 'pa') { P.pa.push(id); say(R, `${D(R, id).n}: 상대 턴에 현장을 떠나 파트너 에리어로 이동`); }
     else if (z === 'hand') P.hand.push(id); else if (z === 'deckTop') P.deck.push(id); else if (z === 'deckBottom') P.deck.unshift(id); else P.rem.push(id);
     return z; }
-  function rmChar(R, id, why, killer) { const c = R.cards[id], o = c.o; c.pst = c.st || 'a'; moveOut(R, id, 'rem'); fire(R, 'onremoved', id, { by: why || 'effect' });
+  function rmChar(R, id, why, killer) { const c = R.cards[id], o = c.o; c.pst = c.st || 'a'; c.ptm = c.tmod || null; c.lkiAb = abList(R, id).filter(a => !(D(R, id).ab || []).includes(a)); R._why = why; try { moveOut(R, id, 'rem'); } finally { R._why = null; } if (!(why === 'contact' && R.turn !== o && pk(R, R.turn, 'noremtrig'))) fire(R, 'onremoved', id, { by: why || 'effect' });
     fieldPa(R, o).forEach(x => x !== id && fire(R, 'onallyremoved', x, { by: why || 'effect', ent: id }));
     bus(R, 'removed', { s: o, ent: id, tid: killer, by: why || 'effect', cz: why === 'contact' || why === 'switch' ? null : (R.curS != null ? R.curS : null) }); }
   function mrEnter(R, s, id) { if (!isMR(R, id)) return; const P = R.P[s];
@@ -331,31 +372,34 @@ module.exports = function (A) {
   const replaceAvail = (R, victim, srcOwner, by) => replaceCands(R, victim, srcOwner, by).length > 0;
   function* replaceCheck(R, victim, srcOwner, by) { const vo = R.cards[victim].o;
     for (const { id, i, ab } of replaceCands(R, victim, srcOwner, by)) { const c = R.cards[id]; if (!onField(R, victim) || !(onField(R, id) || inPa(R, id))) continue;
-      const yes = yield { who: vo, kind: 'yn', msg: `${D(R, id).n}을(를) 리무브하고, ${D(R, victim).n}이(가) 현장을 떠나는 대신 ${ab.rep.to === 'hand' ? '손패로 돌아가게' : '이동시키게'} 할까요?` };
-      if (!yes) continue; if (ab.lim) { c.u = c.u || {}; c.u[i] = (c.u[i] || 0) + 1; }
+      if (!ab.forced) { const yes = yield { who: vo, kind: 'yn', msg: ab.msg || `${D(R, id).n}을(를) 리무브하고, ${D(R, victim).n}이(가) 현장을 떠나는 대신 ${ab.rep.to === 'hand' ? '손패로 돌아가게' : '이동시키게'} 할까요?` }; if (!yes) continue; }
+      if (ab.lim) { c.u = c.u || {}; c.u[i] = (c.u[i] || 0) + 1; }
       const cx2 = { done: true, t: {}, cost: {} }; for (const k of ab.cost || []) yield* pay(R, vo, id, k, cx2);
-      say(R, `[대체 효과] ${D(R, id).n}: ${D(R, victim).n}은(는) 현장을 떠나는 대신 이동`); return ab.rep.to; }
+      if (ab.rep.unsetSelf && ab._from != null && (R.cards[id].sets || []).includes(ab._from)) { say(R, `[대체 효과] ${D(R, ab._from).n}을(를) 리무브`); unsetOne(R, id, ab._from); }
+      say(R, `[대체 효과] ${D(R, id).n}: ${D(R, victim).n}은(는) 현장을 떠나는 대신 ${ab.rep.to === 'stay' ? '현장에 남음' : '이동'}`); return ab.rep.to; }
     return null; }
 
   // ───────────── 실행기(제너레이터: 선택이 필요하면 yield) ─────────────
   const ally = (R, s) => R.P[s].field;
-  const pickReq = (who, msg, ids, min, max, o = {}) => ({ who, kind: 'pick', msg, ids, sel: o.sel || ids, min, max, ordered: !!o.ordered, distinct: !!o.distinct, reveal: o.reveal ? 1 : 0, sumLv: o.sumLv == null ? null : o.sumLv });
+  const pickReq = (who, msg, ids, min, max, o = {}) => ({ who, kind: 'pick', msg, ids, sel: o.sel || ids, min, max, ordered: !!o.ordered, distinct: !!o.distinct, dlv: !!o.dlv, reveal: o.reveal ? 1 : 0, sumLv: o.sumLv == null ? null : o.sumLv });
   const cx = ctx => ({ ...ctx.t, ...ctx });
   function* placeCards(R, s, src, ids, asleep, ctx) { const P = R.P[s]; if (!ids.length) return;
-    const free = 5 - P.field.length, over = ids.length - free;
+    ids = ids.filter(x => !nameBanned(R, s, x)); const free = fieldMax(R, s) - P.field.length, over = ids.length - free;
     if (over > 0) { const cand = P.field.slice(); const rep = over >= cand.length ? cand : yield pickReq(s, `현장이 가득 찼습니다 — 스위치로 리무브할 내 캐릭터 ${over}장을 선택`, cand, over, over);
       rep.forEach(x => { rmChar(R, x, 'switch'); say(R, '스위치!'); }); }
-    for (const id of ids) { if (P.field.length >= 5) break; const c = R.cards[id]; P.field.push(id); c.st = (asleep || enterSt(R, id) === 's') ? 's' : 'a'; c.sum = 1; c.apm = c.cm = c.lpm = c.lvm = 0; c.tkw = ''; c.tab = [];
+    ids = ids.filter(x => !nameBanned(R, s, x));
+    for (const id of ids) { if (P.field.length >= fieldMax(R, s)) break; const c = R.cards[id]; P.field.push(id); c.st = (asleep || enterSt(R, id) === 's') ? 's' : 'a'; c.sum = 1; c.apm = c.cm = c.lpm = c.lvm = 0; c.tkw = ''; c.tab = [];
       say(R, `${nm(s)} 등장: ${D(R, id).n}` + (c.st === 's' ? ' (슬립)' : '')); if (ctx) { (ctx.played = ctx.played || []).push(id); ctx.reg = ctx.reg || {}; (ctx.reg.played = ctx.reg.played || []).push(id); ctx.last = 'played'; }
       mrEnter(R, s, id); noteEnter(R, s, id);
-      const cxt = { by: 'effect', stype: D(R, src).type, slv: lvOf(R, src) }; fire(R, 'onplay', id, cxt); fireAlly(R, s, id, cxt); bus(R, 'enter', { s, ent: id, by: 'effect' }); } }
+      const cxt = { by: 'effect', stype: D(R, src).type, slv: lvOf(R, src), scol: cols(D(R, src)) }; fire(R, 'onplay', id, cxt); fireAlly(R, s, id, cxt); bus(R, 'enter', { s, ent: id, by: 'effect' }); } }
   function applyTo(R, s, src, id, d, v, until, g) { const c = R.cards[id]; if (!c) return;
     if (until === 'oppEnd' && ['ap', 'lp', 'lv', 'kw', 'lpBase', 'apBase', 'gab'].includes(d) && onField(R, id)) (c.nx = c.nx || []).push({ d, v, g, t: R.turn });
     switch (d) {
       case 'lpBase': c.bLp = +v || 0; break; case 'apBase': c.bAp = +v || 0; break;
-      case 'evid': { const o = c.o; moveOut(R, id, 'rem'); R.P[o].rem = R.P[o].rem.filter(x => x !== id); c.up = false; R.P[o].evid.push(id); bus(R, 'evgain', { s: o, by: 'effect' }); break; }
+      case 'evid': case 'evidUp': { const o = c.o; moveOut(R, id, 'rem'); R.P[o].rem = R.P[o].rem.filter(x => x !== id); c.up = d === 'evidUp'; R.P[o].evid.push(id); bus(R, 'evgain', { s: o, by: 'effect' }); break; }
       case 'pa': { const o = c.o; moveOut(R, id, 'rem'); R.P[o].rem = R.P[o].rem.filter(x => x !== id); R.P[o].pa.push(id); break; }
       case 'kwLose': c.lose = (c.lose || '') + ' ' + v; break;
+      case 'hold': c.hold = s != null && R.cards[src] ? src : null; break;
       case 'sleep': if (c.st !== 'x') { const was = (c.st || 'a') === 'a'; c.st = 's'; if (was && onField(R, id)) bus(R, 'sleepEv', { s: c.o, ent: id, by: 'effect', cz: s }); } break; case 'stun': c.st = 'x'; break; case 'active': c.st = c.st === 'x' ? 's' : 'a'; break;
       case 'remove': rmChar(R, id, 'effect'); break;
       case 'hand': moveOut(R, id, 'hand'); break;
@@ -380,7 +424,7 @@ module.exports = function (A) {
   const faceDown = (R, t) => R.P[t].evid.filter(x => !R.cards[x].up);
   function flipEv(R, t, n) { const c = faceDown(R, t).slice(); shuf(c); const ids = c.slice(0, n); ids.forEach(x => { R.cards[x].up = true; }); return ids; }
   function unsetOne(R, holder, x) { const h = R.cards[holder], wasSet = (h.sets || []).includes(x), wasFd = (h.fd || []).includes(x); h.fd = (h.fd || []).filter(y => y !== x); h.sets = (h.sets || []).filter(y => y !== x); R.cards[x].fdOn = null; R.cards[x].setOn = null; R.P[R.cards[x].o].rem.push(x); if (wasSet) bus(R, 'setOff', { s: R.cards[x].o, ent: x, holder }); if (wasFd) bus(R, 'fdOff', { s: R.cards[x].o, ent: x, holder }); }
-  const unsetPool = (R, s, src, k) => k.scope === 'any' ? [0, 1].flatMap(t => R.P[t].field).flatMap(h => setCards(R, h, !!k.fd)) : setCards(R, src, !!k.fd);
+  const unsetPool = (R, s, src, k) => k.scope === 'any' ? [0, 1].flatMap(t => R.P[t].field).flatMap(h => setCards(R, h, !!k.fd)) : k.scope === 'mine' ? R.P[s].field.flatMap(h => setCards(R, h, !!k.fd)) : k.scope === 'opp' ? R.P[1 - s].field.flatMap(h => setCards(R, h, !!k.fd)) : setCards(R, src, !!k.fd);
   const setCards = (R, id, fdOnly) => [...(R.cards[id].fd || []), ...(fdOnly ? [] : (R.cards[id].sets || []))];
 
   // ───────────── 결과 레지스터(직전 op 의 선택/이동/공개/리무브/드로우 결과를 이후 op 가 참조) ─────────────
@@ -393,7 +437,7 @@ module.exports = function (A) {
     return (g[ref] || []).slice(); }
   const setReg = (ctx, name, ids) => { (ctx.reg = ctx.reg || {})[name] = ids.slice(); if (name !== 'rest' && name !== 'hit') ctx.last = name; };
   const regNumBy = (R, ids, by) => by === 'lv' ? ids.reduce((t, x) => t + (+D(R, x).lv || 0), 0) : by === 'ap1000' ? ids.reduce((t, x) => t + Math.floor((+D(R, x).ap || 0) / 1000), 0) : ids.length;
-  const dynNum = (R, s, src, o, ctx) => o.nref ? regNumBy(R, regIds(R, ctx, o.nref.ref), o.nref.by) : o.ncnt ? countOf(R, s, src, o.ncnt, ctx.t || {}) : o.n;
+  const dynNum = (R, s, src, o, ctx) => (o.nref ? regNumBy(R, regIds(R, ctx, o.nref.ref), o.nref.by) : o.ncnt ? countOf(R, s, src, { ...o.ncnt, f: rf(R, o.ncnt.f, ctx) }, ctx.t || {}) : o.n) * (o.nmul && (o.nref || o.ncnt) ? o.nmul : 1);
   // 카드를 있는 영역에서 뺀다(소유자 영역/세트/겹침). 뺀 곳을 돌려준다.
   function takeOut(R, id) { const c = R.cards[id], P = R.P[c.o];
     if (c.fdOn != null) { const h = R.cards[c.fdOn]; if (h) h.fd = (h.fd || []).filter(y => y !== id); c.fdOn = null; return 'fd'; }
@@ -418,7 +462,7 @@ module.exports = function (A) {
       if (T.field.includes(id)) { if (dest === 'rem') { rmChar(R, id, 'effect'); moved.push(id); continue; }
         if (['hand', 'deckTop', 'deckBottom'].includes(dest)) { yield* applyG(R, s, src, id, dest); if (!T.field.includes(id)) moved.push(id); continue; }
         leave(R, id); }
-      else { const z = takeOut(R, id); if (z === 'rem' && dest !== 'rem') remLeft(R, ow, [id]); if (z === 'deck') chk(R, ow); }
+      else { const z = takeOut(R, id); if (z === 'rem' && dest !== 'rem') remLeft(R, ow, [id]); if (z === 'deck' && !isDeck) chk(R, ow); }   // 덱 안의 위치 이동(덱 위/아래)은 일시적으로 덱이 비어도 리프레시하지 않는다
       c.st = 'a'; c.up = false;
       switch (dest) {
         case 'hand': T.hand.push(id); break; case 'deckTop': T.deck.push(id); break; case 'deckBottom': T.deck.unshift(id); break; case 'rem': T.rem.push(id); break; case 'pa': T.pa.push(id); break;
@@ -432,6 +476,16 @@ module.exports = function (A) {
   const yn = (who, msg) => ({ who, kind: 'yn', msg });
   const REGS_RT = ['sel', 'played', 'seen', 'hit', 'chosen', 'chosen2', 'rest', 'revealed', 'removed', 'drawn', 'moved', 'cost', 'costRev', 'last', 'ent', 'cin'];
 
+  // 「相手の能力や効果によって選ばれたとき」(onchosen): 선택된 카드(또는 그 아군)의 능력이 먼저 해결되고, 무효가 되면 그 카드는 대상에서 빠진다
+  function* chosenCheck(R, s, src, ids, it) { if (src == null || !R.cards[src]) return ids; const so = R.cards[src].o, out = [];
+    for (const id of ids) { const c = R.cards[id]; if (c && c.o === so && isMR(R, src)) { R.fl.mrSel = R.fl.mrSel || {}; R.fl.mrSel[id] = 1; }   // 「自分のMRの能力によって選ばれた」記録
+      if (!c || c.o === so) { out.push(id); continue; } let neg = false; const todo = [];
+      for (const h of fieldPa(R, c.o)) { const hc = R.cards[h]; abList(R, h).forEach((ab, i) => { if (ab.ic !== 'onchosen') return;
+          if (ab.ef ? !fOk(R, c.o, id, ab.ef, h, true) : h !== id) return; if (!condOk(R, c.o, h, ab, { chooser: so })) return;
+          if (ab.lim) { hc.u = hc.u || {}; if ((hc.u[i] || 0) >= ab.lim) return; hc.u[i] = (hc.u[i] || 0) + 1; } todo.push({ h, ab }); }); }
+      for (const { h, ab } of todo) { const cc = { done: true, t: { ent: id }, cost: {}, src: h }; say(R, `▶ 효과 발동: ${D(R, h).n} (선택되었을 때)`); yield* runOps(R, c.o, h, ab.ops, cc, it); if (cc.negated) { neg = true; say(R, `${D(R, id).n}: 상대의 효과로 선택되었지만 무효`); break; } }
+      if (!neg) out.push(id); }
+    return out; }
   function* doOp(R, s, src, o, ctx, it) { const P = R.P[s], tg = w => w === 'opp' ? 1 - s : s;
     switch (o.op) {
       case 'draw': { const t = tg(o.who), nn = dynNum(R, s, src, o, ctx); if (nn <= 0) { ctx.done = false; return; } if (o.opt && !(yield { who: t, kind: 'yn', msg: `카드를 ${nn}장 뽑을까요?` })) { ctx.done = false; return; }
@@ -440,7 +494,7 @@ module.exports = function (A) {
         if (o.rand) { ids = pool.slice(); shuf(ids); ids = ids.slice(0, n); }
         else if (o.opt || o.any || pool.length > n) ids = yield pickReq(t, `손패 ${o.any ? '원하는 만큼' : n + '장'}을 리무브${o.opt || o.any ? ' (선택, 0장이면 하지 않음)' : ''}`, pool, o.opt || o.any ? 0 : n, n);
         else ids = pool.slice();
-        if (!ids.length) { ctx.done = false; return; } T.hand = T.hand.filter(x => !ids.includes(x)); T.rem.push(...ids); setReg(ctx, 'removed', ids); say(R, `[효과] ${nm(t)} 손패 ${ids.length}장 리무브`); ctx.done = true; return; }
+        if (!ids.length) { ctx.done = false; return; } T.hand = T.hand.filter(x => !ids.includes(x)); T.rem.push(...ids); setReg(ctx, 'removed', ids); say(R, `[효과] ${nm(t)} 손패 ${ids.length}장 리무브`); ids.forEach(x => bus(R, 'handRem', { s: t, ent: x, cz: s, by: 'effect' })); ctx.done = true; return; }
       case 'deckrem': { const t = tg(o.who), T = R.P[t]; let nn = dynNum(R, s, src, o, ctx); if (nn <= 0) { ctx.done = false; return; }
         if (o.upto) { const i = yield { who: s, kind: 'opt', msg: `덱 위에서 리무브할 장수를 정하세요 (최대 ${nn}장)`, labels: Array.from({ length: Math.min(nn, T.deck.length) + 1 }, (_, j) => `${j}장`) }; nn = Math.min(nn, +i); if (!nn) { ctx.done = false; return; } }
         if (o.opt) { if (T.deck.length < nn) { ctx.done = false; return; }
@@ -472,15 +526,16 @@ module.exports = function (A) {
         chk(R, s); return; }
       case 'select': { const f = rf(R, o.filter, ctx); const cand = [...ally(R, 0), ...ally(R, 1)].filter(x => fOk(R, s, x, f, src) && (o.all || !(R.cards[x].o !== s && noTarget(R, x, src)))); ctx.sel = [];
         if (!cand.length) { ctx.done = false; return; }
-        const nn = dynNum(R, s, src, o, ctx); let ids;
+        const nn = dynNum(R, s, src, o, ctx); let ids; if (!o.all && nn <= 0) { ctx.done = false; return; }
         if (o.all) ids = cand.slice();
         else if (o.groups && o.groups.length) { ids = []; for (const g of o.groups) { const c2 = cand.filter(x => !ids.includes(x) && fOk(R, s, x, rf(R, g.filter, ctx), src)); if (!c2.length) continue;
             ids = ids.concat((yield pickReq(s, `대상 캐릭터를 최대 ${g.n}장 선택`, c2, 0, Math.min(g.n, c2.length))).filter(x => c2.includes(x))); } }
         else { // 「イベントの効果によってこのキャラを選べる場合、必ず選ぶ」(mustsel): 상대 이벤트가 고를 수 있으면 반드시 포함
           const must = src != null && R.cards[src] && D(R, src).type === 'event' && o.sumLv == null ? cand.filter(x => R.cards[x].o !== s && kwHas(R, x, 'mustsel')) : [];
-          const c2 = must.length >= nn ? must : cand, mn = must.length ? Math.min(nn, must.length) : 0;
+          const c2 = must.length >= nn ? must : cand, mn = o.force ? Math.min(nn, c2.length) : must.length ? Math.min(nn, must.length) : 0;
           ids = (yield pickReq(s, `대상 캐릭터를 최대 ${nn >= 99 ? '원하는 수만큼' : nn + '장'} 선택` + (must.length ? ' (「必ず選ぶ」 캐릭터 포함)' : '') + (o.sumLv != null ? ` (레벨 합계 ${o.sumLv} 이하)` : ''), c2, mn, Math.min(nn, c2.length), o.sumLv != null ? { sumLv: o.sumLv } : {})).filter(x => c2.includes(x));
           if (must.length && must.length < nn) ids = [...new Set([...must, ...ids])].slice(0, nn); }
+        if (!o.all && ids.length) ids = yield* chosenCheck(R, s, src, ids, it);
         if (!ids.length) { ctx.done = false; return; } ctx.sel = ids.slice(); setReg(ctx, 'sel', ids);
         yield* doActs(R, s, src, ids, o, ctx);
         say(R, `[효과] 캐릭터 ${ids.length}장에 ${o.do}${o.v ? ' ' + o.v : ''}`); ctx.done = true; return; }
@@ -489,11 +544,11 @@ module.exports = function (A) {
         let vv = o.v; if (o.pc) { const k = countOf(R, s, src, o.pc, ctx.t || {}); if (!k) { ctx.done = false; return; } vv = String((+o.v || 0) * k); } if (o.mul) { const k = regNumBy(R, regIds(R, ctx, o.mul.ref), o.mul.by); if (!k) { ctx.done = false; return; } vv = String((+o.v || 0) * k); }
         yield* applyG(R, s, src, src, o.do, vv, o.until); setReg(ctx, 'sel', [src]); say(R, `[효과] ${D(R, src).n}: ${o.do}${vv ? ' ' + vv : ''}`); ctx.done = true; return; }
       case 'play': { ctx.played = []; setReg(ctx, 'played', []); const f = rf(R, o.filter, ctx), okc = x => D(R, x).type === 'char' && fOk(R, s, x, f, src, true);
-        const zones = o.from === 'rem' ? [P.rem] : o.from === 'handrem' ? [P.hand, P.rem] : o.from === 'picked' ? [ctx.picked != null && P.rem.includes(ctx.picked) ? [ctx.picked] : []] : [P.hand];
+        const zones = o.from === 'rem' ? [P.rem] : o.from === 'rempa' ? [P.rem, P.pa] : o.from === 'handrem' ? [P.hand, P.rem] : o.from === 'picked' ? [ctx.picked != null && P.rem.includes(ctx.picked) ? [ctx.picked] : []] : [P.hand];
         const cand = [].concat(...zones).filter(okc); if (!cand.length) { ctx.done = false; return; }
-        const ids = o.from === 'picked' ? cand.slice(0, 1) : (yield pickReq(s, `등장시킬 캐릭터를 최대 ${o.n}장 선택${o.distinct ? ' (카드 이름이 서로 달라야 함)' : ''}`, cand, 0, Math.min(o.n, cand.length), { distinct: o.distinct })).filter(x => cand.includes(x)); // 상대가 고른 1장은 강제로 등장
+        const ids = o.from === 'picked' ? cand.slice(0, 1) : (yield pickReq(s, `등장시킬 캐릭터를 최대 ${o.n}장 선택${o.distinct ? ' (카드 이름이 서로 달라야 함)' : ''}`, cand, 0, Math.min(o.n, cand.length), { distinct: o.distinct, dlv: o.dlv })).filter(x => cand.includes(x)); // 상대가 고른 1장은 강제로 등장
         if (!ids.length) { ctx.done = false; return; } const fromRem = ids.filter(x => P.rem.includes(x));
-        P.rem = P.rem.filter(x => !ids.includes(x)); P.hand = P.hand.filter(x => !ids.includes(x)); if (fromRem.length) remLeft(R, s, fromRem);
+        P.rem = P.rem.filter(x => !ids.includes(x)); P.pa = P.pa.filter(x => !ids.includes(x)); P.hand = P.hand.filter(x => !ids.includes(x)); if (fromRem.length) remLeft(R, s, fromRem);
         yield* placeCards(R, s, src, ids, o.asleep, ctx); ctx.done = true; return; }
       case 'choose': { const os = o.opts.filter(x => x.ops.length); if (!os.length) return; const i = os.length === 1 ? 0 : yield { who: s, kind: 'opt', msg: '효과를 선택하세요', labels: os.map(x => x.lab || '선택') };
         yield* runOps(R, s, src, os[i].ops, ctx, it); return; }
@@ -574,14 +629,14 @@ module.exports = function (A) {
         h.fd = h.fd.filter(x => x !== card); (to.fd = to.fd || []).push(card); R.cards[card].fdOn = ids[0]; ctx.done = true; say(R, `[효과] 뒷면 세트 카드 1장을 ${D(R, ids[0]).n}에 옮김`); return; }
       case 'stack': { const f = rf(R, o.filter, ctx), cand = P.rem.filter(x => D(R, x).type === 'char' && fOk(R, s, x, f, src, true)); if (!cand.length || !onField(R, src)) { ctx.done = false; return; }
         const ids = (yield pickReq(s, `리무브 에리어에서 이 캐릭터 아래에 겹칠 카드를 최대 ${o.n}장 선택` + (o.distinct ? ' (카드 이름이 서로 달라야 함)' : ''), cand, 0, Math.min(o.n, cand.length), { distinct: o.distinct, reveal: 1 })).filter(x => cand.includes(x));
-        if (!ids.length) { ctx.done = false; return; } P.rem = P.rem.filter(x => !ids.includes(x)); const h = R.cards[src]; (h.under = h.under || []).push(...ids); remLeft(R, s, ids); say(R, `[효과] ${D(R, src).n} 아래에 ${ids.length}장을 겹침`); ctx.done = true; return; }
+        if (!ids.length) { ctx.done = false; return; } P.rem = P.rem.filter(x => !ids.includes(x)); const h = R.cards[src]; (h.under = h.under || []).push(...ids); setReg(ctx, 'moved', ids); remLeft(R, s, ids); say(R, `[효과] ${D(R, src).n} 아래에 ${ids.length}장을 겹침`); ctx.done = true; return; }
       case 'flip': { const t = tg(o.who); if (o.opt && faceDown(R, t).length && !(yield { who: s, kind: 'yn', msg: `뒷면 증거 ${o.n}장을 표향으로 할까요?` })) { ctx.done = false; return; } const ids = flipEv(R, t, o.n); ctx.flipped = ids; if (ids.length) say(R, `[효과] ${nm(t)}의 뒷면 증거 ${ids.length}장을 표향으로`); ctx.done = ids.length > 0; return; }
       case 'flashFlipped': { const f = rf(R, o.filter, ctx), ids = [...(ctx.cost && ctx.cost.flip || []), ...(ctx.flipped || [])].filter(x => fOk(R, s, x, f, src, true) && (D(R, x).ab || []).some(a => a.ic === 'flash' && !!a.bang === !!o.bang));
         for (const x of ids) { const abs = (D(R, x).ab || []).filter(a => a.ic === 'flash' && !!a.bang === !!o.bang && condOk(R, s, x, a)); if (!abs.length) continue;
           if (!(yield { who: s, kind: 'yn', msg: `표향이 된 「${D(R, x).n}」의 ${o.bang ? '【!】' : ''}히라메키를 발동할까요?` })) continue;
           say(R, `▶ 히라메키 발동(표향): ${D(R, x).n}`); const c2 = { done: true, t: {}, cost: {} }; for (const ab of abs) yield* runOps(R, s, x, ab.ops, c2, it); }
         return; }
-      case 'rmAll': { const ids = o.scope === 'contact' ? (R.sub ? [R.sub.atk, R.sub.def] : []) : [...ally(R, R.turn), ...ally(R, 1 - R.turn)];
+      case 'rmAll': { const ids = o.scope === 'contact' ? (R.sub ? [R.sub.atk, R.sub.def] : []) : [...ally(R, R.turn), ...ally(R, 1 - R.turn)].filter(x => o.scope !== 'others' || x !== src);
         for (const x of ids.filter(y => onField(R, y))) rmChar(R, x, 'effect'); say(R, `[효과] ${o.scope === 'contact' ? '컨택트 중인 캐릭터' : '모든 캐릭터'} 리무브`); ctx.done = true; return; }
       case 'traitAll': { R.tt = R.tt || [[], []]; R.tt[s].push(o.trait); say(R, `[효과] 이번 턴 내 모든 캐릭터는 특징 [${o.trait}] 를 가짐`); return; }
       case 'nohint': R.fl.nh = 1; say(R, '[효과] 이번 턴 넥스트 힌트 불가'); return;
@@ -602,9 +657,9 @@ module.exports = function (A) {
       case 'peek': { const dt = o.deck === 'opp' ? 1 - s : s, T = R.P[dt], viewer = o.viewer === 'opp' ? 1 - s : s; let seen = [], hit = null;
         if (o.until) { const f = rf(R, o.until, ctx); const cap = Math.min(o.cap, T.deck.length);
           for (let k = 0; k < cap; k++) { const x = o.from === 'bottom' ? T.deck[k] : T.deck[T.deck.length - 1 - k]; seen.push(x); if (fOk(R, s, x, f, src, true)) { hit = x; break; } } }
-        else { const n = Math.max(0, Math.min(dynNum(R, s, src, o, ctx), T.deck.length)); seen = o.from === 'bottom' ? T.deck.slice(0, n) : T.deck.slice(-n).reverse(); }
+        else { const n = Math.max(0, Math.min(dynNum(R, s, src, o, ctx), T.deck.length)); seen = n <= 0 ? [] : o.from === 'bottom' ? T.deck.slice(0, n) : T.deck.slice(-n).reverse(); }
         setReg(ctx, 'seen', seen); setReg(ctx, 'hit', hit != null ? [hit] : []); setReg(ctx, 'rest', seen.filter(x => x !== hit)); setReg(ctx, 'revealed', o.reveal ? seen : []); ctx.found = hit != null ? 1 : 0; ctx.done = seen.length > 0;
-        say(R, `[효과] ${nm(dt)} 덱 ${o.from === 'bottom' ? '아래' : '위'} ${seen.length}장 ${o.reveal ? '공개' : '확인'}` + (o.until ? (hit != null ? ` → 「${D(R, hit).n}」 발견` : ' (해당 카드 없음)') : ''));
+        say(R, `[효과] ${nm(dt)} 덱 ${o.from === 'bottom' ? '아래' : '위'} ${seen.length}장 ${o.reveal ? '공개' : '확인'}` + (o.until ? (hit != null ? (o.reveal ? ` → 「${D(R, hit).n}」 발견` : ' → 해당하는 카드를 찾음') : ' (해당 카드 없음)') : ''));
         if (seen.length) yield { who: viewer, kind: 'ack', msg: `${nm(dt)}의 덱 ${o.from === 'bottom' ? '아래' : '위'} ${seen.length}장${o.reveal ? ' 공개' : ' 확인'}` + (o.until ? (hit != null ? ` — 「${D(R, hit).n}」 발견` : ' — 해당하는 카드 없음') : ''), ids: seen, reveal: o.reveal ? 1 : 0 };
         return; }
       case 'pick': { const who = o.chooser === 'opp' ? 1 - s : s; const isReg = REGS_RT.includes(o.from); let pool;
@@ -618,17 +673,18 @@ module.exports = function (A) {
             if (!c2.length) continue; const r = (yield pickReq(who, `${g.n}장까지 선택 (해당하는 카드가 없으면 0장)`, c2, 0, Math.min(g.n, c2.length), { reveal: isReg ? 1 : 0 })).filter(x => c2.includes(x)); chosen = chosen.concat(r); } }
         else { const mx = Math.min(dynNum(R, s, src, o, ctx), cand.length); if (mx > 0) chosen = (yield pickReq(who, `${o.msg || '카드'}를 ${o.min && o.min === mx ? mx : '최대 ' + mx}장 선택` + (o.sumLv != null ? ` (레벨 합계 ${o.sumLv} 이하)` : ''), cand, Math.min(o.min, mx), mx, { distinct: o.distinct, reveal: isReg || o.reveal ? 1 : 0, ...cap })).filter(x => cand.includes(x)); }
         setReg(ctx, o.as, chosen); if (isReg) setReg(ctx, 'rest', pool.filter(x => !chosen.includes(x))); ctx.found = chosen.length; ctx.done = chosen.length > 0;
-        if (chosen.length) { if (o.reveal) { setReg(ctx, 'revealed', chosen); yield { who: 1 - who, kind: 'ack', msg: `${nm(who)}이(가) 공개: ${chosen.map(x => D(R, x).n).join(', ')}`, ids: chosen, reveal: 1 }; } say(R, `[효과] ${nm(who)}이(가) ${chosen.length}장 선택`); }
+        if (chosen.length) { if (o.reveal) { setReg(ctx, 'revealed', chosen); yield { who: 1 - who, kind: 'ack', msg: `${nm(who)}이(가) 공개: ${chosen.map(x => D(R, x).n).join(', ')}`, ids: chosen, reveal: 1 }; if (o.from === 'hand') chosen.forEach(x => bus(R, 'hrev', { s: who, ent: x, by: 'effect' })); } say(R, `[효과] ${nm(who)}이(가) ${chosen.length}장 선택`); }
         return; }
-      case 'turnPk': { R.fl.pk = R.fl.pk || [{}, {}]; R.fl.pkA = R.fl.pkA || [{}, {}]; (o.until === 'action' ? R.fl.pkA : R.fl.pk)[s][o.key] = 1; say(R, `[효과] ${o.until === 'action' ? '이 액션이 끝날 때까지' : '이번 턴 동안'} 제한 적용: ${o.key}`); ctx.done = true; return; }
-      case 'delay': { R.fl.tmp = R.fl.tmp || []; R.fl.tmp.push({ s, src, evs: o.evs, who: o.who, ops: o.ops }); say(R, '[효과] 이번 턴 동안의 예약 효과 등록'); ctx.done = true; return; }
+      case 'turnPk': { if (o.until === 'action' && !R.sub) { ctx.done = false; return; }   // 액션이 이미 끝났다면(사건 액션이 가드 없이 끝난 뒤 큐 처리 등) 적용하지 않음
+        R.fl.pk = R.fl.pk || [{}, {}]; R.fl.pkA = R.fl.pkA || [{}, {}]; (o.until === 'action' ? R.fl.pkA : R.fl.pk)[s][o.key] = 1; say(R, `[효과] ${o.until === 'action' ? '이 액션이 끝날 때까지' : '이번 턴 동안'} 제한 적용: ${o.key}`); ctx.done = true; return; }
+      case 'delay': { R.fl.tmp = R.fl.tmp || []; R.fl.tmp.push({ s, src, evs: o.evs, who: o.who, ops: o.ops, keep: o.keep, sf: o.sf }); say(R, '[효과] 이번 턴 동안의 예약 효과 등록'); ctx.done = true; return; }
       case 'nameSel': { const v = yield { who: s, kind: 'text', msg: '카드 이름을 지정하세요 (부분 일치)', max: 40 }; ctx.named = String(v || '').slice(0, 40); ctx.done = true; say(R, `[효과] 카드 이름 지정: ${ctx.named}`); return; }
       case 'hayIgn': { R.fl.hayIgn = R.fl.hayIgn || [0, 0]; R.fl.hayIgn[s] = 1; say(R, '[효과] 이번 턴 다음에 등장하는 캐릭터는 【疾風】 조건을 무시'); ctx.done = true; return; }
       case 'handTo': { const T = P; ctx.done = false;
         if (o.mode === 'draw') { const got = []; while (T.hand.length < o.n) { const x = pull(R, s); if (x == null) break; T.hand.push(x); got.push(x); } setReg(ctx, 'drawn', got); ctx.done = got.length > 0; say(R, `[효과] ${nm(s)} 손패가 ${o.n}장이 될 때까지 드로우`); return; }
         const k = T.hand.length - o.n; if (k <= 0) return; const ids = yield pickReq(s, `손패가 ${o.n}장이 되도록 ${k}장 리무브`, T.hand.slice(), k, k); T.hand = T.hand.filter(x => !ids.includes(x)); T.rem.push(...ids); setReg(ctx, 'removed', ids); ctx.done = true; say(R, `[효과] ${nm(s)} 손패 ${ids.length}장 리무브`); return; }
       case 'solve': setSolved(R, s); return;
-      default: say(R, `⚠ [수동 처리 필요] ${D(R, src).n}: ${o.txt || ''}`); return; } }
+      default: if (X.has(o.op)) return yield* X.run(R, s, src, o, ctx, it); if (!doOp._w) doOp._w = new Set(); if (!doOp._w.has(o.op)) { doOp._w.add(o.op); console.warn(`[fx] 미지원 효과 op '${o.op}' 건너뜀 (${D(R, src).n}) — 카드 DB를 재변환하세요`); } return; } }  // 사용자에게 수동 처리를 요구하지 않는다(DB 검증 test/check_db.js 가 0건임을 보증)
   function* runOps(R, s, src, ops, ctx, it) { for (const o of ops) { if (R.phase !== 'play') return; yield* doOp(R, s, src, o, ctx, it); } }
 
   // 코스트
@@ -653,8 +709,9 @@ module.exports = function (A) {
         if (pool.length < k.n) return '겹칠 카드가 부족합니다'; if (k.onto === 'self') return P.field.includes(src) ? '' : '현장의 캐릭터만 사용할 수 있습니다'; return P.field.some(x => fOk(R, s, x, k.ontoF, src, true)) ? '' : '겹칠 대상 캐릭터가 없습니다'; }
       case 'either': return (k.alts || []).some(alt => alt.every(x => !canPayOne(R, s, src, x))) ? '' : '어느 코스트도 지불할 수 없습니다';
       case 'lpSelf': return A.lpOf(R, src) < Math.abs(k.v) ? 'LP가 부족합니다' : '';
+      case 'handDeckTop': return P.hand.filter(x => fOk(R, s, x, f, src, true)).length < k.n ? '공개해 덱 위로 보낼 손패가 부족합니다' : '';
       case 'discardTo': return P.hand.length <= k.n ? '손패를 더 줄일 수 없습니다' : '';
-      default: return ''; } }
+      default: return X.hasCost(k.c) ? X.costCan(R, s, src, k) : ''; } }
   const sleepPool = (R, s, src, k) => { const cs = k.scope === 'any' ? [...ally(R, 0), ...ally(R, 1)] : ally(R, s);
     return cs.filter(x => (R.cards[x].st || 'a') === 'a' && ((k.orSelf && x === src) || fOk(R, s, x, k.filter, src, true))); };
   function canPay(R, s, src, ab) { for (const k of ab.cost || []) { const e = canPayOne(R, s, src, k); if (e) return e; } return ''; }
@@ -677,7 +734,7 @@ module.exports = function (A) {
       const ord = k.order && ids.length > 1 ? yield pickReq(s, `덱 아래에 놓을 순서대로 클릭 (${ids.length}장)`, ids, ids.length, ids.length, { ordered: true }) : ids;
       P.rem = P.rem.filter(x => !ids.includes(x)); ord.forEach(x => P.deck.unshift(x)); remLeft(R, s, ids); }
     else if (k.c === 'revealHand') { const cand = P.hand.filter(x => fOk(R, s, x, f, src, true)); const ids = cand.length === k.n ? cand : yield pickReq(s, `코스트: 공개할 손패 ${k.n}장 선택`, cand, k.n, k.n);
-      yield { who: 1 - s, kind: 'ack', msg: `${nm(s)}이(가) 손패를 공개: ${ids.map(x => D(R, x).n).join(', ')}`, ids, reveal: 1 }; co.rev = (co.rev || []).concat(ids); co.lv = ids.length ? (+D(R, ids[0]).lv || 0) : co.lv; say(R, `코스트: 손패 ${ids.length}장 공개`); }
+      yield { who: 1 - s, kind: 'ack', msg: `${nm(s)}이(가) 손패를 공개: ${ids.map(x => D(R, x).n).join(', ')}`, ids, reveal: 1 }; co.rev = (co.rev || []).concat(ids); co.lv = ids.length ? (+D(R, ids[0]).lv || 0) : co.lv; say(R, `코스트: 손패 ${ids.length}장 공개`); ids.forEach(x => bus(R, 'hrev', { s, ent: x, by: 'cost' })); }
     else if (k.c === 'fileRem') { const got = []; for (let i = 0; i < k.n && P.file.length; i++) { const x = P.file.pop(); R.cards[x].up = false; P.rem.push(x); got.push(x); } co.rem = (co.rem || []).concat(got); say(R, `코스트: FILE 에리어 ${got.length}장 리무브`); }
     else if (k.c === 'paRem') { const cand = P.pa.filter(x => fOk(R, s, x, f, src, true)); const ids = cand.length === k.n ? cand : yield pickReq(s, `코스트: 파트너 에리어에서 리무브할 카드 ${k.n}장`, cand, k.n, k.n, { reveal: 1 });
       P.pa = P.pa.filter(x => !ids.includes(x)); P.rem.push(...ids); co.rem = (co.rem || []).concat(ids); say(R, `코스트: 파트너 에리어 ${ids.length}장 리무브`); }
@@ -686,22 +743,28 @@ module.exports = function (A) {
     else if (k.c === 'stackCost') { const cand = k.from === 'hand' ? P.hand.filter(x => fOk(R, s, x, f, src, true)) : P.field.filter(x => x !== src && fOk(R, s, x, f, src, true)); const ids = cand.length === k.n ? cand : yield pickReq(s, `코스트: 겹칠 카드 ${k.n}장 선택`, cand, k.n, k.n, { reveal: k.from === 'hand' ? 1 : 0 });
       let holder = src; if (k.onto === 'pick') { const hc = P.field.filter(x => fOk(R, s, x, k.ontoF, src, true)); holder = hc.length === 1 ? hc[0] : (yield pickReq(s, '카드를 아래에 겹칠 캐릭터를 선택', hc, 1, 1))[0]; }
       if (k.from === 'hand') { yield { who: 1 - s, kind: 'ack', msg: `${nm(s)}이(가) 손패를 공개: ${ids.map(x => D(R, x).n).join(', ')}`, ids, reveal: 1 }; P.hand = P.hand.filter(x => !ids.includes(x)); } else ids.forEach(x => leave(R, x));
-      const h = R.cards[holder]; (h.under = h.under || []).push(...ids); co.rev = (co.rev || []).concat(ids); say(R, `코스트: ${ids.length}장을 ${D(R, holder).n} 아래에 겹침`); }
+      const h = R.cards[holder]; (h.under = h.under || []).push(...ids); co.rev = (co.rev || []).concat(ids); say(R, `코스트: ${ids.length}장을 ${D(R, holder).n} 아래에 겹침`); if (k.from === 'hand') ids.forEach(x => bus(R, 'hrev', { s, ent: x, by: 'cost' })); }
     else if (k.c === 'either') { const ok = (k.alts || []).map((alt, i) => [alt, i]).filter(([alt]) => alt.every(x => !canPayOne(R, s, src, x))); const pick = ok.length === 1 ? 0 : yield { who: s, kind: 'opt', msg: '지불할 코스트를 고르세요', labels: ok.map(([, i]) => `코스트 ${i + 1}`) };
       for (const x of ok[pick][0]) yield* pay(R, s, src, x, ctx); }
+    else if (k.c === 'handDeckTop') { const cand = P.hand.filter(x => fOk(R, s, x, f, src, true)); const ids = cand.length === k.n ? cand : yield pickReq(s, `코스트: 공개해 덱 위로 보낼 손패 ${k.n}장 선택`, cand, k.n, k.n, { reveal: 1 });
+      yield { who: 1 - s, kind: 'ack', msg: `${nm(s)}이(가) 손패를 공개하고 덱 위로: ${ids.map(x => D(R, x).n).join(', ')}`, ids, reveal: 1 }; P.hand = P.hand.filter(x => !ids.includes(x)); ids.forEach(x => P.deck.push(x)); co.rev = (co.rev || []).concat(ids); say(R, `코스트: 손패 ${ids.length}장을 공개하고 덱 위로`); ids.forEach(x => bus(R, 'hrev', { s, ent: x, by: 'cost' })); }
     else if (k.c === 'lpSelf') { c.lpm = (c.lpm || 0) + k.v; say(R, `코스트: ${D(R, src).n} LP${k.v}`); }
-    else if (k.c === 'discardTo') { const n = P.hand.length - k.n; const ids = yield pickReq(s, `코스트: 손패가 ${k.n}장이 되도록 ${n}장 리무브`, P.hand.slice(), n, n); P.hand = P.hand.filter(x => !ids.includes(x)); P.rem.push(...ids); co.disc = (co.disc || []).concat(ids); } }
+    else if (k.c === 'discardTo') { const n = P.hand.length - k.n; const ids = yield pickReq(s, `코스트: 손패가 ${k.n}장이 되도록 ${n}장 리무브`, P.hand.slice(), n, n); P.hand = P.hand.filter(x => !ids.includes(x)); P.rem.push(...ids); co.disc = (co.disc || []).concat(ids); }
+    else if (X.hasCost(k.c)) yield* X.costPay(R, s, src, k, ctx); }
 
   function* killG(R, it) { const { atk, victim, s } = it; if (!onField(R, victim)) return; const rep = yield* replaceCheck(R, victim, s, 'contact');
     if (rep) { applyTo(R, s, atk, victim, rep); return; }
     rmChar(R, victim, 'contact', atk); say(R, '상대 캐릭터를 리무브!'); R.fl.kills = R.fl.kills || {}; R.fl.kills[atk] = true; fire(R, 'onkill', atk, { by: 'contact', victim }); fireAllyKill(R, s, atk, victim); }
   function* gen(R, it) { const { s, src } = it, ctx = { done: true, t: it.ctx || {}, cost: {}, src };
-    if (it.kind === 'ab') { for (const k of it.ab.cost || []) if (it.declared) yield* pay(R, s, src, k, ctx);
+    if (it.kind === 'ab') { let altUsed = false;
+      if (it.declared && (it.ab.cost || []).length) { const pv = altProv(R, s, src);
+        if (pv.length && (canPay(R, s, src, it.ab) || (yield yn(s, `코스트를 지불하는 대신 ${pv.map(x => D(R, x).n).join(' / ')}을(를) 현장에서 리무브할까요?`)))) { const p = pv.length === 1 ? pv[0] : (yield pickReq(s, '코스트 대신 리무브할 캐릭터를 선택', pv, 1, 1))[0]; rmChar(R, p, 'cost'); say(R, `코스트 대신 ${D(R, p).n} 리무브`); altUsed = true; } }
+      if (!altUsed) for (const k of it.ab.cost || []) if (it.declared) yield* pay(R, s, src, k, ctx);
       say(R, `▶ 효과 발동: ${D(R, src).n}` + (it.ab.lab ? ` — ${it.ab.lab}` : '')); ctx.done = true; yield* runOps(R, s, src, it.ab.ops, ctx, it); }
     else if (it.kind === 'kill') yield* killG(R, it);
     else if (it.kind === 'cb') it.fn();
     else if (it.kind === 'event') { say(R, `▶ 이벤트 효과: ${D(R, src).n}`);
-      for (const ab of it.abs) { if (!condOk(R, s, src, ab)) { say(R, '(조건 미충족 — 아무 일도 일어나지 않음)'); continue; } yield* runOps(R, s, src, ab.ops, ctx, it); }
+      for (const ab of it.abs) { if (!condOk(R, s, src, ab, cx(ctx))) { say(R, '(조건 미충족 — 아무 일도 일어나지 않음)'); continue; } yield* runOps(R, s, src, ab.ops, ctx, it); }
       if (!ctx.moved && !R.cards[src].setOn && !R.P[s].rem.includes(src)) R.P[s].rem.push(src); }  // 해결 중 세트 대상이 떠나 이미 리무브된 경우 중복 방지
     else if (it.kind === 'flash') { const d = D(R, src), abs = (d.ab || []).filter(a => a.ic === 'flash' && !a.bang && condOk(R, s, src, a)); const c = R.cards[src];
       const yes = abs.length && (yield { who: s, kind: 'yn', msg: `${d.n}의 히라메키를 발동할까요?` });
@@ -712,7 +775,7 @@ module.exports = function (A) {
     if (r.done) { R.eff = null; return; } R.eff = { it, req: r.value }; }
   function pump(R) { let g = 0;
     while (!R.eff && (!R.sub || R.sub.type === 'contact') && R.phase === 'play' && R.q.length && g++ < 500) {
-      let i = R.q.findIndex(x => x.s === R.turn && !x.last); if (i < 0) i = R.q.findIndex(x => !x.last); if (i < 0) i = 0; const it = R.q.splice(i, 1)[0]; it.g = gen(R, it); step(R, it); } }
+      let i = R.q.findIndex(x => x.first); if (i < 0) i = R.q.findIndex(x => x.s === R.turn && !x.last); if (i < 0) i = R.q.findIndex(x => !x.last); if (i < 0) i = 0; const it = R.q.splice(i, 1)[0]; it.g = gen(R, it); step(R, it); } }
   function answer(R, s, m) { const E = R.eff; if (!E || E.req.who !== s) return '지금 응답할 차례가 아닙니다'; const q = E.req; let v = m.v;
     if (q.kind === 'yn') v = !!v; else if (q.kind === 'ack') v = null;
     else if (q.kind === 'opt') { v = +v; if (!(v >= 0 && v < q.labels.length)) return '잘못된 선택'; }
@@ -720,6 +783,7 @@ module.exports = function (A) {
     else if (q.kind === 'text') { v = String(v == null ? '' : v).trim().slice(0, q.max || 40); if (!v) return '이름을 입력하세요'; }
     else if (q.kind === 'pick') { v = Array.isArray(v) ? v.map(Number) : []; if (new Set(v).size !== v.length) return '중복 선택';
       if (v.some(x => !q.sel.includes(x))) return '선택할 수 없는 카드가 있습니다'; if (v.length < q.min || v.length > q.max) return `${q.min === q.max ? q.min : q.min + '~' + q.max}장을 선택하세요`;
+      if (q.dlv && new Set(v.map(x => lvOf(R, x))).size !== v.length) return '레벨이 서로 다른 카드를 선택하세요';
       if (q.distinct && new Set(v.map(x => D(R, x).n)).size !== v.length) return '카드 이름이 서로 다른 카드를 선택하세요';
       if (q.sumLv != null && v.reduce((t, x) => t + lvOf(R, x), 0) > q.sumLv) return `선택한 카드의 레벨 합계가 ${q.sumLv} 이하여야 합니다`; }
     R.eff = null; step(R, E.it, v); }
@@ -728,10 +792,12 @@ module.exports = function (A) {
   // 상태를 바꾸지 않는 사용 가능 검사 (클라이언트 행동 버튼 표시와 declare 가 같은 규칙을 쓴다)
   function declareCheck(R, s, id, i) { const c = R.cards[id]; if (!c || c.o !== s) return '내 카드가 아닙니다'; const P = R.P[s], ab = abList(R, id)[i];
     if (!ab || ab.ic !== 'declare') return '사용할 수 있는 능력이 아닙니다';
-    if (!(P.field.includes(id) || P.kase === id || P.partner === id || (P.pa.includes(id) && ab.pa))) return '현장/사건/파트너의 능력만 사용할 수 있습니다';
+    if (!(P.field.includes(id) || P.kase === id || P.partner === id || (P.pa.includes(id) && ab.pa) || (P.hand.includes(id) && ab.fromHand) || (ab.fromUp && c.up && (P.evid.includes(id) || P.file.includes(id))))) return '현장/사건/파트너의 능력만 사용할 수 있습니다';
     if (!condOk(R, s, id, ab)) return '능력의 사용 조건을 만족하지 않습니다';
     if (ab.lim && ((c.u || {})[i] || 0) >= ab.lim) return '이번 턴에는 더 이상 사용할 수 없습니다';
-    return canPay(R, s, id, ab); }
+    return altProv(R, s, id).length ? '' : canPay(R, s, id, ab); }
+  // 「コスト(【スリープ】を含む)を支払う代わりにこのキャラを現場からリムーブすることで【宣言】能力を宣言できる」: 대체 코스트를 제공하는 내 현장 캐릭터 목록
+  const altProv = (R, s, id) => !R.P[s].field.includes(id) ? [] : R.P[s].field.filter(h => h !== id && abList(R, h).some(a => a.ic === 'static' && a.pk === 'altdecl' && condOk(R, s, h, a) && (!a.tgt || fOk(R, s, id, a.tgt.filter, h, true))));
   const abInfo = (R, id) => abList(R, id).map((a, i) => ({ i, ic: a.ic, lab: a.lab || '', txt: a.txt || '' }));
   function declare(R, s, id, i) { const e = declareCheck(R, s, id, i); if (e) return e; const c = R.cards[id], ab = abList(R, id)[i];
     if (ab.lim) { c.u = c.u || {}; c.u[i] = (c.u[i] || 0) + 1; } R.q.push({ kind: 'ab', s, src: id, ab, ctx: {}, declared: 1 }); bus(R, 'declared', { s, ent: id }); }
@@ -740,15 +806,26 @@ module.exports = function (A) {
   const cutAbs = (R, s, id) => (D(R, id).ab || []).filter(a => a.ic === 'cutin');
   const disAbs = (R, id) => (D(R, id).ab || []).filter(a => a.ic === 'disguise');
   const disguiseOk = (R, s, id) => { const abs = disAbs(R, id); return !abs.length || abs.some(a => condOk(R, s, id, a)); };
-  const useOk = (R, s, id) => (D(R, id).ab || []).filter(a => a.ic === 'usecond').every(a => condOk(R, s, id, a));
+  // pk 'evcase': 「この事件は指定されたイベントでのみ使用できる」 — 이벤트가 usecond(cond.cname)로 이 사건을 지정한 경우에만 사용할 수 있다
+  const evcaseOk = (R, s, id) => D(R, id).type !== 'event' || !pk(R, s, 'evcase') || (D(R, id).ab || []).some(a => a.ic === 'usecond' && a.cond && a.cond.cname && D(R, R.P[s].kase).n.includes(a.cond.cname));
+  const useOk = (R, s, id) => (D(R, id).ab || []).filter(a => a.ic === 'usecond').every(a => condOk(R, s, id, a)) && evcaseOk(R, s, id);
   const hasAbIc = (R, id, ic) => (D(R, id).ab || []).some(a => a.ic === ic);
-  const cutOk = (R, s, id, kwCut) => { const abs = cutAbs(R, s, id); return abs.length ? abs.some(a => condOk(R, s, id, { ...a, cond: { ...a.cond, cin: undefined } })) : kwCut > 0; };
-  function cutV(R, s, id, kwCut, my) { const abs = cutAbs(R, s, id); if (!abs.length) return kwCut; const cx_ = { cin: my }; const v = abs.filter(a => condOk(R, s, id, a, cx_)).reduce((t, a) => t + (a.alt && condOk(R, s, id, { cond: a.alt.cond }, cx_) ? a.alt.v : (a.v || 0)) * (a.per ? countOf(R, s, id, a.per) : 1), 0); return v === 0 && !abs.some(a => a.v > 0) ? kwCut : v; }
+  const ignoreColor = (R, s, id) => (D(R, id).ab || []).some(a => a.ic === 'ignorecolor' && condOk(R, s, id, a));   // 사건 색 무시(조건: 사건 이름/색/특징 등)
+  const cutOk = (R, s, id, kwCut) => { const abs = cutAbs(R, s, id); return (abs.length ? abs.some(a => condOk(R, s, id, { ...a, cond: { ...a.cond, cin: undefined } })) : kwCut > 0) || handCutV(R, s, id) > 0; };
+  // 손패의 카드가 받는 【컷인】 AP (예: 工藤新一 — 자신의 손패에 있는 【青】 카드는 「컷인 AP+1000」을 가진다). 여러 개면 가장 큰 값 하나만 쓴다
+  const handCutV = (R, s, id) => { if (!R.P[s].hand.includes(id)) return 0; let v = 0; const cc = cols(D(R, id)); for (const t of pkVals(R, s, 'handcut')) { const [col, n] = String(t).split(':'); if (cc.includes(col)) v = Math.max(v, +n || 0); }
+    { const P = R.P[s]; for (const sid of [...P.field, P.kase, P.partner, ...P.pa]) { if (sid == null) continue; const paS = P.pa.includes(sid);   // 필터형: static pk 'handcut' + v + tgt.filter (예: 手札にある【緑】の特徴[YAIBA]のキャラは「【カットイン】AP+2000」を持つ)
+        for (const a of abList(R, sid)) if (a.ic === 'static' && a.pk === 'handcut' && a.v > 0 && !(paS && !a.pa) && condOk(R, s, sid, a) && fOk(R, s, id, a.tgt && a.tgt.filter, sid, true)) v = Math.max(v, a.v); } }
+    return v; };
+  function cutV(R, s, id, kwCut, my) { return Math.max(cutV0(R, s, id, kwCut, my), handCutV(R, s, id)); }
+  function cutV0(R, s, id, kwCut, my) { const abs = cutAbs(R, s, id); if (!abs.length) return kwCut; const cx_ = { cin: my }; const v = abs.filter(a => condOk(R, s, id, a, cx_)).reduce((t, a) => t + (a.alt && condOk(R, s, id, { cond: a.alt.cond }, cx_) ? a.alt.v : (a.v || 0)) * (a.per ? countOf(R, s, id, a.per) : 1), 0); return v === 0 && !abs.some(a => a.v > 0) ? kwCut : v; }
   function cutOps(R, s, id, cin) { cutAbs(R, s, id).forEach(ab => { if (ab.ops.length && condOk(R, s, id, ab, { cin })) R.q.push({ kind: 'ab', s, src: id, ab, ctx: { cin } }); }); }
 
   // 클라이언트 표시용: 세트/임시로 받은 능력(d.ab 뒤에 붙는 것들)
   const grantedAb = (R, id) => { const n = (D(R, id).ab || []).length; return abList(R, id).slice(n).map((a, k) => ({ i: n + k, ic: a.ic, lab: a.lab || '', txt: a.txt || '', lim: a.lim || 0 })); };
-  const hasCut = (R, id) => cutAbs(R, 0, id).length > 0;
-  return { noteEnter, carry, bus, pkVals, countOf, useOk, hasAbIc, disguiseOk, disAbs, lvOf, enterSt, noAct, noTarget, fireAlly, fireAllyKill, fireAllyContact, fireMain, remLeft, release, hasCut, cutOk, cleanAb, fire, queueEvent, queueFlash, rmChar, leave, moveOut, mrEnter, isMR, winAlt, setSolved,
-    replaceAvail, pk, hasKwTk: kwHas, grantedAb, pump, answer, declare, declareCheck, abInfo, canPay, stat, cutV, cutOps, condOk, traitsOf, traitsId };
+  const hasCut = (R, id) => cutAbs(R, 0, id).length > 0 || handCutV(R, R.cards[id].o, id) > 0;
+  const X = require('./fx_ext')({ nameBanned, fieldMax, chosenCheck, useOk, A, D, say, shuf, pull, chk, gain, nm, fcount, cols, fOk, rf, countOf, condOk, regIds, setReg, pickReq, yn, onField, inPa, moveCards, applyG, applyTo, placeCards, inZone: inZoneFx, rmChar, leave, moveOut, release, unsetOne, takeOut, runOps, lvOf, traitsId, traitsOf, bus, fire, kwHas, enterSt, noteEnter, mrEnter, remLeft, ally, faceDown, flipEv, dynNum, regNumBy, cleanFilter, cleanCond, cleanOps, cleanAb, cleanCost, cx, str, num, opt, queueEvent, abList, setCards, canPayOne, pay, noTarget, fieldPa, setSolved, replaceCheck });
+  FXX = X;
+  return { noteEnter, carry, bus, pkVals, countOf, useOk, hasAbIc, ignoreColor, disguiseOk, disAbs, lvOf, enterSt, noAct, noTarget, fireAlly, fireAllyKill, fireAllyContact, fireMain, remLeft, release, hasCut, cutOk, cleanAb, fire, queueEvent, queueFlash, rmChar, leave, moveOut, mrEnter, isMR, winAlt, setSolved,
+    nameBanned, fieldMax, replaceAvail, pk, hasKwTk: kwHas, grantedAb, pump, answer, declare, declareCheck, abInfo, canPay, stat, cutV, cutOps, condOk, traitsOf, traitsId };
 };
