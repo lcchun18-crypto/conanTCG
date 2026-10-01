@@ -1,6 +1,6 @@
 {
   "name": "conan-sim",
-  "version": "1.2.0",
+  "version": "1.4.0",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -10,8 +10,8 @@
     "color:scan": "python3 test/color_scan.py",
     "report:fixture": "python test/fixture_report.py",
     "test:deploy": "node test/deploy_test.js",
-    "test:ui": "node test/ui_test.js && node test/deck_test.js && node test/e2e_ui.js && node test/deploy_test.js && node test/mobile_test.js",
-    "test:mobile": "node test/mobile_test.js",
+    "test:ui": "node test/ui_test.js && node test/deck_test.js && node test/e2e_ui.js && node test/deploy_test.js",
+    "test:mobile": "node test/touch_pc_test.js",
     "test:autoload": "node test/autoload_test.js",
     "test:add": "python3 test/addcards_test.py",
     "test:bot": "node test/bot_units.js && node test/bot_regress.js && node test/bot_pro_test.js && node test/bot_room_test.js",
@@ -26,6 +26,7 @@
     "specialist:check": "node bot/specialists/cli.js check",
     "specialist:eval": "node test/specialist_eval.js",
     "test:cards": "node test/run_cards.js",
+    "test:evidence": "node test/evidence_test.js && node test/ui_v13_test.js && node test/ws_evidence_test.js",
     "test:ext": "python3 test/ext_wiring_test.py",
     "test:bot:fulldb": "node test/bot_fulldb.js --games 60 --a random --b heuristic --seed 100 && node test/bot_fulldb.js --games 12 --a expert --b expert --nodes 150 --seed 500"
   },

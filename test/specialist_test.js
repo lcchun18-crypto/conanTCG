@@ -7,7 +7,8 @@ const X = require('./specialist_util.js'), { U } = X, H = require('./helpers.js'
 const REG = require('../bot/specialists/registry.js'), POL = require('../bot/specialists/policy.js'), { Searcher, priority } = require('../bot/search.js'), { decide } = require('../bot/decide.js'), SP = require('./bot_selfplay.js'), SN = require('../bot/snapshot.js');
 const { S } = U; let pass = 0, fail = 0; const ok = (c, m) => { console.log(c ? '✓' : '✗', m); c ? pass++ : fail++; };
 const throws = (f, re, m) => { try { f(); ok(false, m + ' (예외 없음)'); } catch (e) { ok(re.test(e.message), m + ' → ' + e.message.slice(0, 90)); } };
-const DB = U.db(), D1 = U.makeDeck(101), D2 = U.makeDeck(102), keysOf = d => [...new Set(d.list)];
+const DB = U.db(), D1 = U.makeDeck(101), D2 = (() => { for (let sd = 102; ; sd++) { const d = U.makeDeck(sd); if (!/[\/,&]/.test(String(DB[d.kase].color))) return d; } })(),   // 단색 사건이 나오는 시드(DB 가 바뀌어도 테스트가 흔들리지 않게)
+  keysOf = d => [...new Set(d.list)];
 
 // ── 1) registry ─────────────────────────────────────────────────────────────
 {
@@ -143,7 +144,7 @@ const mk = (profile, R, seat) => POL.buildPolicy({ id: 't', profile }, { seat, R
   const mains = lg.decisions.filter(x => x.kind === 'main' && x.snap); ok(mains.length > 3, `메인 결정마다 상태 스냅샷 기록 (${mains.length}개) — 실전 피드백 재현용`);
   const s1 = mains[Math.min(2, mains.length - 1)].snap, R2 = SN.restore(JSON.parse(JSON.stringify(s1)), cards, S); ok(R2.phase === 'play' && SIM.who(R2) && SIM.who(R2).kind === 'main', '기록의 스냅샷에서 게임 상태를 복원하고 그 시점의 결정을 다시 요청할 수 있음');
   throws(() => mkRoom('baddeck', 'first'), /올바르지 않습니다/, '사용 불가 전문 봇으로는 방을 만들 수 없음'); throws(() => mkRoom('nobot', 'first'), /등록되지 않은/, '없는 전문 봇 id 로는 방을 만들 수 없음');
-  const g = mkRoom('expert', 'first', { botDeck: { cards: D2.list.reduce((o, id) => (o[id] = (o[id] || 0) + 1, o), {}), partner: D2.partner, kase: D2.kase } }); ok(g.R.bot.name === 'BOT / EXPERT' && !g.R.bot.specialist && !g.R.bot.cfg.specialist, '범용 Expert 방은 기존과 동일 (봇 덱은 클라이언트가 선택)'); g.R.bot.stop();
+  const g = mkRoom('expert', 'first', { botDeck: { cards: D2.list.reduce((o, id) => (o[id] = (o[id] || 0) + 1, o), {}), partner: D2.partner, kase: D2.kase } }); ok(g.R.bot.name === 'BOT / EXPERT' && !g.R.bot.specialist && g.R.bot.cfg.specialist === 'pro', '범용 Expert 방: 이름/덱 선택은 기존과 동일, v1.2.0 부터 PRO 전략 정책 사용 (봇 덱은 클라이언트가 선택)'); g.R.bot.stop(); { const gc = mkRoom('expert', 'first', { bot: 'classic', botDeck: { cards: D2.list.reduce((o, id) => (o[id] = (o[id] || 0) + 1, o), {}), partner: D2.partner, kase: D2.kase } }); ok(!gc.R.bot.cfg.specialist, 'bot:classic 은 이전 방식(정책 없음)'); gc.R.bot.stop(); }; g.R.bot.stop();
   const e2 = mkRoom('expert', 'first', { bot: undefined, botDeck: { cards: D2.list.reduce((o, id) => (o[id] = (o[id] || 0) + 1, o), {}), partner: D2.partner, kase: D2.kase } }); ok(e2.R.bot.name === 'BOT / EXPERT', 'bot 미지정(옛 클라이언트) = 범용 Expert'); e2.R.bot.stop();
 
   // ── 7) 스냅샷 → 회귀 케이스 러너 (mock 전문 봇) ──

@@ -7,16 +7,13 @@ module.exports = function (K, def) {
   const side = (s, w) => (w === 'opp' ? 1 - s : s);
   const pickRandom = a => { const c = a.slice(); shuf(c); return c[0]; };
 
-  // 증거 1장 고르기: 앞면 증거는 이름으로, 뒷면 증거는 '뒷면(무작위 1장)' 하나로 보여 준다. 반환: 카드 id / null(고르지 않음·없음)
+  // 증거 1장 고르기 (공통 target resolver): 앞면/뒷면 모두 "그 증거 자체"를 선택지로 낸다 (무작위 대리 선택 없음).
+  //   클라이언트는 evp.pos 의 증거를 강조하고 클릭으로 고른다. 반환: 고른 증거 id / null(고르지 않음·없음). 뒷면 증거의 정체는 내보내지 않는다.
   function* chooseEvid(R, s, t, msg, optional, which) {
-    const E = R.P[t].evid, ups = E.filter(x => R.cards[x].up), downs = E.filter(x => !R.cards[x].up); const labels = [], map = [];
-    ups.forEach(x => { labels.push('앞면 증거: ' + D(R, x).n); map.push(x); });
-    if (which !== 'up' && downs.length) { labels.push(`뒷면 증거 (${downs.length}장 중 무작위 1장)`); map.push(-1); }
-    if (!map.length) return null;
-    let m;
-    if (!optional && map.length === 1) m = map[0];
-    else { if (optional) { labels.push('선택하지 않음'); map.push(null); } const i = yield { who: s, kind: 'opt', msg, labels }; m = map[+i]; }
-    if (m === null || m === undefined) return null; if (m === -1) return pickRandom(downs); return m; }
+    const E = R.P[t].evid, cand = E.filter(x => which !== 'up' || R.cards[x].up); if (!cand.length) return null;
+    if (!optional && cand.length === 1) return cand[0];
+    const o = K.evOpts(R, t, cand), labels = o.labels.slice(); if (optional) labels.push('선택하지 않음');
+    const i = yield { who: s, kind: 'opt', msg, labels, evp: o.evp }; const m = cand[+i]; return m === undefined ? null : m; }
 
   // ── 증거를 1개까지 골라 (그 증거의 소유자의) 덱 아래로 옮긴다 (리무브가 아니므로 히라메키 없음)
   def('evidToDeck', o => ({ op: 'evidToDeck', who: opt(o.who, ['self', 'opp'], 'opp'), opt: o.opt !== false }), function* (R, s, src, o, ctx) {
@@ -55,7 +52,7 @@ module.exports = function (K, def) {
 
   // ── 증거 위에서 n장을 표향으로 한다(이미 표향이면 그대로)
   def('flipTopEvid', o => ({ op: 'flipTopEvid', who: opt(o.who, ['self', 'opp'], 'opp'), n: Math.max(1, Math.min(num(o.n, 1), 10)) }), function* (R, s, src, o, ctx) {
-    const t = side(s, o.who), E = R.P[t].evid, ids = E.slice(-o.n); ctx.done = false; if (!ids.length) return; const fl = ids.filter(x => !R.cards[x].up); ids.forEach(x => { R.cards[x].up = true; });
+    const t = side(s, o.who), E = R.P[t].evid, ids = E.slice(-o.n); ctx.done = false; if (!ids.length) return; const fl = K.flipEv(R, t, ids.length, ids.filter(x => !R.cards[x].up));
     ctx.flipped = fl; setReg(ctx, 'moved', ids); say(R, `[효과] ${nm(t)}의 증거 위에서 ${ids.length}장을 표향으로: ${ids.map(x => D(R, x).n).join(', ')}`); ctx.done = true; });
 
   // ── 뒷면 증거를 표향으로(무작위로 n장). any: 0~최대장 중 장수를 직접 정한다. nref: 레지스터의 장수. as: 결과 레지스터(acc 면 이어 붙임)

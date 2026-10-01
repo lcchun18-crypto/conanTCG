@@ -72,7 +72,7 @@ module.exports = function (K, def) {
   // ── 증거 ──
   // flipAllEvid: 자신의 증거를 모두 표향으로 한다
   def('flipAllEvid', o => ({ op: 'flipAllEvid' }), function* (R, s, src, o, ctx) {
-    const ids = R.P[s].evid.filter(x => !R.cards[x].up); ids.forEach(x => { R.cards[x].up = true; }); ctx.flipped = ids; say(R, `[효과] ${nm(s)}의 증거 ${R.P[s].evid.length}장을 모두 표향으로`); ctx.done = ids.length > 0; });
+    const ids = K.flipEv(R, s, 99, R.P[s].evid.filter(x => !R.cards[x].up)); ctx.flipped = ids; say(R, `[효과] ${nm(s)}의 증거 ${R.P[s].evid.length}장을 모두 표향으로`); ctx.done = ids.length > 0; });
   // loseGame: 상대(who:'opp')는 게임에 패배한다
   def('loseGame', o => ({ op: 'loseGame', who: opt(o.who, ['opp'], 'opp') }), function* (R, s, src, o, ctx) {
     ctx.done = true; if (A.win) A.win(R, s, `${nm(1 - s)}은(는) 카드 효과로 게임에 패배`); });

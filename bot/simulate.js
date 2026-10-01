@@ -64,7 +64,8 @@ function effMoves(R, seat, val) {
   switch (q.kind) {
     case 'yn': out.push(a(true), a(false)); break;
     case 'ack': out.push(a(null)); break;
-    case 'opt': (q.labels || []).forEach((_, i) => out.push(a(i))); break;
+    case 'opt': { const hid = q.evp && q.evp.hid; let seenHid = false;   // 증거 선택: 뒷면 증거는 정체를 모르므로 봇은 서로 구별하지 않는다(첫 번째 뒷면만 후보) — 정체를 엿보는 부정 방지
+      (q.labels || []).forEach((_, i) => { if (hid && hid[i]) { if (seenHid) return; seenHid = true; } out.push(a(i)); }); break; }
     case 'optm': for (const c of combos((q.labels || []).map((_, i) => i), q.min || 0, q.max == null ? q.labels.length : q.max, 64)) out.push(a(c)); break;
     case 'text': { const names = new Set(); for (const z of ['hand', 'deck', 'rem', 'file', 'evid']) for (const id of R.P[1 - seat][z]) names.add(D(R, id).n); const L = [...names].slice(0, 30); if (!L.length) L.push('a'); L.forEach(n => out.push(a(n))); break; }
     case 'pick': { const sel = q.sel || q.ids || [], mx = Math.min(q.max == null ? sel.length : q.max, sel.length), mn = Math.min(q.min || 0, mx);

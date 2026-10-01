@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0b1117"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><title>명탐정 코난 TCG 시뮬레이터</title>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" id="vp"><meta name="theme-color" content="#0b1117"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><title>명탐정 코난 TCG 시뮬레이터</title>
 <style>
 :root{--bg:#0b1117;--panel:#131c26;--panel2:#1a2634;--line:#2b3a4c;--txt:#e9eef4;--mut:#8b9cb1;--gold:#f2bd4b;--gold2:#c98b1d;--blue:#58a8ff;--red:#ef5b52;--green:#4fd18b;
  --ch:120px;--cw:86px;--sw:215px;--lw:148px;--logw:230px;--sidew:clamp(270px,21vw,400px);--r:8px;
@@ -34,6 +34,18 @@ input[type=file]{padding:4px}input[type=file]::file-selector-button{font-family:
 .pill b{color:var(--gold);letter-spacing:1.5px;font-size:14px}
 #turnb{font-size:13px;padding:4px 16px;border-radius:999px;font-weight:800;background:#1b2634;border:1px solid var(--line);color:var(--mut)}
 #turnb.me{background:linear-gradient(#ffd167,#e19f26);color:#2b1b00;border-color:#ffdc8a;box-shadow:0 0 16px #f2bd4b55}
+#firstb{font-size:12px;font-weight:800;padding:3px 11px;border-radius:999px;letter-spacing:.5px;border:1px solid;white-space:nowrap;flex:none}
+#firstb.f{background:#2b2308;color:#ffd978;border-color:#c79a2e}#firstb.s{background:#10243a;color:#8ecbff;border-color:#3b79b4}
+body.m #firstb,body.m #turnb{white-space:nowrap}body.m #firstb{font-size:11px;padding:3px 9px}
+@media(max-width:480px){body.m.playing #top .pill:not(#info):not(#botpill){display:none}body.m #top{gap:4px}body.m #top .mbtn{min-width:0;padding:4px 8px;white-space:nowrap}}
+/* 해결편 상태: 사건 카드 테두리+은은한 글로우+배지, 구역 라벨 강조. 카드 이미지/텍스트는 가리지 않는다 */
+.card.kase.solved{border-color:#4fd18b!important;box-shadow:0 0 0 2px #4fd18b,0 0 14px #4fd18b99}
+.card.kase.solved .solvedb{left:auto;right:3px;top:auto;bottom:3px;background:linear-gradient(#2fb36b,#157a45);font-weight:800;letter-spacing:.3px;border:1px solid #bff3d6;box-shadow:0 1px 4px #000a;padding:0 7px}
+.card.kase.solved .solvedb{white-space:nowrap;line-height:15px;width:auto;height:auto;min-width:0}body.m .card.kase.solved .solvedb{font-size:8px;line-height:11px;padding:0 4px;right:2px;bottom:2px}
+.zone.z-case.solved{border-color:#4fd18b99;background:linear-gradient(#0f2a1f66,transparent)}.zone.z-case.solved>.zl{color:#bff3d6;background:#134430;border-color:#4fd18b}
+.card.kase.solvedfx{animation:solvedpop 1.4s ease-out both}
+@keyframes solvedpop{0%{transform:scale(1);box-shadow:0 0 0 0 #4fd18bcc}25%{transform:scale(1.12);box-shadow:0 0 0 10px #4fd18b66,0 0 26px #7dffbcdd}60%{transform:scale(1.03)}100%{transform:scale(1);box-shadow:0 0 0 2px #4fd18b,0 0 14px #4fd18b99}}
+@media(prefers-reduced-motion:reduce){.card.kase.solvedfx{animation:none}.stk .pile .card.evsel{animation:none}}
 #turnb.opp{background:#3a1f24;border-color:#7b3a3a;color:#ffb3ad}
 #top select{max-width:150px;padding:4px 6px;font-size:12px}#top button{padding:5px 11px;font-size:12px}
 /* ── 본체 ── */
@@ -95,6 +107,11 @@ input[type=file]{padding:4px}input[type=file]::file-selector-button{font-family:
 .stk{position:relative;flex:none;display:flex;align-items:center;justify-content:center;width:100%;height:100%}
 .stk .pile{position:relative}
 .stk .pile .card{position:absolute;left:0;margin:0;cursor:default;box-shadow:0 2px 4px #000a}
+.stk .pile .card.upf{outline:2px solid #f2bd4b;outline-offset:-1px;cursor:zoom-in;z-index:3}
+.stk .pile .card.evsel{cursor:pointer;z-index:6;outline:3px solid #6fe0ff;outline-offset:1px;animation:evpulse 1s ease-in-out infinite}
+@keyframes evpulse{50%{box-shadow:0 0 0 5px #6fe0ff66,0 0 14px #6fe0ffaa}}
+#effp .cs.evpick{display:flex;flex-wrap:wrap;gap:8px}#effp .evo{background:#0d151d;border:2px solid #6fe0ff88;border-radius:10px;padding:5px;color:#dce8f2;font-size:11px;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;min-width:84px}
+#effp .evo:hover,#effp .evo:focus-visible{border-color:#6fe0ff;box-shadow:0 0 12px #6fe0ff88;outline:none}#effp .evo.up{border-color:#f2bd4b99}
 .stk .pile .empty{position:absolute;left:0;top:0;width:var(--ch);height:var(--cw);border:2px dashed #ffffff30;border-radius:7px}
 .stk .lab{position:absolute;right:8px;bottom:5px;font-weight:800;font-size:13px;background:#0b1118f0;border:1px solid #ffffff40;border-radius:999px;padding:1px 11px;white-space:nowrap;z-index:9}
 .stk.lp .lab{color:var(--gold);border-color:#f2bd4b88}.stk.file .lab{color:#8fd3ff;border-color:#8fd3ff88}
@@ -406,7 +423,7 @@ body.m #dbErr>div{max-width:94vw}
 <div class="rowb" id="botFirst"><label><input type="radio" name="bf" value="first"> 선공</label><label><input type="radio" name="bf" value="second"> 후공</label><label><input type="radio" name="bf" value="random" checked> 랜덤</label></div>
 <div id="botErr"></div><div class="rowb"><button class="pri" onclick="botStart()">대전 시작</button><button class="ghost" onclick="$('botm').style.display='none'">취소</button></div>
 <small>봇은 내 손패와 뒷면 세트 카드까지 볼 수 있지만, 앞으로의 덱 순서는 모릅니다. 난이도는 EXPERT 하나입니다(전문 봇은 같은 Expert 탐색 + 덱 전용 전략). 전문 봇은 정해진 덱을 씁니다. 저장한 덱(40장 + 사건 + 파트너)만 고를 수 있습니다.</small></div></div>
-<div id="game"><div id="top"><span class="brand">명탐정 코난 TCG</span><span id="turnb">-</span><span class="pill">방 코드 <b id="rc"></b></span><span class="pill" id="info"></span><span class="sp"></span><button class="mbtn" id="mLog">📜 로그</button><button class="mbtn" id="mMenu">☰ 메뉴</button><span id="botpill" class="pill" style="display:none">🤖 BOT / EXPERT</span><span id="botover" class="grp" style="display:none"><button class="pri" onclick="botRestart()">다시 대전</button><button onclick="botLog()">AI 기록 다운로드</button><button class="ghost" onclick="botLobby()">로비로</button></span>
+<div id="game"><div id="top"><span class="brand">명탐정 코난 TCG</span><span id="turnb">-</span><span id="firstb" class="order" style="display:none" aria-live="polite"></span><span class="pill">방 코드 <b id="rc"></b></span><span class="pill" id="info"></span><span class="sp"></span><button class="mbtn" id="mLog">📜 로그</button><button class="mbtn" id="mMenu">☰ 메뉴</button><span id="botpill" class="pill" style="display:none">🤖 BOT / EXPERT</span><span id="botover" class="grp" style="display:none"><button class="pri" onclick="botRestart()">다시 대전</button><button onclick="botLog()">AI 기록 다운로드</button><button class="ghost" onclick="botLobby()">로비로</button></span>
 <span class="grp" id="topmenu"><select id="dsel"></select><button class="pri" onclick="loadDeck()">덱 등록</button><button onclick="openDB()">카드 / 덱 관리</button><button class="danger" onclick="confirm('항복할까요?')&&A('resign')">항복</button></span></div>
 <div id="main"><div id="logc"><div class="lh"><span>플레이 로그</span><button class="ghost" id="logt" onclick="toggleLog()">접기</button></div><div id="log"></div></div>
 <div id="board"><div id="oppl" class="half opp"></div>
@@ -436,7 +453,7 @@ const A=(a,o={})=>{if(M)closeSheet();S({t:'act',a,...o})};
 ws.onmessage=e=>{const m=JSON.parse(e.data);
  if(m.t==='err'){$('lerr').textContent=m.msg;$('err').textContent=m.msg;setTimeout(()=>$('err').textContent='',4000)}
  else if(m.t==='defs'){DEFS=m.defs;V&&render()}
- else if(m.t==='left'){V=null;document.body.classList.remove('ing','topopen','logopen');closeSheet();$('game').style.display='none';$('lobby').style.display='';if(botAuto==='restart'&&botCfg)botStart(botCfg);else botAuto=false}
+ else if(m.t==='left'){V=null;prevSolved=null;document.body.classList.remove('ing','topopen','logopen');closeSheet();$('game').style.display='none';$('lobby').style.display='';if(botAuto==='restart'&&botCfg)botStart(botCfg);else botAuto=false}
  else if(m.t==='botlog'){if(m.err)return alert(m.err);const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(m.log,null,1)],{type:'application/json'}));a.download='conan-bot-log.json';a.click()}
  else if(m.t==='v'){V=m;if(V.bot&&botAuto===true&&V.phase==='setup'&&!V.P[0].ready){botAuto=false;loadDeck()}$('lobby').style.display='none';$('game').style.display='flex';document.body.classList.add('ing');sizes();if(!V.sub||V.sub.who!==V.me)selm=selm;render()}};
 const kw=f=>String(f.kw||'').toLowerCase();
@@ -487,16 +504,29 @@ function hClick(c){if(V.eff)return;
 //  · 사건  = 회전 없음. 원본 이미지 방향 그대로 (.card.kase, 박스 크기만 가로 비율)
 //  · 증거  = 카드 자체 가로(90° 눕힘) + 여러 장은 위→아래로 조금씩 어긋나게 (.stk.ev .card.ev)
 //  · FILE  = 카드 자체 가로(90° 눕힘) + 여러 장은 좌→우로 나열/겹침 (.stk.file .card.fl) + 어시스트한 파트너는 맨 오른쪽
-function stk(n,label,cls,title,ups,tight,kind,extra){const w=document.createElement('div');w.className='stk '+cls;w.title=title||'';const pile=document.createElement('div');pile.className='pile';
+// 증거 선택 효과(서버 req.evp): 선택 가능한 증거 위치 → 선택지 번호. 해당 플레이어 쪽 증거 더미에서 강조/클릭하게 한다.
+const evSelFor=side=>{const E=V&&V.eff,p=E&&!E.wait&&E.kind==='opt'&&E.evp;if(!p||p.t!==side)return null;const map={};p.pos.forEach((ps,i)=>{map[ps]=i});return{map}};
+function stk(n,label,cls,title,ups,tight,kind,extra,list,evs){const w=document.createElement('div');w.className='stk '+cls;w.title=title||'';const pile=document.createElement('div');pile.className='pile';
  let W,H;
  if(kind==='ev'){ // 위→아래
   const vis=Math.min(n,M&&LAND?4:7);let step=vis>1?Math.min(Math.round(CWs*.4),Math.max(7,Math.floor((CHs+2-CWs)/(vis-1)))):0;if(M&&LAND)step=vis>1?3:0;W=CHs;H=CWs+step*Math.max(vis-1,0);
   if(!n){const e=document.createElement('div');e.className='empty';e.style.width=CHs+'px';e.style.height=CWs+'px';pile.appendChild(e)}
-  for(let i=0;i<vis;i++){const c=document.createElement('div');c.className='card back land ev';c.style.left='0';c.style.top=(i*step)+'px';if(ups&&i>=vis-ups)c.style.outline='2px solid #f2bd4b';pile.appendChild(c)}
+  // 서버가 보낸 증거 목록(list: 증거 순서대로, 앞면이면 카드 / 뒷면이면 0)을 그대로 그린다 — 앞면 증거는 실제 카드 앞면 이미지
+  const L=list&&list.length===n?list:null,off=n-vis;
+  for(let i=0;i<vis;i++){const e=L&&L[off+i];let c;
+   if(e){c=mk(e,{land:true});c.classList.add('ev','upf');c.title='앞면 증거: '+((DEFS[e.d]||{}).n||'')}
+   else{c=document.createElement('div');c.className='card back land ev';if(!L&&ups&&i>=vis-ups)c.style.outline='2px solid #f2bd4b'}
+   c.style.left='0';c.style.top=(i*step)+'px';c.dataset.pos=String(off+i);
+   if(evs&&evs.map[off+i]!=null){c.classList.add('evsel');const oi=evs.map[off+i];c.onclick=ev=>{ev.stopPropagation();A('ans',{v:oi})}}
+   pile.appendChild(c)}
  }else if(kind==='file'){ // 좌→우 (+ 파트너 자리)
   const vis=Math.min(n,12),tot=vis+(extra?1:0),avail=M?Math.round(CHs*(LAND?1.6:1.5)):CHs*2+8,step=tot>1?Math.min(Math.round(CHs*.42),Math.floor((avail-CHs)/(tot-1))):0;W=CHs+step*Math.max(tot-1,0);H=CWs;
   if(!tot){const e=document.createElement('div');e.className='empty';e.style.width=CHs+'px';e.style.height=CWs+'px';pile.appendChild(e)}
-  for(let i=0;i<vis;i++){const c=document.createElement('div');c.className='card back land fl';c.style.left=(i*step)+'px';c.style.top='0';if(ups&&i>=vis-ups)c.style.outline='2px solid #f2bd4b';pile.appendChild(c)}
+  const L=list&&list.length===n?list:null,off=n-vis;
+  for(let i=0;i<vis;i++){const e=L&&L[off+i];let c;
+   if(e){c=mk(e,{land:true});c.classList.add('fl','upf');c.title='앞면 FILE: '+((DEFS[e.d]||{}).n||'')}
+   else{c=document.createElement('div');c.className='card back land fl';if(!L&&ups&&i>=vis-ups)c.style.outline='2px solid #f2bd4b'}
+   c.style.left=(i*step)+'px';c.style.top='0';pile.appendChild(c)}
   if(extra){extra.classList.add('fl','fp');extra.style.left=(vis*step)+'px';extra.style.top='0';pile.appendChild(extra)}
  }else{ // 덱 / 리무브: 세로 더미
   const vis=Math.min(n,7);W=CWs;H=CHs+2*Math.max(vis-1,0);
@@ -510,12 +540,12 @@ const ph=cls=>div('ph'+(cls?' '+cls:''));
 function pl(id,P,mine){const el=$(id);el.innerHTML='';const me=V.me,tgt=actTg()||[],pre=mine?'me':'opp',isT=V.phase==='play'&&V.turn===(mine?me:1-me);el.classList.toggle('turn',isT);
  const Z=(cls,label,...k)=>{const z=div('zone '+cls);if(label){const l=document.createElement('span');l.className='zl';l.textContent=label;z.appendChild(l)}k.forEach(x=>x&&z.appendChild(x));return z};
  // 사건 (눕힌 카드)
- let cs;if(P.kase){const k=mk(P.kase,{kase:true,click:()=>kClick(mine),sel:mine&&mode&&mode.id===P.kase.id});if(P.kase.solved){k.title='해결편';k.insertAdjacentHTML('beforeend','<i class="solvedb">해결</i>')}cs=slot('사건',k)}else cs=slot('사건',ph('land'),'emp');cs.id=pre+'-case';
- const zc=Z('z-case','사건',cs);
+ let cs;if(P.kase){const k=mk(P.kase,{kase:true,click:()=>kClick(mine),sel:mine&&mode&&mode.id===P.kase.id});if(P.kase.solved){k.title='해결편 — 사건이 해결편 상태입니다';k.classList.add('solved');k.insertAdjacentHTML('beforeend','<i class="solvedb">✔ 해결편</i>');if(solvedFx[mine?me:1-me]>Date.now()){k.classList.add('solvedfx');k.style.animationDelay=(-(1400-(solvedFx[mine?me:1-me]-Date.now())))+'ms'}}cs=slot('사건',k)}else cs=slot('사건',ph('land'),'emp');cs.id=pre+'-case';
+ const zc=Z('z-case',P.kase&&P.kase.solved?'사건 · 해결편':'사건',cs);if(P.kase&&P.kase.solved)zc.classList.add('solved');
  // 증거 (사건 바로 아래) / FILE : 눕힌 카드 더미
- const ev=stk(P.evid,'증거','lp','증거 카드: 뒷면 '+P.evid+'장'+((P.evUp||[]).length?' (표 '+P.evUp.length+')':''),(P.evUp||[]).length,0,'ev');ev.id=pre+'-lp';
+ const evs=evSelFor(mine?me:1-me),ev=stk(P.evid,'증거','lp','증거 카드: 뒷면 '+(P.evid-(P.evUp||[]).length)+'장'+((P.evUp||[]).length?' / 앞면 '+P.evUp.length+'장':''),(P.evUp||[]).length,0,'ev',null,P.evl,evs);ev.id=pre+'-lp';
  const pInF=!!(P.partner&&P.partner.inFile&&!P.partner.hidden);
- const fl=stk(P.file,'FILE','file','FILE 에리어: '+P.file+'장'+(pInF?' (+파트너)':''),(P.fileUp||[]).length,0,'file',pInF?mk(P.partner,{land:true,click:()=>pClick(mine),sel:mine&&mode&&mode.id==='p'}):null);fl.id=pre+'-file';
+ const fl=stk(P.file,'FILE','file','FILE 에리어: '+P.file+'장'+(pInF?' (+파트너)':''),(P.fileUp||[]).length,0,'file',pInF?mk(P.partner,{land:true,click:()=>pClick(mine),sel:mine&&mode&&mode.id==='p'}):null,P.fil);fl.id=pre+'-file';
  // 캐릭터 라인 (최대 5칸, 타이트)
  const zf=Z('z-field','캐릭터');P.field.forEach(c=>{const m=mk(c,{click:()=>fClick(c,mine),sel:mine&&(mode&&mode.id===c.id||selm.includes(c.id)),tgt:!mine&&tgt.includes(c.id)}),fw=div('fw'),sl=c.sl||[],stp=Math.max(5,Math.min(14,Math.floor(34/Math.max(sl.length,1))));
   // 세트 카드: 캐릭터 밑에 깔려 오른쪽 아래로 조금씩 어긋나 보인다 (뒷면 = 카드 뒷면, 앞면 = 실제 카드)
@@ -537,10 +567,10 @@ function pl(id,P,mine){const el=$(id);el.innerHTML='';const me=V.me,tgt=actTg()|
  el.append(zc,zf,Z('z-evid','',ev),zp,zi,div('z-bot',div('z-hand',hd),Z('z-file','FILE',fl),div('z-plate',pn)))}
 function fitHand(){for(const h of [$('hand'),$('opp-hand')]){if(!h)continue;const n=h.children.length;if(n<2){h.style.removeProperty('--ov');continue}const cw=h.children[0].offsetWidth||CW,av=h.clientWidth-8,gap=Math.round(cw*.06),need=n*cw+(n-1)*gap;let ov=need>av?-Math.ceil((need-av)/(n-1)):gap;if(M&&h.id==='hand'&&need>av)ov=Math.min(ov,0)<-(cw*.5)?-Math.round(cw*.5):ov;h.style.setProperty('--ov',ov+'px')}}
 // ══════ 모바일 / 태블릿 ══════
-// body.m 이 붙으면 모바일 레이아웃(세로/가로), 없으면 PC 레이아웃 그대로. 판정: 터치 포인터(pointer:coarse) 또는 짧은 변 ≤ 520px. ?m=1 / ?m=0 으로 강제 가능
+// v1.4.0: 모바일 전용 레이아웃 폐지. 모든 기기에서 PC 와 동일한 UI. 해상도(뷰포트 맞춤)와 조작(터치)만 기기에 맞춘다. (M 은 항상 false)
 const MQ_COARSE=matchMedia('(pointer:coarse)'),QS=new URLSearchParams(location.search);
 let M=false,LAND=false,TAB=false,CHs=120,CWs=86,mFit=0,mScale=1,PVC=null,lpFired=false,prevNeed=null;
-const isMobile=()=>{const o=QS.get('m');if(o==='1')return true;if(o==='0')return false;return MQ_COARSE.matches||Math.min(innerWidth,innerHeight)<=520};
+const isMobile=()=>false;
 const Tm=s=>M?String(s).replace(/오른쪽 아래(에|의)?/g,'아래$1').replace(/클릭/g,'터치'):s;
 function applyMode(){const m=isMobile(),b=document.body,ae=document.activeElement,typing=ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName);
  if(!(m&&M&&typing))LAND=innerWidth>innerHeight;TAB=Math.min(innerWidth,innerHeight)>=700;
@@ -587,6 +617,24 @@ document.addEventListener('contextmenu',e=>{if(M&&e.target.closest&&e.target.clo
 document.addEventListener('gesturestart',e=>{if(M&&document.body.classList.contains('ing'))e.preventDefault()});
 document.addEventListener('touchmove',e=>{if(M&&document.body.classList.contains('ing')&&!e.target.closest('#hand,#log,#pv,#ovl,#menu,#fsv,#botList,#topmenu,#db,#logc,#dock,#botm'))e.preventDefault()},{passive:false});
 addEventListener('focusin',e=>{if(M&&e.target.closest&&e.target.closest('#lobby,#botm'))setTimeout(()=>{try{e.target.scrollIntoView({block:'center'})}catch(_){}},320)});
+
+// ══════ v1.4.0 터치 기기: 해상도 맞춤 + 조작만 보정 (화면 구성은 PC 와 동일) ══════
+const TOUCH=MQ_COARSE.matches||('ontouchstart' in window)||navigator.maxTouchPoints>0&&QS.get('t')!=='0';
+const VPW=1280,VPH=720;
+function fitVp(){if(!TOUCH)return;const L=matchMedia('(orientation:landscape)').matches,a=Math.max(screen.width,screen.height),b=Math.min(screen.width,screen.height),dw=L?a:b,dh=L?b:a,W=Math.max(VPW,Math.ceil(dw*VPH/dh));
+ const c='width='+W+',minimum-scale=0.1,maximum-scale=5,user-scalable=no,viewport-fit=cover',m=$('vp');if(m&&m.content!==c)m.content=c}
+if(TOUCH){document.documentElement.classList.add('touch');fitVp();addEventListener('orientationchange',()=>{setTimeout(()=>{fitVp();onRz()},200)});addEventListener('resize',fitVp)
+ let tp=null,tT=0,tFired=false;
+ const tgt=e=>e.target.closest&&e.target.closest('.card,.cc,.dg');
+ const show=el=>{if(el._pv)pv(el._pv[0],el._pv[1]);else if(el.dataset&&el.dataset.id&&typeof bPv==='function')bPv(el.dataset.id)};
+ document.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse')return;tFired=false;const el=tgt(e);tp={x:e.clientX,y:e.clientY,el,m:false};clearTimeout(tT);if(el)tT=setTimeout(()=>{if(tp&&!tp.m){tFired=true;show(el)}},450)},{passive:true});
+ document.addEventListener('pointermove',e=>{if(tp&&Math.hypot(e.clientX-tp.x,e.clientY-tp.y)>12){tp.m=true;clearTimeout(tT)}},{passive:true});
+ for(const k of['pointerup','pointercancel'])document.addEventListener(k,()=>{clearTimeout(tT);tp=null},{passive:true});
+ document.addEventListener('click',e=>{if(tFired){tFired=false;e.stopPropagation();e.preventDefault()}},true);
+ document.addEventListener('contextmenu',e=>{if(tgt(e)||e.target.closest('img')){e.preventDefault();e.stopPropagation()}},true);
+ for(const k of['gesturestart','gesturechange'])document.addEventListener(k,e=>e.preventDefault());
+ let lt=0;document.addEventListener('touchend',e=>{const n=Date.now();if(n-lt<300&&!e.target.closest('input,textarea'))e.preventDefault();lt=n},{passive:false});
+ const st=document.createElement('style');st.textContent='html.touch,html.touch body{touch-action:manipulation;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}html.touch .card,html.touch .cc,html.touch .dg,html.touch .card img{-webkit-user-select:none;user-select:none;-webkit-user-drag:none}html.touch input,html.touch textarea{-webkit-user-select:text;user-select:text}';document.head.appendChild(st)}
 // 시트 / 상단 버튼 연결
 $('shX').onclick=e=>{e.stopPropagation();closeSheet()};
 $('shBig').onclick=e=>{e.stopPropagation();if(PVC){const f=PVC.d?DEFS[PVC.d]:null;if(f)openFs(f,PVC);else openFs({n:'?'},PVC)}};
@@ -621,6 +669,13 @@ function effUI(b,B){const E=V.eff;if(E.wait)return E.msg;const key=JSON.stringif
   for(const[k,lab,cls]of[['me',onlyCh?'내 캐릭터':'내 카드','mine'],['opp',onlyCh?'상대 캐릭터':'상대 카드','theirs'],['oth','카드','']]){if(!G[k].length)continue;const h=document.createElement('div');h.className='gh '+cls;h.innerHTML=`${lab} <small>${G[k].length}장</small>`;box.appendChild(h);const cs=document.createElement('div');cs.className='cs';box.appendChild(cs);G[k].forEach(c=>cs.appendChild(fn(c)))}};
  if(E.kind==='yn'){B(E.yes||'예',()=>A('ans',{v:true}),'pri');B(E.no||'아니오',()=>A('ans',{v:false}))}
  else if(E.kind==='ack'){grp(E.cards,c=>mk(c,{}));B('확인',()=>A('ans',{v:null}),'pri')}
+ else if(E.kind==='opt'&&E.evp){ // 증거 선택: 선택 가능한 증거를 카드로 보여 주고 직접 클릭/터치. (뒷면은 정체를 모른 채 "n번째 뒷면 증거")
+  const T=V.P[E.evp.t],mineE=E.evp.t===V.me,h=document.createElement('div');h.className='gh '+(mineE?'mine':'theirs');h.innerHTML=`${mineE?'내 증거':'상대 증거'} <small>선택 가능 ${E.evp.pos.length}장</small>`;box.appendChild(h);
+  const cs=document.createElement('div');cs.className='cs evpick';box.appendChild(cs);
+  E.evp.pos.forEach((ps,i)=>{const w=document.createElement('button');w.type='button';w.className='evo'+(E.evp.hid[i]?' dn':' up');w.title=E.labels[i];const u=T.evl&&T.evl[ps];
+   const c=u?mk(u,{land:true}):(()=>{const d=document.createElement('div');d.className='card back land';return d})();c.style.transform='';c.style.margin='0';w.appendChild(c);
+   const cp=document.createElement('span');cp.textContent=E.labels[i];w.appendChild(cp);w.onclick=()=>A('ans',{v:i});cs.appendChild(w)});
+  E.labels.forEach((l,i)=>{if(i>=E.evp.pos.length)B(l,()=>A('ans',{v:i}),'ghost')})}
  else if(E.kind==='opt')E.labels.forEach((l,i)=>B(l,()=>A('ans',{v:i})));
  else if(E.kind==='optm'){const ls=document.createElement('div');ls.className='cs';box.appendChild(ls);
   E.labels.forEach((l,i)=>{const x=document.createElement('label');x.style.cssText='display:block;margin:2px 0;cursor:pointer';const c=document.createElement('input');c.type='checkbox';c.checked=esel.includes(i);c.onchange=()=>{const j=esel.indexOf(i);if(j>=0)esel.splice(j,1);else if(esel.length<E.max)esel.push(i);else{c.checked=false;$('err').textContent=E.max+'개까지 선택할 수 있습니다'}};x.appendChild(c);x.append(' '+(i+1)+'. '+l);ls.appendChild(x)});
@@ -672,7 +727,10 @@ function ui(){const me=V.me,T=V.turn===me,s=V.sub,b=$('btns');b.innerHTML='';let
   if(pend)m+=' — 스위치할 내 캐릭터를 클릭';if(mode&&mode.k==='act')m+=' — 대상(상대 슬립/스턴 캐릭터)을 클릭';
   if(V.fl.hw)B('스킵',()=>A('skip'),'pri');else{B('넥스트 힌트',()=>A('hint'));B('턴 종료',()=>{mode=null;A('end')},'pri')}}
  $('msg').textContent=Tm(m);actUI()}
-function render(){if(!V)return;const me=V.me;$('botpill').style.display=V.bot?'':'none';if(V.bot)$('botpill').textContent='🤖 '+(V.botName||'BOT / EXPERT');$('botover').style.display=V.bot&&V.phase==='over'?'':'none';document.body.classList.toggle('botmode',!!V.bot);if(mode&&!canSel())mode=null;if(hsel&&!(handTurn()&&V.P[me].hand.some(x=>x.id===hsel)))hsel=null;$('rc').textContent=V.code;const PH={setup:'덱 준비',mull:'멀리건',over:'게임 종료'};$('info').textContent=V.phase==='play'?`${V.n}번째 턴`:(PH[V.phase]||V.phase);const tb=$('turnb');if(V.phase==='play'){tb.className=V.turn===me?'me':'opp';tb.textContent=V.turn===me?'▶ 내 턴':'상대 턴'}else{tb.className='';tb.textContent=PH[V.phase]||V.phase}
+let prevSolved=null;const solvedFx=[0,0];
+function render(){if(!V)return;const me=V.me;$('botpill').style.display=V.bot?'':'none';if(V.bot)$('botpill').textContent='🤖 '+(V.botName||'BOT / EXPERT');$('botover').style.display=V.bot&&V.phase==='over'?'':'none';document.body.classList.toggle('botmode',!!V.bot);if(mode&&!canSel())mode=null;if(hsel&&!(handTurn()&&V.P[me].hand.some(x=>x.id===hsel)))hsel=null;$('rc').textContent=V.code;const PH={setup:'덱 준비',mull:'멀리건',over:'게임 종료'};$('info').textContent=V.phase==='play'?`${V.n}번째 턴`:(PH[V.phase]||V.phase);document.body.classList.toggle('playing',V.phase!=='setup');{const fb=$('firstb');if(V.phase!=='setup'&&(V.first===0||V.first===1)){fb.style.display='';const f=V.first===me;fb.className='order '+(f?'f':'s');fb.textContent=f?'선공':'후공';fb.title=f?'내가 선공입니다':'내가 후공입니다'}else fb.style.display='none'}
+ {const sv=[0,1].map(i=>!!(V.P[i].kase&&V.P[i].kase.solved));if(prevSolved)sv.forEach((x,i)=>{if(x&&!prevSolved[i])solvedFx[i]=Date.now()+1400});prevSolved=sv}
+ const tb=$('turnb');if(V.phase==='play'){tb.className=V.turn===me?'me':'opp';tb.textContent=V.turn===me?'▶ 내 턴':'상대 턴'}else{tb.className='';tb.textContent=PH[V.phase]||V.phase}
  pl('oppl',V.P[1-me],false);pl('mel',V.P[me],true);
  const h=$('hand');V.P[me].hand.forEach(c=>h.appendChild(mk(c,{click:()=>hClick(c),sel:selm.includes(c.id)||hsel===c.id})));fitHand();
  drawLog();
