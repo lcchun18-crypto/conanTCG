@@ -53,5 +53,9 @@ const J = x => JSON.parse(JSON.stringify(x)); let pass = 0, fail = 0; const ok =
     ok(shown.on && shown.sent && /준비하는 중/.test(shown.txt), '봇 대전 시작 직후 로딩 표시 (' + shown.txt.slice(0, 20) + ')');
     await push(pg, J(S.view(R, R.turn))); ok(await pg.evaluate(() => !document.getElementById('ldg').classList.contains('on')), '게임 화면 수신 후 로딩 표시 사라짐');
     await pg.evaluate(() => loading(true)); await pg.evaluate(() => window.__ws.onmessage({ data: JSON.stringify({ t: 'err', msg: 'x' }) })); ok(await pg.evaluate(() => !document.getElementById('ldg').classList.contains('on')), '오류 수신 시에도 로딩 표시 사라짐'); await pg.screenshot({ path: OUT + '/6_loading.png' }); await pg.context().close(); }
+  // ⑦ 리무브 에리어(내/상대): 마우스를 올리면 오른쪽 상세에 맨 위 카드가 표시
+  for (const side of ['me', 'opp']) { const R = mkR(); decorate(R); const s = R.turn, o = 1 - s; const x = U.give(R, side === 'me' ? s : o, 'e0', 'rem'); const pg = await open(R, J(S.view(R, s)));
+    await pg.locator(`#${side}-rem`).hover({ force: true }); const t = await pg.evaluate(() => { const i = document.querySelector('#pv img'); return i ? decodeURIComponent(i.getAttribute('src')) : ''; }); ok(/EVID0/.test(t), `${side === 'me' ? '내' : '상대'} 리무브 에리어 호버 → 상세에 카드 표시`);
+    await pg.mouse.move(5, 5); await pg.locator(`#${side}-rem .pile .card`).hover({ force: true }); ok(/EVID0/.test(await pg.evaluate(() => { const i = document.querySelector('#pv img'); return i ? decodeURIComponent(i.getAttribute('src')) : ''; })), `${side === 'me' ? '내' : '상대'} 리무브 맨 위 카드 호버`); await pg.context().close(); }
   await br.close(); console.log(`\nui_v17_test: ${pass} 통과, ${fail} 실패`); process.exit(fail ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });

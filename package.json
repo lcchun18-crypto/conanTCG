@@ -1,10 +1,10 @@
 {
   "name": "conan-sim",
-  "version": "1.7.2",
+  "version": "1.7.3",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node test/unit.js && node test/run_cards.js && node test/spec_examples.js && node test/patterns.js && node test/patterns100.js && node test/patterns_v11.js && node test/patterns_v12.js && node test/acts_test.js && node test/fuzz.js 200 && node test/ui_test.js && node test/deck_test.js && node test/e2e_ui.js && node test/deploy_test.js && node test/autoload_test.js && node test/bot_units.js && node test/bot_regress.js && node test/bot_room_test.js && node test/specialist_deck_test.js && node test/specialist_cli_test.js && node test/specialist_test.js && node test/specialist_regress.js && node test/expert_test.js && node test/expert_regress.js && node test/ws_reconnect_test.js && node test/tactics_test.js --quiet && node test/evidence_pick_test.js && node test/ui_v17_test.js",
+    "test": "node test/unit.js && node test/run_cards.js && node test/spec_examples.js && node test/patterns.js && node test/patterns100.js && node test/patterns_v11.js && node test/patterns_v12.js && node test/acts_test.js && node test/fuzz.js 200 && node test/ui_test.js && node test/deck_test.js && node test/e2e_ui.js && node test/deploy_test.js && node test/autoload_test.js && node test/bot_units.js && node test/bot_regress.js && node test/bot_room_test.js && node test/specialist_deck_test.js && node test/specialist_cli_test.js && node test/specialist_test.js && node test/specialist_regress.js && node test/expert_test.js && node test/expert_regress.js && node test/ws_reconnect_test.js && node test/tactics_test.js --quiet && node test/evidence_pick_test.js && node test/ui_v17_test.js && node test/cost_has_test.js",
     "test:importer": "python test/importer_test.py && python3 test/ext_wiring_test.py && python3 test/color_test.py",
     "test:color": "python3 test/color_test.py",
     "color:scan": "python3 test/color_scan.py",
@@ -36,7 +36,7 @@
     "test:bot:fulldb": "node test/bot_fulldb.js --games 60 --a random --b heuristic --seed 100 && node test/bot_fulldb.js --games 12 --a expert --b expert --nodes 150 --seed 500",
     "test:ws": "node test/ws_reconnect_test.js",
     "test:tactics": "node test/tactics_test.js --quiet",
-    "test:v17": "node test/evidence_pick_test.js && node test/ui_v17_test.js"
+    "test:v17": "node test/evidence_pick_test.js && node test/cost_has_test.js && node test/ui_v17_test.js"
   },
   "engines": {
     "node": ">=18"

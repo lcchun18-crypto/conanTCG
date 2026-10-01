@@ -579,7 +579,7 @@ module.exports = function (A) {
       case 'if': { let hit;
         if (o.c === 'played') hit = (ctx.played || []).some(y => !o.name || D(R, y).n.includes(o.name));
         else if (o.c === 'remHas') hit = (ctx.remd || []).filter(y => fOk(R, s, y, rf(R, o.filter, ctx), src, true)).length >= (o.n || 1);
-        else if (o.c === 'costHas') hit = ((ctx.cost && ctx.cost.rem) || []).filter(y => fOk(R, s, y, rf(R, o.filter, ctx), src, true)).length >= (o.n || 1);
+        else if (o.c === 'costHas') hit = [...((ctx.cost && ctx.cost.rem) || []), ...((ctx.cost && ctx.cost.disc) || [])].filter(y => fOk(R, s, y, rf(R, o.filter, ctx), src, true)).length >= (o.n || 1);
         else if (o.c === 'picked') hit = ctx.picked != null && fOk(R, s, ctx.picked, rf(R, o.filter, ctx), src, true);
         else if (o.c === 'reg') { const ids = regIds(R, ctx, o.ref), fs = (o.filters || []).map(f => rf(R, f, ctx)), N = o.n || 1, cm = (a, b) => o.cmp === 'le' ? a <= b : o.cmp === 'eq' ? a === b : a >= b;
           if (o.distinct) { const pool = fs.length ? ids.filter(x => fOk(R, s, x, fs[0], src, true)) : ids; const seenC = new Set(); let okN = 0; for (const x of pool) { const ks = o.distinct === 'name' ? [D(R, x).n] : cols(D(R, x)); if (!ks.some(k => seenC.has(k))) { ks.forEach(k => seenC.add(k)); okN++; } } const set = { size: okN }; hit = cm(set.size, N); }

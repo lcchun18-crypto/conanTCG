@@ -91,6 +91,7 @@ body.m #firstb,body.m #turnb{white-space:nowrap}body.m #firstb{font-size:11px;pa
 .card.back{background:#1a1208 url(assets/cardback.png) center/100% 100% no-repeat;border-color:#0009}@media(hover:hover){.card:not(.back):not(.no):hover{box-shadow:0 0 0 2px var(--gold),0 8px 20px #000a;z-index:5}}
 .card.sum{outline:2px dashed #ffe27a;outline-offset:-3px}
 .card.sel{outline:3px solid var(--gold);outline-offset:1px;box-shadow:0 0 0 2px #0008,0 0 22px #f2bd4bcc;z-index:6}
+.stk.tgtz{outline:3px solid #ff8a3d;outline-offset:3px;border-radius:8px;cursor:pointer;box-shadow:0 0 20px #ff8a3dbb}
 .card.tgt{outline:3px solid #ff8a3d;outline-offset:1px;box-shadow:0 0 20px #ff8a3dbb;animation:pl 1.1s ease-in-out infinite}
 @keyframes pl{50%{box-shadow:0 0 6px #ff8a3d66}}
 .card[data-st=s]{filter:brightness(.66) saturate(.6)}.card[data-st=x]{filter:brightness(.72) sepia(.6) saturate(2) hue-rotate(-30deg)}@media(hover:hover){.card[data-st=s]:hover,.card[data-st=x]:hover{filter:brightness(.9)}}
@@ -538,9 +539,10 @@ function mk(c,o={}){const f=DEFS[c.d]||{n:'?'},bk=o.back||c.hidden,d=document.cr
  if(o.sel)d.classList.add('sel');if(o.tgt)d.classList.add('tgt');if(c.solved)d.style.borderColor='#4fd18b';d.onclick=e=>{o.click&&o.click(e)};return d}
 const tog=id=>{const i=selm.indexOf(id);i<0?selm.push(id):selm.splice(i,1);render()};
 const selectCard=id=>{hsel=null;mode=(mode&&mode.k==='sel'&&mode.id===id)?null:{k:'sel',id};render()};
+const caseTg=()=>!!(mode&&mode.k==='act'&&((V.acts||{})[mode.id]||[]).some(x=>x.k==='actk'));
 const actTg=()=>{if(!mode||mode.k!=='act')return null;const a=((V.acts||{})[mode.id]||[]).find(x=>x.k==='actc');return a?a.tg:[]};
 function pClick(mine){if(mine&&canSel())selectCard('p')}
-function kClick(mine){if(!mine){if(mode&&mode.k==='act'&&((V.acts||{})[mode.id]||[]).some(x=>x.k==='actk')){A('action',{id:mode.id,k:'case'});mode=null}}else if(canSel()&&V.P[V.me].kase&&V.P[V.me].kase.id)selectCard(V.P[V.me].kase.id)}
+function kClick(mine){if(!mine){if(caseTg()){A('action',{id:mode.id,k:'case'});mode=null}}else if(canSel()&&V.P[V.me].kase&&V.P[V.me].kase.id)selectCard(V.P[V.me].kase.id)}
 function fClick(c,mine){const s=V.sub,me=V.me;if(V.eff)return;
  if(!mine){if(mode&&mode.k==='act'&&(actTg()||[]).includes(c.id)){A('action',{id:mode.id,k:'char',tid:c.id});mode=null}return}
  if(s&&s.who===me){if(s.type==='guard')return A('guard',{id:c.id});if(s.type==='mis'&&s.ms.includes(c.id))return tog(c.id);return}
@@ -593,10 +595,10 @@ const ph=cls=>div('ph'+(cls?' '+cls:''));
 function pl(id,P,mine){const el=$(id);el.innerHTML='';const me=V.me,tgt=actTg()||[],pre=mine?'me':'opp',isT=V.phase==='play'&&V.turn===(mine?me:1-me);el.classList.toggle('turn',isT);
  const Z=(cls,label,...k)=>{const z=div('zone '+cls);if(label){const l=document.createElement('span');l.className='zl';l.textContent=label;z.appendChild(l)}k.forEach(x=>x&&z.appendChild(x));return z};
  // 사건 (눕힌 카드)
- let cs;if(P.kase){const k=mk(P.kase,{kase:true,click:()=>kClick(mine),sel:mine&&mode&&mode.id===P.kase.id});if(P.kase.solved){k.title='해결편 — 사건이 해결편 상태입니다';k.classList.add('solved');k.insertAdjacentHTML('beforeend','<i class="solvedb">✔ 해결편</i>');if(solvedFx[mine?me:1-me]>Date.now()){k.classList.add('solvedfx');k.style.animationDelay=(-(1400-(solvedFx[mine?me:1-me]-Date.now())))+'ms'}}cs=slot('사건',k)}else cs=slot('사건',ph('land'),'emp');cs.id=pre+'-case';
+ let cs;if(P.kase){const k=mk(P.kase,{kase:true,click:()=>kClick(mine),sel:mine&&mode&&mode.id===P.kase.id,tgt:!mine&&caseTg()});if(P.kase.solved){k.title='해결편 — 사건이 해결편 상태입니다';k.classList.add('solved');k.insertAdjacentHTML('beforeend','<i class="solvedb">✔ 해결편</i>');if(solvedFx[mine?me:1-me]>Date.now()){k.classList.add('solvedfx');k.style.animationDelay=(-(1400-(solvedFx[mine?me:1-me]-Date.now())))+'ms'}}cs=slot('사건',k)}else cs=slot('사건',ph('land'),'emp');cs.id=pre+'-case';
  const zc=Z('z-case',P.kase&&P.kase.solved?'사건 · 해결편':'사건',cs);if(P.kase&&P.kase.solved)zc.classList.add('solved');
  // 증거 (사건 바로 아래) / FILE : 눕힌 카드 더미
- const evs=evSelFor(mine?me:1-me),ev=stk(P.evid,'증거','lp','증거 카드: 뒷면 '+(P.evid-(P.evUp||[]).length)+'장'+((P.evUp||[]).length?' / 앞면 '+P.evUp.length+'장':''),(P.evUp||[]).length,0,'ev',null,P.evl,evs);ev.id=pre+'-lp';
+ const evs=evSelFor(mine?me:1-me),ev=stk(P.evid,'증거','lp','증거 카드: 뒷면 '+(P.evid-(P.evUp||[]).length)+'장'+((P.evUp||[]).length?' / 앞면 '+P.evUp.length+'장':''),(P.evUp||[]).length,0,'ev',null,P.evl,evs);ev.id=pre+'-lp';if(!mine&&caseTg()){ev.classList.add('tgtz');ev.title='클릭: 상대 사건에 액션 (증거 빼앗기)';ev.addEventListener('click',()=>kClick(false))}
  const pInF=!!(P.partner&&P.partner.inFile&&!P.partner.hidden);
  const fl=stk(P.file,'FILE','file','FILE 에리어: '+P.file+'장'+(pInF?' (+파트너)':''),(P.fileUp||[]).length,0,'file',pInF?mk(P.partner,{land:true,click:()=>pClick(mine),sel:mine&&mode&&mode.id==='p'}):null,P.fil);fl.id=pre+'-file';
  // 캐릭터 라인 (최대 5칸, 타이트)
@@ -611,8 +613,8 @@ function pl(id,P,mine){const el=$(id);el.innerHTML='';const me=V.me,tgt=actTg()|
  // 정보: 덱 더미 + badge (리무브 badge 클릭 = 리무브 에리어 보기)
  const dk=stk(P.deck,'덱','dk','덱 '+P.deck+'장',0,true);dk.id=pre+'-deck';
  const rm=stk(P.rem.length,'리무브','dk rm','리무브 에리어: '+P.rem.length+'장 (클릭하면 카드 목록)',0,true);rm.id=pre+'-rem';rm.style.cursor='pointer';
- {const pl_=rm.querySelector('.pile');pl_.innerHTML='';const top=P.rem[P.rem.length-1],tf=top&&DEFS[top.d];if(top){const c=document.createElement('div');c.className='card'+(tf&&tf.img?'':' back');if(tf&&tf.img)c.style.backgroundImage=`url("${tf.img}")`;c.style.left='0';c.style.top='0';pl_.appendChild(c)}else{const e=document.createElement('div');e.className='empty';e.style.width=CWs+'px';e.style.height=CHs+'px';pl_.appendChild(e)}pl_.style.width=CWs+'px';pl_.style.height=CHs+'px'}
- rm.onclick=e=>{e.stopPropagation();remShow=remShow===(mine?me:1-me)?null:(mine?me:1-me);render()};
+ {const pl_=rm.querySelector('.pile');pl_.innerHTML='';const top=P.rem[P.rem.length-1],tf=top&&DEFS[top.d];if(top){const c=document.createElement('div');c.className='card'+(tf&&tf.img?'':' back');if(tf&&tf.img)c.style.backgroundImage=`url("${tf.img}")`;c.style.left='0';c.style.top='0';if(tf){c._pv=[tf,top];c.onmouseenter=()=>pv(tf,top);c.title='리무브 맨 위: '+(tf.n||'')}pl_.appendChild(c)}else{const e=document.createElement('div');e.className='empty';e.style.width=CWs+'px';e.style.height=CHs+'px';pl_.appendChild(e)}pl_.style.width=CWs+'px';pl_.style.height=CHs+'px'}
+ rm.onmouseenter=()=>{const t=P.rem[P.rem.length-1],f=t&&DEFS[t.d];if(f)pv(f,t)};rm.onclick=e=>{e.stopPropagation();remShow=remShow===(mine?me:1-me)?null:(mine?me:1-me);render()};
  const zi=div('z-info',dk,rm);
  // 아래(상대는 위) 줄: 손패(왼쪽) | FILE(중앙) | 이름표(오른쪽)
  let hd;if(mine){hd=div('');hd.id='hand'}else{hd=div('oh');for(let i=0;i<Math.min(P.hand,16);i++){const c=document.createElement('div');c.className='card back';hd.appendChild(c)}hd.id='opp-hand'}
@@ -758,14 +760,13 @@ function actUI(){const a=$('act');a.innerHTML='';const H=t=>{const d=document.cr
   if(za.length&&canSel()){a.className='on';H('표향 증거/FILE 카드의 능력');za.forEach(({id:zid,x})=>Bt((x.nm||'')+': 능력 '+(x.i+1)+' 사용',()=>{A('ability',{id:zid,i:x.i});mode=null},'pri'));return}
   a.className='off';N(canSel()||canHand()?Tm('카드를 클릭하면 여기에 가능한 행동이 표시됩니다'):'');return}
  a.className='on';const P=V.P[V.me],id=c.id,list=(V.acts||{})[id]||[],f=DEFS[c.d]||{};H('선택한 카드의 행동');
- if(mode.k==='act'){N(Tm('대상을 클릭하세요 (주황 테두리 = 지정 가능)'));Bt('액션 취소',()=>{mode={k:'sel',id:mode.id};render()},'ghost');return}
- const JP=/[぀-ヿ一-鿿]/;let first=true;const pri=()=>{const r=first?'pri':'';first=false;return r};
+ if(mode.k==='act'){const ck=caseTg(),cc=!!actTg()&&actTg().length>0;N(Tm('대상을 클릭하세요 (주황 테두리 = 지정 가능)'+(cc&&ck?': 상대 캐릭터 또는 상대 사건·증거':ck?': 상대 사건·증거':': 상대 캐릭터')));Bt('액션 취소',()=>{mode={k:'sel',id:mode.id};render()},'ghost');return}
+ const JP=/[぀-ヿ一-鿿]/;let actDone=false,first=true;const pri=()=>{const r=first?'pri':'';first=false;return r};
  list.forEach(x=>{
   if(x.k==='reason')Bt('추리',()=>{A('reason',{who:P.partner&&id===P.partner.id?'p':id});mode=null},pri());
   else if(x.k==='assist')Bt('어시스트',()=>{A('assist');mode=null},pri());
   else if(x.k==='solve')Bt('사건 해결',()=>{A('solve');mode=null},pri());
-  else if(x.k==='actc')Bt('액션 → 상대 캐릭터 (대상 선택)',()=>{mode={k:'act',id};render()},pri());
-  else if(x.k==='actk')Bt('액션 → 상대 사건',()=>{A('action',{id,k:'case'});mode=null},pri());
+  else if(x.k==='actc'||x.k==='actk'){if(!actDone){actDone=true;Bt('액션',()=>{mode={k:'act',id}},pri())}}
   else if(x.k==='ab')Bt('능력'+(x.lab&&!JP.test(x.lab)?': '+x.lab:' '+(x.i+1)+' 사용'),()=>{A('ability',{id,i:x.i});mode=null},pri())});
  if(!list.length)N('지금 이 카드로 할 수 있는 행동이 없습니다');
  Bt('선택 해제',()=>{mode=null;render()},'ghost')}
@@ -784,7 +785,7 @@ function ui(){const me=V.me,T=V.turn===me,s=V.sub,b=$('btns');b.innerHTML='';let
   else{m='컨택트: 손패의 컷인/변장 카드를 선택한 뒤 오른쪽 아래 버튼을 누르거나 패스';B('패스',()=>A('pass'),'pri')}}
  else if(!T)m='상대의 턴';
  else{m=V.fl.hw?'넥스트 힌트: 손패에서 1장 사용(레벨 ≤ FILE 수) 또는 스킵':'메인 페이즈 — 카드를 클릭하면 오른쪽 아래에 행동 버튼이 나옵니다';
-  if(pend)m+=' — 스위치할 내 캐릭터를 클릭';if(mode&&mode.k==='act')m+=' — 대상(상대 슬립/스턴 캐릭터)을 클릭';
+  if(pend)m+=' — 스위치할 내 캐릭터를 클릭';if(mode&&mode.k==='act')m+=' — 대상(상대 캐릭터 / 상대 사건·증거)을 클릭';
   if(V.fl.hw)B('스킵',()=>A('skip'),'pri');else{B('넥스트 힌트',()=>A('hint'));B('턴 종료',()=>{mode=null;A('end')},'pri')}}
  $('msg').textContent=Tm(m);actUI()}
 let prevSolved=null;const solvedFx=[0,0];
