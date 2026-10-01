@@ -80,6 +80,9 @@ body.m #firstb,body.m #turnb{white-space:nowrap}body.m #firstb{font-size:11px;pa
 .pn{display:flex;flex-direction:column;gap:3px;align-items:flex-end;font-weight:700;font-size:13px}
 .pn .nm{display:inline-flex;align-items:center;gap:6px}.pn .tb{font-size:10px;padding:1px 8px;border-radius:999px;background:linear-gradient(#ffd167,#e19f26);color:#2b1b00}
 .pn .tr{font-size:11px;color:#ffd58a;font-weight:500}
+.pn .ord{font-size:clamp(18px,2.1vw,28px);font-weight:900;letter-spacing:2px;padding:3px 20px;border-radius:12px;border:2px solid;line-height:1.25;box-shadow:0 2px 10px #0006}
+.pn .ord.f{background:#2b2308;color:#ffd978;border-color:#e0b13d}.pn .ord.s{background:#10243a;color:#8ecbff;border-color:#4a8fe8}
+.pn .nm{font-size:15px}
 .badge{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:700;background:#0b131b;border:1px solid #ffffff26;color:#dbe6f2;white-space:nowrap}
 .badge i{font-style:normal;color:var(--gold)}button.badge{cursor:pointer;box-shadow:none;background:#0b131b}@media(hover:hover){button.badge:hover:not(:disabled){filter:brightness(1.4);transform:none}}
 /* ── 카드 ── */
@@ -290,6 +293,7 @@ body.m .z-file{grid-area:file}
 body.m .z-plate{position:absolute;right:8px;top:-10px;z-index:3;padding:0}
 body.m .pn{flex-direction:row;align-items:center;gap:6px;background:#0b131bf2;border:1px solid #ffffff2a;border-radius:999px;padding:0 9px;font-size:11px;line-height:18px}
 body.m .pn .tr{font-size:10px}
+body.m .pn .ord{font-size:12px;padding:0 8px;border-width:1px;border-radius:999px;letter-spacing:.5px;line-height:18px;box-shadow:none}
 body.m .z-field{width:auto;justify-self:stretch;height:calc(var(--ch) + 10px);padding:0 4px}
 body.m .fs{width:calc(var(--ch)*.8)}
 body.m .z-evid,body.m .z-case{justify-self:start}
@@ -606,7 +610,8 @@ function pl(id,P,mine){const el=$(id);el.innerHTML='';const me=V.me,tgt=actTg()|
  const zi=div('z-info',dk,rm);
  // 아래(상대는 위) 줄: 손패(왼쪽) | FILE(중앙) | 이름표(오른쪽)
  let hd;if(mine){hd=div('');hd.id='hand'}else{hd=div('oh');for(let i=0;i<Math.min(P.hand,16);i++){const c=document.createElement('div');c.className='card back';hd.appendChild(c)}hd.id='opp-hand'}
- const pn=div('pn');pn.innerHTML=`<span class="nm">${mine?'나':'상대'}${isT?'<span class="tb">TURN</span>':''}</span>${P.tr?'<span class="tr">흔적 발견됨</span>':''}${mine?'':`<span class="hc">✋ ${P.hand}</span>`}`;
+ const seatP=mine?me:1-me,ordOn=V.phase!=='setup'&&(V.first===0||V.first===1),ord=ordOn?(V.first===seatP?'<span class="ord f">선공</span>':'<span class="ord s">후공</span>'):'';
+ const pn=div('pn');pn.innerHTML=ord+`<span class="nm">${mine?'나':'상대'}${isT?'<span class="tb">TURN</span>':''}</span>${P.tr?'<span class="tr">흔적 발견됨</span>':''}${mine?'':`<span class="hc">✋ ${P.hand}</span>`}`;
  el.append(zc,zf,Z('z-evid','',ev),zp,zi,div('z-bot',div('z-hand',hd),Z('z-file','FILE',fl),div('z-plate',pn)))}
 function fitHand(){for(const h of [$('hand'),$('opp-hand')]){if(!h)continue;const n=h.children.length;if(n<2){h.style.removeProperty('--ov');continue}const cw=h.children[0].offsetWidth||CW,av=h.clientWidth-8,gap=Math.round(cw*.06),need=n*cw+(n-1)*gap;let ov=need>av?-Math.ceil((need-av)/(n-1)):gap;if(M&&h.id==='hand'&&need>av)ov=Math.min(ov,0)<-(cw*.5)?-Math.round(cw*.5):ov;h.style.setProperty('--ov',ov+'px')}}
 // ══════ 모바일 / 태블릿 ══════
