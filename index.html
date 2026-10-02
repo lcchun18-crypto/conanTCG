@@ -442,6 +442,17 @@ body.m #db.on #dbBar.on{display:flex}
 body.m #dbErr>div{max-width:94vw}
 #net{position:fixed;left:50%;top:8px;transform:translate(-50%,-140%);z-index:99999;max-width:min(92vw,560px);padding:8px 16px;border-radius:999px;font:600 13px/1.4 system-ui,sans-serif;color:#fff;background:#444;box-shadow:0 4px 18px #0008;pointer-events:none;opacity:0;transition:transform .25s,opacity .25s;text-align:center}
 #net.on{transform:translate(-50%,0);opacity:1}#net.conn,#net.down{background:#b8601c}#net.up{background:#1f8a4c}#net.warn{background:#a23030}
+
+/* v1.9.0 공개 팝업 / 확인 대화상자 */
+#rvl,#yn{display:none;position:fixed;inset:0;z-index:90;background:#000c;align-items:center;justify-content:center;padding:calc(10px + env(safe-area-inset-top)) 10px calc(10px + env(safe-area-inset-bottom))}
+#rvl.on,#yn.on{display:flex}
+#rvl .rb,#yn .yb{background:linear-gradient(#22303f,#16212d);border:2px solid var(--gold);border-radius:14px;padding:14px 16px;max-width:min(94vw,860px);max-height:92vh;overflow:auto;box-shadow:0 14px 40px #000c;display:flex;flex-direction:column;gap:10px;align-items:center;text-align:center}
+#rvl .rt{font-size:16px;font-weight:800;color:var(--gold)}#rvl .rm{font-size:13px;color:#dfe8f2}
+#rvl .rc{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;--cw:clamp(104px,20vw,170px);--ch:calc(var(--cw)*1.4)}
+#rvl .ri{display:flex;flex-direction:column;align-items:center;gap:4px;max-width:calc(var(--cw) + 20px)}#rvl .ri .card{margin:0;transform:none;cursor:default}#rvl .ri b{font-size:12.5px;color:#fff;line-height:1.25}#rvl .ri small{font-size:11px;color:#9fb3c8}
+#rvl button,#yn button{padding:9px 26px;font-size:15px;min-height:42px}
+#yn .yb{max-width:min(92vw,440px)}#yn .ym{font-size:15px;color:#eef3f8;line-height:1.5}#yn .yr{display:flex;gap:10px}
+#restartBtn{padding:5px 12px;font-size:12px;flex:none}#rtBtn{border-color:#6fe0ff}
 </style></head><body>
 <div id="net" role="status" aria-live="polite"></div>
 <div id="lobby"><h1>명탐정 코난 TCG</h1><div class="sub">카드게임 시뮬레이터</div>
@@ -455,7 +466,7 @@ body.m #dbErr>div{max-width:94vw}
 <div class="rowb" id="botFirst"><label><input type="radio" name="bf" value="first"> 선공</label><label><input type="radio" name="bf" value="second"> 후공</label><label><input type="radio" name="bf" value="random" checked> 랜덤</label></div>
 <div id="botErr"></div><div class="rowb"><button class="pri" onclick="botStart()">대전 시작</button><button class="ghost" onclick="$('botm').style.display='none'">취소</button></div>
 <small>봇은 내 손패와 뒷면 세트 카드까지 볼 수 있지만, 앞으로의 덱 순서는 모릅니다. 난이도는 EXPERT 하나입니다(전문 봇은 같은 Expert 탐색 + 덱 전용 전략). 전문 봇은 정해진 덱을 씁니다. 저장한 덱(40장 + 사건 + 파트너)만 고를 수 있습니다.</small></div></div>
-<div id="game"><div id="top"><span class="brand">명탐정 코난 TCG</span><span id="turnb">-</span><span id="firstb" class="order" style="display:none" aria-live="polite"></span><span class="pill">방 코드 <b id="rc"></b></span><span class="pill" id="info"></span><span class="sp"></span><button id="leaveBtn" class="ghost" type="button" title="로비로 나가기">🚪 로비로</button><button class="mbtn" id="mLog">📜 로그</button><button class="mbtn" id="mMenu">☰ 메뉴</button><span id="botpill" class="pill" style="display:none">🤖 BOT / EXPERT</span><span id="botover" class="grp" style="display:none"><button class="pri" onclick="botRestart()">다시 대전</button><button onclick="botLog()">AI 기록 다운로드</button></span>
+<div id="game"><div id="top"><span class="brand">명탐정 코난 TCG</span><span id="turnb">-</span><span id="firstb" class="order" style="display:none" aria-live="polite"></span><span class="pill">방 코드 <b id="rc"></b></span><span class="pill" id="info"></span><span class="sp"></span><button id="restartBtn" class="ghost" type="button" title="현재 게임을 초기화하고 처음부터 다시 시작">🔄 다시하기</button><button id="leaveBtn" class="ghost" type="button" title="로비로 나가기">🚪 로비로</button><button class="mbtn" id="mLog">📜 로그</button><button class="mbtn" id="mMenu">☰ 메뉴</button><span id="botpill" class="pill" style="display:none">🤖 BOT / EXPERT</span><span id="botover" class="grp" style="display:none"><button class="pri" onclick="botRestart()">다시 대전</button><button onclick="botLog()">AI 기록 다운로드</button></span>
 <span class="grp" id="topmenu"><select id="dsel"></select><button class="pri" onclick="loadDeck()">덱 등록</button><button onclick="openDB()">카드 / 덱 관리</button><button class="danger" onclick="confirm('항복할까요?')&&A('resign')">항복</button></span></div>
 <div id="main"><div id="logc"><div class="lh"><span>플레이 로그</span><button class="ghost" id="logt" onclick="toggleLog()">접기</button></div><div id="log"></div></div>
 <div id="board"><div id="oppl" class="half opp"></div>
@@ -465,7 +476,7 @@ body.m #dbErr>div{max-width:94vw}
 <div id="side"><div id="pv"><div class="hintx">카드에 마우스를 올리면 크게 표시됩니다.</div></div>
 <div id="act" class="off"></div></div></div><div id="dock"></div></div>
 <div id="sheet"><div class="sh"><span id="shn"></span><button id="shBig">🔍 크게</button><button id="shX" aria-label="닫기">✕</button></div></div>
-<div id="fsv"><div class="fsb"></div><button id="fsx" aria-label="닫기">✕</button></div><div id="bd"></div>
+<div id="rvl"><div class="rb"><div class="rt"></div><div class="rm"></div><div class="rc"></div><button class="pri" id="rvOk" type="button">확인</button></div></div><div id="yn"><div class="yb"><div class="ym"></div><div class="yr"><button class="pri" id="ynY" type="button">예</button><button id="ynN" type="button">아니오</button></div></div></div><div id="fsv"><div class="fsb"></div><button id="fsx" aria-label="닫기">✕</button></div><div id="bd"></div>
 
 <div id="db" data-tab="list"><div id="dbTabs"><button data-tab="list" class="on">카드 목록</button><button data-tab="deck" id="dbTabDeck">덱 0/40</button><button data-tab="info">카드 상세</button><button class="x ghost" onclick="bClose()" aria-label="닫기">✕</button></div><div id="cdbErrB" class="dberr"><b class="dbm"></b><br><small>서버의 data/cards.json 을 읽지 못했습니다. 서버 관리자에게 알려 주세요.</small><br><button onclick="retryDb()">다시 시도</button> <button onclick="bClose()">닫기</button></div><div id="dbL">
  <div class="dbbox"><div class="dbr"><input id="dbName" placeholder="덱 이름" maxlength="40" autocomplete="off" enterkeyhint="done"><button class="pri" id="dbSave" onclick="bSave()">저장</button></div>
@@ -518,11 +529,26 @@ addEventListener('pageshow',e=>{if(e.persisted)netKick(true)});
 NET.sess=sessGet();
 let hsel=null,remShow=null,V=null,DEFS={},DB={cards:{},decks:{}},cur=null,curDeck=null,pimg=null,mode=null,selm=[],pend=null;
 const A=(a,o={})=>{if(M)closeSheet();S({t:'act',a,...o})};
+
+// v1.9.0: 확인 대화상자 / 공개 팝업 / 다시하기
+let ynCb=null;function askYN(msg,cb){$('yn').querySelector('.ym').textContent=msg;ynCb=cb;$('yn').classList.add('on')}
+$('ynY').onclick=()=>{$('yn').classList.remove('on');const f=ynCb;ynCb=null;f&&f()};$('ynN').onclick=()=>{$('yn').classList.remove('on');ynCb=null};
+let rvQ=[],rvCur=null;
+function rvNext(){if(rvCur||!rvQ.length)return;rvCur=rvQ.shift();const m=rvCur,box=$('rvl');box.querySelector('.rt').textContent=(m.by===(V&&V.me)?'내가':'상대가')+' 공개한 카드'+(m.src?' · '+m.src:'');box.querySelector('.rm').textContent=m.msg||'';
+ const rc=box.querySelector('.rc');rc.innerHTML='';(m.cards||[]).forEach(c=>{const w=document.createElement('div');w.className='ri';const el=mk(c,{noeff:true});el.style.transform='';w.appendChild(el);const f=DEFS[c.d]||{};const b=document.createElement('b');b.textContent=f.n||'?';const sm=document.createElement('small');sm.textContent=cardId(f,c);w.appendChild(b);w.appendChild(sm);rc.appendChild(w)});box.classList.add('on')}
+function rvClose(){const m=rvCur;rvCur=null;$('rvl').classList.remove('on');if(m&&m.ack===(V&&V.me)&&V.eff&&V.eff.kind==='ack'&&V.eff.reveal&&!rvQ.some(x=>x.ack===m.ack))A('ans',{v:null});rvNext()}
+$('rvOk').onclick=rvClose;
+function uiReset(kind){rvQ=[];rvCur=null;$('rvl').classList.remove('on');$('yn').classList.remove('on');ynCb=null;hsel=null;mode=null;selm=[];pend=null;esel=[];effKey='';try{closeSheet()}catch{}
+ if(kind==='game'){endShown=null;$('endb').className='';DEFS={}}}
+$('restartBtn').onclick=()=>askYN('정말 현재 게임을 초기화하고 다시 시작하시겠습니까?',()=>S({t:'restartGame'}));
+function askTurnRestart(){askYN('이번 턴의 모든 행동을 취소하고 턴 시작 상태로 돌아가시겠습니까?',()=>S({t:'restartTurn'}))}
 function onMsg(e){let m;try{m=JSON.parse(e.data)}catch{return}
  if(m.t==='joined')sessPut({code:m.code,seat:m.seat,token:m.token});
  else if(m.t==='resumeFail'){sessPut(null);toLobby();netUI('warn',m.msg||'방을 복구하지 못했습니다.')}
  else if(m.t==='err'){loading(false);if(V){$('lerr').textContent='';$('err').textContent=m.msg;setTimeout(()=>{if($('err').textContent===m.msg)$('err').textContent=''},4000)}else{$('lerr').textContent=m.msg}}   // 게임 중 오류는 게임 화면에만, 로비 오류는 로비에만
  else if(m.t==='defs'){DEFS=m.defs;V&&render()}
+ else if(m.t==='reveal'){if(V&&(m.to||[]).includes(V.me)){rvQ.push(m);rvNext()}}
+ else if(m.t==='reset'){uiReset(m.kind)}
  else if(m.t==='left'){sessPut(null);toLobby();if(botAuto==='restart'&&botCfg)botStart(botCfg);else botAuto=false}
  else if(m.t==='botlog'){if(m.err)return alert(m.err);const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(m.log,null,1)],{type:'application/json'}));a.download='conan-bot-log.json';a.click()}
  else if(m.t==='v'){loading(false);V=m;$('lerr').textContent='';if(m.phase==='over'&&NET.sess)sessPut(null);if(V.bot&&botAuto===true&&V.phase==='setup'&&!V.P[0].ready){botAuto=false;loadDeck()}$('lobby').style.display='none';$('game').style.display='flex';document.body.classList.add('ing');sizes();if(!V.sub||V.sub.who!==V.me)selm=selm;render()}}
@@ -831,10 +857,11 @@ function ui(){const me=V.me,T=V.turn===me,s=V.sub,b=$('btns');b.innerHTML='';let
  else{m=V.fl.hw?'넥스트 힌트: 손패에서 1장 사용(레벨 ≤ FILE 수) 또는 스킵':'메인 페이즈 — 카드를 클릭하면 오른쪽 아래에 행동 버튼이 나옵니다';
   if(pend)m+=' — 스위치할 내 캐릭터를 클릭';if(mode&&mode.k==='act')m+=' — 대상(상대 캐릭터 / 상대 사건)을 클릭';
   if(V.fl.hw)B('스킵',()=>A('skip'),'pri');else{B('넥스트 힌트',()=>A('hint'));B('턴 종료',()=>{mode=null;A('end')},'pri')}}
+ if(V.rt&&V.phase==='play'){B('이번 턴 다시시작',askTurnRestart,'ghost');b.lastChild.id='rtBtn';b.lastChild.title='이번 턴의 모든 행동을 취소하고 턴 시작 상태로 되돌립니다'}
  $('msg').textContent=Tm(m);actUI()}
 $('leaveBtn').onclick=leaveGame;
 let prevSolved=null;const solvedFx=[0,0];
-function render(){if(!V)return;const me=V.me;effSync();$('botpill').style.display=V.bot?'':'none';if(V.bot)$('botpill').textContent='🤖 '+(V.botName||'BOT / EXPERT');$('botover').style.display=V.bot&&V.phase==='over'?'':'none';document.body.classList.toggle('botmode',!!V.bot);if(mode&&!canSel())mode=null;if(hsel&&!(handTurn()&&V.P[me].hand.some(x=>x.id===hsel)))hsel=null;$('rc').textContent=V.code;const PH={setup:'덱 준비',mull:'멀리건',over:'게임 종료'};$('info').textContent=V.phase==='play'?`${V.n}번째 턴`:(PH[V.phase]||V.phase);document.body.classList.toggle('playing',V.phase!=='setup');{const fb=$('firstb');if(V.phase!=='setup'&&(V.first===0||V.first===1)){fb.style.display='';const f=V.first===me;fb.className='order '+(f?'f':'s');fb.textContent=f?'선공':'후공';fb.title=f?'내가 선공입니다':'내가 후공입니다'}else fb.style.display='none'}
+function render(){if(!V)return;const me=V.me;effSync();$('botpill').style.display=V.bot?'':'none';$('restartBtn').style.display=V.bot?'none':'';if(V.bot)$('botpill').textContent='🤖 '+(V.botName||'BOT / EXPERT');$('botover').style.display=V.bot&&V.phase==='over'?'':'none';document.body.classList.toggle('botmode',!!V.bot);if(mode&&!canSel())mode=null;if(hsel&&!(handTurn()&&V.P[me].hand.some(x=>x.id===hsel)))hsel=null;$('rc').textContent=V.code;const PH={setup:'덱 준비',mull:'멀리건',over:'게임 종료'};$('info').textContent=V.phase==='play'?`${V.n}번째 턴`:(PH[V.phase]||V.phase);document.body.classList.toggle('playing',V.phase!=='setup');{const fb=$('firstb');if(V.phase!=='setup'&&(V.first===0||V.first===1)){fb.style.display='';const f=V.first===me;fb.className='order '+(f?'f':'s');fb.textContent=f?'선공':'후공';fb.title=f?'내가 선공입니다':'내가 후공입니다'}else fb.style.display='none'}
  {const sv=[0,1].map(i=>!!(V.P[i].kase&&V.P[i].kase.solved));if(prevSolved)sv.forEach((x,i)=>{if(x&&!prevSolved[i])solvedFx[i]=Date.now()+1400});prevSolved=sv}
  document.body.classList.toggle('mullph',V.phase!=='play');const tb=$('turnb');if(V.phase==='play'){tb.className=V.turn===me?'me':'opp';tb.textContent=V.turn===me?'▶ 내 턴':'상대 턴'}else{tb.className='';tb.textContent=PH[V.phase]||V.phase}
  pl('oppl',V.P[1-me],false);pl('mel',V.P[me],true);

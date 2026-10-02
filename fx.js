@@ -13,7 +13,7 @@ module.exports = function (A) {
   const opt = (x, arr, d = '') => arr.includes(x) ? x : d;
   // v1.8.4 룰: 카드 텍스트에 [상대] 지정이 없는 대상/조건/비용은 아군(자신)만. (이전 동작이 필요하면 환경변수 CONAN_DEFAULT_OWN=any — 옛 카드 테스트용)
   const DEF_OWN = process.env.CONAN_DEFAULT_OWN === 'any' ? 'any' : 'self';
-  const cleanFilter = (f, depth = 0) => { f = f && typeof f === 'object' ? f : {}; const o = { own: opt(f.own, ['self', 'opp', 'any'], DEF_OWN) };
+  const cleanFilter = (f, depth = 0, dOwn = DEF_OWN) => { f = f && typeof f === 'object' ? f : {}; const o = { own: opt(f.own, ['self', 'opp', 'any'], dOwn) };
     const refS = x => typeof x === 'string' && (x === 'self' || /^reg:[a-z]+:(sum|max|first|count)$/.test(x));
     const lv = k => (f[k] === 'file' || f[k] === 'used' || f[k] === 'costLv' || refS(f[k])) ? f[k] : (f[k] == null || f[k] === '' ? null : num(f[k]));
     for (const k of ['lvMax', 'lvMin']) o[k] = lv(k);
@@ -78,7 +78,7 @@ module.exports = function (A) {
       case 'shuffle': return { ...p, who: opt(o.who, ['self', 'opp', 'both'], 'self') };
       case 'look': return { ...p, n: n(), from: opt(o.from, ['top', 'bottom'], 'top'), filter: cleanFilter(o.filter), max: Math.max(0, Math.min(num(o.max, 1), 20)), by: opt(o.by, ['opp'], ''),
         then: opt(o.then, ['hand', 'field', 'fieldSleep', 'rem'], 'hand'), rest: opt(o.rest, ['bottom', 'shuffleBottom', 'top', 'rem', 'hand', 'keep'], 'bottom') };
-      case 'select': return { ...p, force: !!o.force, opt: !!o.opt, all: !!o.all, n: n(), filter: cleanFilter(o.filter), acts: cleanActs(o), do: opt(o.do, DO, 'sleep'), v: str(o.v, 40), until: opt(o.until, UNTIL, 'turn'),
+      case 'select': return { ...p, force: !!o.force, opt: !!o.opt, all: !!o.all, n: n(), filter: cleanFilter(o.filter, 0, o.do === 'remove' && process.env.CONAN_DEFAULT_OWN !== 'self' ? 'any' : DEF_OWN), acts: cleanActs(o), do: opt(o.do, DO, 'sleep'), v: str(o.v, 40), until: opt(o.until, UNTIL, 'turn'),
         alt: o.alt && typeof o.alt === 'object' ? { cond: cleanCond(o.alt.cond), do: opt(o.alt.do, DO, 'remove') } : null, when: opt(o.when, ['lpLeOwnMax'], ''), sumLv: o.sumLv == null ? null : num(o.sumLv), ...dynN(o),
         groups: (Array.isArray(o.groups) ? o.groups : []).slice(0, 3).map(g => g && ({ filter: cleanFilter(g.filter), n: Math.max(1, Math.min(num(g.n, 1), 10)) })).filter(Boolean), pairSt: !!o.pairSt };
       case 'self': return { ...p, do: opt(o.do, DO, 'sleep'), v: str(o.v, 40), until: opt(o.until, UNTIL, 'turn'), opt: !!o.opt, mul: o.mul && typeof o.mul === 'object' ? { ref: opt(o.mul.ref, REGS, 'removed'), by: opt(o.mul.by, ['count', 'lv', 'ap1000'], 'count') } : null,
@@ -602,19 +602,19 @@ module.exports = function (A) {
         for (const e of ids) { applyTo(R, s, src, e, o.do, o.v, o.until); say(R, `[효과] ${D(R, e).n}: ${o.do}${o.v ? ' ' + o.v : ''}`); } ctx.done = true; return; }
       case 'reveal': { const T = P, seen = []; let hit = null;
         while (T.deck.length) { const x = T.deck.pop(); seen.push(x); if (D(R, x).type && (o.name || Object.values(o.filter || {}).some(v => v && (!Array.isArray(v) || v.length))) && fOk(R, s, x, o.filter, src, true) && (!o.name || D(R, x).n.includes(o.name))) { hit = x; break; } }
-        yield { who: s, kind: 'ack', msg: hit != null ? `덱 위에서 ${seen.length}장을 공개 — 「${D(R, hit).n}」 발견` : `덱 위 ${seen.length}장을 공개 — 해당하는 카드가 없었습니다`, ids: seen, reveal: 1 };
+        yield { who: s, kind: 'ack', msg: hit != null ? `덱 위에서 ${seen.length}장을 공개 — 「${D(R, hit).n}」 발견` : `덱 위 ${seen.length}장을 공개 — 해당하는 카드가 없었습니다`, ids: seen, reveal: 1, by: s };
         const rest = seen.filter(x => x !== hit); if (hit != null) { if (o.then === 'rem') T.rem.push(hit); else T.hand.push(hit); }
         if (o.rest === 'rem') T.rem.push(...rest); else { const r = rest.slice(); if (o.rest === 'shuffleBottom') shuf(r); r.forEach(x => T.deck.unshift(x)); }
         if (o.shuffle) shuf(T.deck); say(R, `[효과] ${nm(s)} 덱을 ${seen.length}장 공개` + (hit != null ? ` → 「${D(R, hit).n}」을(를) 손패에` : ' (해당 카드 없음)')); ctx.done = hit != null; ctx.found = hit != null ? 1 : 0; chk(R, s); return; }
       case 'revealTop': { const T = P, n = Math.min(o.n, T.deck.length); if (!n) { ctx.done = false; return; } const seen = []; for (let i = 0; i < n; i++) seen.push(T.deck.pop());
         const f = rf(R, o.filter, ctx), hits = seen.filter(x => fOk(R, s, x, f, src, true)), miss = seen.filter(x => !hits.includes(x));
-        yield { who: s, kind: 'ack', msg: `덱 위 ${n}장을 공개 — ` + (hits.length ? `조건에 맞는 「${D(R, hits[0]).n}」 → ${o.hit === 'rem' ? '리무브' : '손패'}` : `조건에 맞는 카드 없음 → ${o.miss === 'bottom' ? '덱 아래' : o.miss === 'top' ? '덱 위' : o.miss === 'rem' ? '리무브' : '손패'}`), ids: seen, reveal: 1 };
+        yield { who: s, kind: 'ack', msg: `덱 위 ${n}장을 공개 — ` + (hits.length ? `조건에 맞는 「${D(R, hits[0]).n}」 → ${o.hit === 'rem' ? '리무브' : '손패'}` : `조건에 맞는 카드 없음 → ${o.miss === 'bottom' ? '덱 아래' : o.miss === 'top' ? '덱 위' : o.miss === 'rem' ? '리무브' : '손패'}`), ids: seen, reveal: 1, by: s };
         if (o.hit === 'rem') T.rem.push(...hits); else T.hand.push(...hits);
         if (o.miss === 'bottom') miss.forEach(x => T.deck.unshift(x)); else if (o.miss === 'top') miss.slice().reverse().forEach(x => T.deck.push(x)); else if (o.miss === 'rem') T.rem.push(...miss); else T.hand.push(...miss);
         say(R, `[효과] ${nm(s)} 덱 위 ${n}장 공개` + (hits.length ? ` → 「${D(R, hits[0]).n}」` : ' (해당 없음)')); ctx.done = hits.length > 0; ctx.found = hits.length; chk(R, s); return; }
-      case 'revealHand': { const t = tg(o.who), ids = R.P[t].hand.slice(); yield { who: 1 - t, kind: 'ack', msg: `${nm(t)}의 손패 ${ids.length}장 공개 (확인 후 원래대로)`, ids, reveal: 1 }; say(R, `[효과] ${nm(t)} 손패 공개`); return; }
+      case 'revealHand': { const t = tg(o.who), ids = R.P[t].hand.slice(); yield { who: 1 - t, kind: 'ack', msg: `${nm(t)}의 손패 ${ids.length}장 공개 (확인 후 원래대로)`, ids, reveal: 1, by: t }; say(R, `[효과] ${nm(t)} 손패 공개`); return; }
       case 'revealFile': { const t = tg(o.who), T = R.P[t]; const ids = T.file.slice(-o.n).reverse(); if (!ids.length) { ctx.done = false; return; } ids.forEach(x => { R.cards[x].up = true; });
-        yield { who: s, kind: 'ack', msg: `${nm(t)}의 FILE 에리어 위 ${ids.length}장을 표향으로`, ids, reveal: 1 }; say(R, `[효과] ${nm(t)} FILE 위 ${ids.length}장 표향`); ctx.done = true; return; }
+        yield { who: s, kind: 'ack', msg: `${nm(t)}의 FILE 에리어 위 ${ids.length}장을 표향으로`, ids, reveal: 1, by: t }; say(R, `[효과] ${nm(t)} FILE 위 ${ids.length}장 표향`); ctx.done = true; return; }
       case 'investigate': { const t = 1 - s, T = R.P[t]; ctx.named = ''; ctx.disc = [];
         if (o.named) { const v = yield { who: s, kind: 'text', msg: '수사할 카드 이름을 지정하세요 (부분 일치)', max: 40 }; ctx.named = String(v || '').slice(0, 40); }
         const n = Math.min(o.n, T.deck.length); const seen = []; for (let i = 0; i < n; i++) seen.push(T.deck.pop()); ctx.disc = seen.slice(); ctx.found = 0;
@@ -683,7 +683,7 @@ module.exports = function (A) {
         else { const n = Math.max(0, Math.min(dynNum(R, s, src, o, ctx), T.deck.length)); seen = n <= 0 ? [] : o.from === 'bottom' ? T.deck.slice(0, n) : T.deck.slice(-n).reverse(); }
         setReg(ctx, 'seen', seen); setReg(ctx, 'hit', hit != null ? [hit] : []); setReg(ctx, 'rest', seen.filter(x => x !== hit)); setReg(ctx, 'revealed', o.reveal ? seen : []); ctx.found = hit != null ? 1 : 0; ctx.done = seen.length > 0;
         say(R, `[효과] ${nm(dt)} 덱 ${o.from === 'bottom' ? '아래' : '위'} ${seen.length}장 ${o.reveal ? '공개' : '확인'}` + (o.until ? (hit != null ? (o.reveal ? ` → 「${D(R, hit).n}」 발견` : ' → 해당하는 카드를 찾음') : ' (해당 카드 없음)') : ''));
-        if (seen.length) yield { who: viewer, kind: 'ack', msg: `${nm(dt)}의 덱 ${o.from === 'bottom' ? '아래' : '위'} ${seen.length}장${o.reveal ? ' 공개' : ' 확인'}` + (o.until ? (hit != null ? ` — 「${D(R, hit).n}」 발견` : ' — 해당하는 카드 없음') : ''), ids: seen, reveal: o.reveal ? 1 : 0 };
+        if (seen.length) yield { who: viewer, kind: 'ack', msg: `${nm(dt)}의 덱 ${o.from === 'bottom' ? '아래' : '위'} ${seen.length}장${o.reveal ? ' 공개' : ' 확인'}` + (o.until ? (hit != null ? ` — 「${D(R, hit).n}」 발견` : ' — 해당하는 카드 없음') : ''), ids: seen, reveal: o.reveal ? 1 : 0, by: o.reveal ? s : null };
         return; }
       case 'pick': { const who = o.chooser === 'opp' ? 1 - s : s; const isReg = REGS_RT.includes(o.from); let pool;
         if (isReg) pool = regIds(R, ctx, o.from); else { const T = R.P[o.own === 'opp' ? 1 - s : s]; pool = o.from === 'evidUp' ? T.evid.filter(x => R.cards[x].up) : o.from === 'evidDown' ? T.evid.filter(x => !R.cards[x].up) : (T[o.from] || []).slice(); }
@@ -696,7 +696,7 @@ module.exports = function (A) {
             if (!c2.length) continue; const r = (yield pickReq(who, `${g.n}장까지 선택 (해당하는 카드가 없으면 0장)`, c2, 0, Math.min(g.n, c2.length), { reveal: isReg ? 1 : 0 })).filter(x => c2.includes(x)); chosen = chosen.concat(r); } }
         else { const mx = Math.min(dynNum(R, s, src, o, ctx), cand.length); if (mx > 0) chosen = (yield pickReq(who, `${o.msg || '카드'}를 ${o.min && o.min === mx ? mx : '최대 ' + mx}장 선택` + (o.sumLv != null ? ` (레벨 합계 ${o.sumLv} 이하)` : ''), cand, Math.min(o.min, mx), mx, { distinct: o.distinct, reveal: isReg || o.reveal ? 1 : 0, ...cap })).filter(x => cand.includes(x)); }
         setReg(ctx, o.as, chosen); if (isReg) setReg(ctx, 'rest', pool.filter(x => !chosen.includes(x))); ctx.found = chosen.length; ctx.done = chosen.length > 0;
-        if (chosen.length) { if (o.reveal) { setReg(ctx, 'revealed', chosen); yield { who: 1 - who, kind: 'ack', msg: `${nm(who)}이(가) 공개: ${chosen.map(x => D(R, x).n).join(', ')}`, ids: chosen, reveal: 1 }; if (o.from === 'hand') chosen.forEach(x => bus(R, 'hrev', { s: who, ent: x, by: 'effect' })); } say(R, `[효과] ${nm(who)}이(가) ${chosen.length}장 선택`); }
+        if (chosen.length) { if (o.reveal) { setReg(ctx, 'revealed', chosen); yield { who: 1 - who, kind: 'ack', msg: `${nm(who)}이(가) 공개: ${chosen.map(x => D(R, x).n).join(', ')}`, ids: chosen, reveal: 1, by: who }; if (o.from === 'hand') chosen.forEach(x => bus(R, 'hrev', { s: who, ent: x, by: 'effect' })); } say(R, `[효과] ${nm(who)}이(가) ${chosen.length}장 선택`); }
         return; }
       case 'turnPk': { if (o.until === 'action' && !R.sub) { ctx.done = false; return; }   // 액션이 이미 끝났다면(사건 액션이 가드 없이 끝난 뒤 큐 처리 등) 적용하지 않음
         R.fl.pk = R.fl.pk || [{}, {}]; R.fl.pkA = R.fl.pkA || [{}, {}]; (o.until === 'action' ? R.fl.pkA : R.fl.pk)[s][o.key] = 1; say(R, `[효과] ${o.until === 'action' ? '이 액션이 끝날 때까지' : '이번 턴 동안'} 제한 적용: ${o.key}`); ctx.done = true; return; }
@@ -757,7 +757,7 @@ module.exports = function (A) {
       const ord = k.order && ids.length > 1 ? yield pickReq(s, `덱 아래에 놓을 순서대로 클릭 (${ids.length}장)`, ids, ids.length, ids.length, { ordered: true }) : ids;
       P.rem = P.rem.filter(x => !ids.includes(x)); ord.forEach(x => P.deck.unshift(x)); remLeft(R, s, ids); }
     else if (k.c === 'revealHand') { const cand = P.hand.filter(x => fOk(R, s, x, f, src, true)); const ids = cand.length === k.n ? cand : yield pickReq(s, `코스트: 공개할 손패 ${k.n}장 선택`, cand, k.n, k.n);
-      yield { who: 1 - s, kind: 'ack', msg: `${nm(s)}이(가) 손패를 공개: ${ids.map(x => D(R, x).n).join(', ')}`, ids, reveal: 1 }; co.rev = (co.rev || []).concat(ids); co.lv = ids.length ? (+D(R, ids[0]).lv || 0) : co.lv; say(R, `코스트: 손패 ${ids.length}장 공개`); ids.forEach(x => bus(R, 'hrev', { s, ent: x, by: 'cost' })); }
+      yield { who: 1 - s, kind: 'ack', msg: `${nm(s)}이(가) 손패를 공개: ${ids.map(x => D(R, x).n).join(', ')}`, ids, reveal: 1, by: s }; co.rev = (co.rev || []).concat(ids); co.lv = ids.length ? (+D(R, ids[0]).lv || 0) : co.lv; say(R, `코스트: 손패 ${ids.length}장 공개`); ids.forEach(x => bus(R, 'hrev', { s, ent: x, by: 'cost' })); }
     else if (k.c === 'fileRem') { const got = []; for (let i = 0; i < k.n && P.file.length; i++) { const x = P.file.pop(); R.cards[x].up = false; P.rem.push(x); got.push(x); } co.rem = (co.rem || []).concat(got); say(R, `코스트: FILE 에리어 ${got.length}장 리무브`); }
     else if (k.c === 'paRem') { const cand = P.pa.filter(x => fOk(R, s, x, f, src, true)); const ids = cand.length === k.n ? cand : yield pickReq(s, `코스트: 파트너 에리어에서 리무브할 카드 ${k.n}장`, cand, k.n, k.n, { reveal: 1 });
       P.pa = P.pa.filter(x => !ids.includes(x)); P.rem.push(...ids); co.rem = (co.rem || []).concat(ids); say(R, `코스트: 파트너 에리어 ${ids.length}장 리무브`); }
@@ -765,12 +765,12 @@ module.exports = function (A) {
     else if (k.c === 'fieldRem') { const cand = [...ally(R, 0), ...ally(R, 1)].filter(x => fOk(R, s, x, f, src, true)); const ids = cand.length === k.n ? cand : yield pickReq(s, `코스트: 리무브할 현장 캐릭터 ${k.n}장`, cand, k.n, k.n); ids.forEach(x => rmChar(R, x, 'cost')); co.rem = (co.rem || []).concat(ids); }
     else if (k.c === 'stackCost') { const cand = k.from === 'hand' ? P.hand.filter(x => fOk(R, s, x, f, src, true)) : P.field.filter(x => x !== src && fOk(R, s, x, f, src, true)); const ids = cand.length === k.n ? cand : yield pickReq(s, `코스트: 겹칠 카드 ${k.n}장 선택`, cand, k.n, k.n, { reveal: k.from === 'hand' ? 1 : 0 });
       let holder = src; if (k.onto === 'pick') { const hc = P.field.filter(x => fOk(R, s, x, k.ontoF, src, true)); holder = hc.length === 1 ? hc[0] : (yield pickReq(s, '카드를 아래에 겹칠 캐릭터를 선택', hc, 1, 1))[0]; }
-      if (k.from === 'hand') { yield { who: 1 - s, kind: 'ack', msg: `${nm(s)}이(가) 손패를 공개: ${ids.map(x => D(R, x).n).join(', ')}`, ids, reveal: 1 }; P.hand = P.hand.filter(x => !ids.includes(x)); } else ids.forEach(x => leave(R, x));
+      if (k.from === 'hand') { yield { who: 1 - s, kind: 'ack', msg: `${nm(s)}이(가) 손패를 공개: ${ids.map(x => D(R, x).n).join(', ')}`, ids, reveal: 1, by: s }; P.hand = P.hand.filter(x => !ids.includes(x)); } else ids.forEach(x => leave(R, x));
       const h = R.cards[holder]; (h.under = h.under || []).push(...ids); co.rev = (co.rev || []).concat(ids); say(R, `코스트: ${ids.length}장을 ${D(R, holder).n} 아래에 겹침`); if (k.from === 'hand') ids.forEach(x => bus(R, 'hrev', { s, ent: x, by: 'cost' })); }
     else if (k.c === 'either') { const ok = (k.alts || []).map((alt, i) => [alt, i]).filter(([alt]) => alt.every(x => !canPayOne(R, s, src, x))); const pick = ok.length === 1 ? 0 : yield { who: s, kind: 'opt', msg: '지불할 코스트를 고르세요', labels: ok.map(([, i]) => `코스트 ${i + 1}`) };
       for (const x of ok[pick][0]) yield* pay(R, s, src, x, ctx); }
     else if (k.c === 'handDeckTop') { const cand = P.hand.filter(x => fOk(R, s, x, f, src, true)); const ids = cand.length === k.n ? cand : yield pickReq(s, `코스트: 공개해 덱 위로 보낼 손패 ${k.n}장 선택`, cand, k.n, k.n, { reveal: 1 });
-      yield { who: 1 - s, kind: 'ack', msg: `${nm(s)}이(가) 손패를 공개하고 덱 위로: ${ids.map(x => D(R, x).n).join(', ')}`, ids, reveal: 1 }; P.hand = P.hand.filter(x => !ids.includes(x)); ids.forEach(x => P.deck.push(x)); co.rev = (co.rev || []).concat(ids); say(R, `코스트: 손패 ${ids.length}장을 공개하고 덱 위로`); ids.forEach(x => bus(R, 'hrev', { s, ent: x, by: 'cost' })); }
+      yield { who: 1 - s, kind: 'ack', msg: `${nm(s)}이(가) 손패를 공개하고 덱 위로: ${ids.map(x => D(R, x).n).join(', ')}`, ids, reveal: 1, by: s }; P.hand = P.hand.filter(x => !ids.includes(x)); ids.forEach(x => P.deck.push(x)); co.rev = (co.rev || []).concat(ids); say(R, `코스트: 손패 ${ids.length}장을 공개하고 덱 위로`); ids.forEach(x => bus(R, 'hrev', { s, ent: x, by: 'cost' })); }
     else if (k.c === 'lpSelf') { c.lpm = (c.lpm || 0) + k.v; say(R, `코스트: ${D(R, src).n} LP${k.v}`); }
     else if (k.c === 'discardTo') { const n = P.hand.length - k.n; const ids = yield pickReq(s, `코스트: 손패가 ${k.n}장이 되도록 ${n}장 리무브`, P.hand.slice(), n, n); P.hand = P.hand.filter(x => !ids.includes(x)); P.rem.push(...ids); co.disc = (co.disc || []).concat(ids); }
     else if (X.hasCost(k.c)) yield* X.costPay(R, s, src, k, ctx); }
@@ -795,7 +795,8 @@ module.exports = function (A) {
       if (!ctx.moved) { c.up = false; R.P[s].rem.push(src); c.st = 'a'; } } }
 
   function step(R, it, ans) { let r; R.curS = it.s; try { r = it.g.next(ans); } catch (e) { say(R, '⚠ 효과 처리 오류: ' + e.message); R.eff = null; return; } finally { R.curS = null; }
-    if (r.done) { R.eff = null; return; } R.eff = { it, req: r.value }; }
+    if (r.done) { R.eff = null; return; } R.eff = { it, req: r.value };
+    const q = r.value; if (q && q.kind === 'ack' && q.reveal && q.by != null && q.ids && q.ids.length) (R.rv = R.rv || []).push({ by: q.by, ids: q.ids.slice(), msg: q.msg, src: it.src != null ? it.src : null, ack: q.who }); }  // v1.9.0: 명시적으로 '공개'하는 효과만 공개 이벤트를 만든다
   function pump(R) { let g = 0;
     while (!R.eff && (!R.sub || R.sub.type === 'contact') && R.phase === 'play' && R.q.length && g++ < 500) {
       let i = R.q.findIndex(x => x.first); if (i < 0) i = R.q.findIndex(x => x.s === R.turn && !x.last); if (i < 0) i = R.q.findIndex(x => !x.last); if (i < 0) i = 0; const it = R.q.splice(i, 1)[0]; it.g = gen(R, it); step(R, it); } }
