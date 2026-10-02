@@ -125,7 +125,7 @@ const DEF = R.defs, cid = { a, b, ov, oc }, imgOf = id => DEF[(mainView.P[s].fie
       const big = JSON.parse(JSON.stringify(mainView)); const h0 = big.P[s].hand; while (big.P[s].hand.length < 14) big.P[s].hand.push({ ...h0[big.P[s].hand.length % h0.length], id: 9000 + big.P[s].hand.length }); await push(pg, big);
       const hb = await box(pg, '#hand'); const last = await pg.locator('#hand .card').last().boundingBox(); ok(last.x + last.width <= file.x + 2 && last.x + last.width <= hb.x + hb.width + 14 && await pg.locator('#hand .card').count() === 14, `${T} 손패 14장이 손패 영역 안에 겹쳐 배치`);
       const eff = JSON.parse(JSON.stringify(mainView)); eff.eff = { kind: 'pick', msg: '카드를 고르세요', min: 1, max: 1, cards: h0.slice(0, 5), sel: h0.slice(0, 5).map(c => c.id), src: 'A' }; await push(pg, eff);
-      const ob = await box(pg, '#ovl'); ok(ob && ob.x >= bd.x - 1 && ob.x + ob.width <= bd.x + bd.width + 1 && ob.y >= bd.y - 1 && ob.y + ob.height <= bd.y + bd.height + 1 && await pg.locator('#ovl .box button').count() >= 1, `${T} 효과 선택창(오버레이) 표시/버튼 포함`);
+      const ob = await box(pg, '#effp'); ok(ob && ob.x >= bd.x - 1 && ob.x + ob.width <= bd.x + bd.width + 1 && ob.y >= bd.y - 1 && ob.y + ob.height <= bd.y + bd.height + 1 && await pg.locator('#hand .card.epk').count() === 5, `${T} 효과 설명 패널이 보드 안 + 손패 카드 직접 선택 강조(5장)`);
       await push(pg, mainView); }
     ok(!pg.errs.length, `${T} JS 오류 ${pg.errs}`); await pg.close();
   }
@@ -209,13 +209,11 @@ const DEF = R.defs, cid = { a, b, ov, oc }, imgOf = id => DEF[(mainView.P[s].fie
     ok(ev && ev.srcD === R2.cards[a].d && ev.abI === 0 && ev.abN === 1 && ev.abLab === '테스트능력', `${T}: 서버 뷰에 효과 출처/능력 번호 포함 ` + JSON.stringify({ d: ev && ev.srcD, i: ev && ev.abI, n: ev && ev.abN, l: ev && ev.abLab }));
     const pg = await open(1920, 1080, mainView), v = JSON.parse(JSON.stringify(mainView)), mine = v.P[s].field.slice(0, 2), opp = v.P[o].field.slice(0, 2);
     v.eff = { kind: 'pick', msg: '대상 캐릭터를 최대 1장 선택', min: 0, max: 1, cards: [...opp.slice(0, 1), ...mine, ...opp.slice(1)], sel: [mine[0].id, opp[0].id], src: 'A', srcD: v.P[s].field.find(c => c.id === a).d, abI: 0, abN: 1, abLab: '테스트능력', itK: 'ab' }; await push(pg, v);
-    const g = await pg.evaluate(() => { const box = document.querySelector('#effp .box'), hs = [...box.querySelectorAll('.gh')].map(h => h.innerText.replace(/\s+/g, ' ').trim()), css = [...box.querySelectorAll('.cs')].map(c => [...c.querySelectorAll('.card')].map(e => e.dataset.id)), r = [...box.querySelectorAll('.cs')].map(c => c.getBoundingClientRect().y), fx = box.querySelector('.fxt'); return { hs, css, r, fx: fx ? fx.innerText : '', on: box.querySelectorAll('.fxt .fl.on').length }; });
-    ok(g.hs.length === 2 && /^내 캐릭터 2장/.test(g.hs[0]) && /^상대 캐릭터 2장/.test(g.hs[1]), `${T}: "내 캐릭터" / "상대 캐릭터" 로 나눠 표시 ` + JSON.stringify(g.hs));
-    ok(g.css[0].length === 2 && g.css[0].every(id => mine.some(c => String(c.id) === id)) && g.css[1].length === 2 && g.css[1].every(id => opp.some(c => String(c.id) === id)) && g.r[1] > g.r[0], `${T}: 각 그룹에 자기 쪽 카드만 들어가고 내 카드가 위, 상대 카드가 아래`);
+    const g = await pg.evaluate(() => { const box = document.querySelector('#effp .box'), fx = box.querySelector('.fxt'); return { fx: fx ? fx.innerText : '', on: box.querySelectorAll('.fxt .fl.on').length, cards: box.querySelectorAll('.card').length, pe: getComputedStyle(document.getElementById('effp')).pointerEvents }; });
     ok(/적용 중인 효과/.test(g.fx) && /테스트능력/.test(g.fx) && /한국어 효과 A/.test(g.fx) && g.on === 1, `${T}: 적용 중인 효과를 한국어 텍스트로 표시(강조 1줄) ` + JSON.stringify(g.fx));
-    const ob = await box(pg, '#ovl'), bd2 = await box(pg, '#board'); ok(ob.x >= bd2.x - 1 && ob.y >= bd2.y - 1 && ob.x + ob.width <= bd2.x + bd2.width + 1 && ob.y + ob.height <= bd2.y + bd2.height + 1, `${T}: 창이 보드 안에 들어옴`);
-    const before = await pg.locator('#btns button').first().innerText(); await pg.locator('#effp .card:not(.no)').first().click(); ok((await pg.locator('#btns button').first().innerText()) !== before || true, '');
-    ok(await pg.locator('#effp .card.sel').count() === 1 && /1\//.test(await pg.locator('#btns button').first().innerText()), `${T}: 카드 선택/확정 동작 그대로`);
+    ok(g.pe === 'none' && g.cards === 0, `${T}: 패널은 클릭 불가, 카드 선택은 플레이 화면에서 (패널 안 카드 ${g.cards})`);
+    const hl = await pg.evaluate(() => [...document.querySelectorAll('.card.epk')].map(e => e.dataset.id)); ok(hl.length === 2 && hl.includes(String(mine[0].id)) && hl.includes(String(opp[0].id)), `${T}: 선택 가능한 필드 캐릭터가 강조됨 ` + JSON.stringify(hl));
+    await pg.locator(`.card.epk[data-id="${opp[0].id}"]`).first().click(); const sent = await pg.evaluate(() => window.__sent.filter(m => m.a === 'ans')); ok(sent.length === 1 && JSON.stringify(sent[0].v) === JSON.stringify([opp[0].id]), `${T}: 필드의 캐릭터를 직접 클릭 → 바로 처리 ` + JSON.stringify(sent));
     await push(pg, mainView); ok(!pg.errs.length, `${T}: JS 오류 없음 ` + pg.errs); await pg.close(); }
   { // ── 어시스트 중 파트너 = FILE 줄 맨 오른쪽, 가로 카드 (슬립 상태여도 회전 상태와 무관하게 가로), 종료 후 세로 복귀
     const T = '어시스트', pgm = await open(1920, 1080, mainView), v = JSON.parse(JSON.stringify(mainView)); v.P[s].file += 3; v.P[s].partner.inFile = true; v.P[s].partner.st = 's'; await push(pgm, v);

@@ -1,3 +1,4 @@
+process.env.BOT_ENGINE = process.env.BOT_ENGINE || 'expert'; // v1.8.0: 기본 봇은 규칙 스크립트. 이 테스트는 이전 탐색 엔진을 검증한다
 // 전문 봇 회귀 러너.  "이 상황에서 ○○ 봇이 A 를 했는데 고수라면 B" 피드백 → test/specialist_cases/<봇id>/NN_설명.js 한 파일로 고정.
 //   node test/specialist_regress.js                 모든 전문 봇의 케이스 + 각 봇 정책을 붙인 "범용 전술 케이스(test/bot_cases)"
 //   node test/specialist_regress.js --id fbi_red    한 봇만

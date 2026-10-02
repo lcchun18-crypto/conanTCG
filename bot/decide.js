@@ -35,6 +35,12 @@ function decide(spec, searcher) {
   const { R, seat } = spec, cfg = { ...DEFAULTS, ...(spec.cfg || {}) }, t0 = Date.now(), d = who(R);
   if (!d || d.seat !== seat) return { err: 'not my decision' };
   const info = { kind: d.kind, ms: 0, nodes: 0 }; if (cfg.specialist) info.specialist = cfg.specialist;
+  // v1.8.0: 기본 엔진은 규칙 스크립트(bot/rulebot.js). 이전 탐색 엔진은 BOT_ENGINE=expert (또는 cfg.engine='expert') 일 때만 쓴다.
+  if ((cfg.engine || process.env.BOT_ENGINE || 'rule') !== 'expert') {
+    const r = require('./rulebot.js').choose(R, seat, { lethal: cfg.lethal, lethalMs: cfg.lethalMs, lethalNodes: cfg.lethalNodes });
+    if (r.err) return r; info.engine = 'rule'; info.rule = r.rule; info.why = r.why; if (r.notes && r.notes.length) info.notes = r.notes;
+    info.ms = Date.now() - t0; return { mv: r.mv, info: { ...info, top: [{ desc: describe(R, r.mv), value: null, rule: r.rule, why: r.why }] } };
+  }
   // 전문 봇: cfg.specialist(id) 가 있으면 registry 가 만든 "정책"(평가 보정/행동 순서/멀리건)을 탐색기에 붙인다. 없으면 범용 Expert 그대로.
   const pol = searcher ? searcher.policy : (spec.policy || (cfg.specialist ? require('./specialists/registry.js').policyFor(cfg.specialist, seat, R) : null));
   const S_ = searcher || new Searcher({ seed: cfg.seed, policy: pol });

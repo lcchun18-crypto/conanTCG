@@ -1,3 +1,4 @@
+process.env.BOT_ENGINE = process.env.BOT_ENGINE || 'expert'; // v1.8.0: 기본 봇은 규칙 스크립트. 이 테스트는 이전 탐색 엔진을 검증한다
 // 전문 봇 시스템 테스트 (mock specialist 만 사용 — 실제 덱/전문 봇은 만들지 않는다).
 //  1) registry  2) 프로필 검증  3) 정책(평가/순서/멀리건/훅 안전)  4) 코어 탐색과의 결합(프로필이 "선택"을 바꾸되 탐색은 그대로)  5) 범용 fallback(빈 프로필 = 범용 Expert)
 //  6) 전문 봇 self-play(불법/교착/손상 0)  7) 방 통합(서버 createRoom, 고정 덱)  8) 스냅샷 복원 + 회귀 러너

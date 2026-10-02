@@ -1,3 +1,4 @@
+process.env.BOT_ENGINE = process.env.BOT_ENGINE || 'expert'; // v1.8.0: 기본 봇은 규칙 스크립트. 이 테스트는 이전 탐색 엔진을 검증한다
 // Expert Decision Regression 러너: test/expert_cases/ 의 "고수 판단" 케이스를 다시 판단시켜, 이미 배운 고수 판단을 잃지 않았는지 검사한다.
 //   node test/expert_regress.js                    기본 봇(케이스의 bot, 없으면 'pro' = 범용 Expert + knowledge)
 //   node test/expert_regress.js --bot <id>         다른 봇으로 (예: 전문 봇 id, 'pro_v12' = v1.2 PRO)

@@ -1,3 +1,4 @@
+process.env.BOT_ENGINE = process.env.BOT_ENGINE || 'expert'; // v1.8.0: 기본 봇은 규칙 스크립트. 이 테스트는 이전 탐색 엔진을 검증한다
 // 새 전문 봇(또는 프로필 수정 후)을 자동으로 돌려 보는 점검 도구.  사용:
 //   node test/specialist_eval.js <id> [--games 12] [--nodes 600] [--seed 1] [--vs all|id1,id2] [--heur 0]
 // 실행 내용 (실제 data/cards.json / BOT_TEST_DB 사용, 선후공 교대):

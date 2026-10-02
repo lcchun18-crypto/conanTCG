@@ -1,3 +1,4 @@
+process.env.BOT_ENGINE = process.env.BOT_ENGINE || 'expert'; // v1.8.0: 기본 봇은 규칙 스크립트. 이 테스트는 이전 탐색 엔진을 검증한다
 // 전문 봇 등록 CLI 테스트: 덱 JSON → add (검증 통과 시에만 파일 생성) / 실패 시 아무것도 쓰지 않음 / update / list·check.  (임시 폴더 + 샘플 카드 DB 사용)
 const fs = require('fs'), path = require('path'), os = require('os'), { spawnSync } = require('child_process'), X = require('./specialist_util.js'), U = X.U;
 let pass = 0, fail = 0; const ok = (c, m) => { console.log(c ? '✓' : '✗', m); c ? pass++ : fail++; };

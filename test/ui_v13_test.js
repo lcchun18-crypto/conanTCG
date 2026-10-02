@@ -32,16 +32,16 @@ const J = x => JSON.parse(JSON.stringify(x)); let pass = 0, fail = 0; const ok =
   for (const mobile of [false, true]) {
     const R = mkR(); decorate(R); const s = R.turn, o = 1 - s; const c = field(R, s, 'c'); const ids = ['e0', 'e1', 'e2', 'e3'].map((k, i) => { const id = U.give(R, o, k, 'evid'); R.cards[id].up = i === 1; return id; });
     FX.declare(R, s, c, R.defs[R.cards[c].d].ab.findIndex(a => a.ic === 'declare')); pump(R); const vS = J(S.view(R, s)), vO = J(S.view(R, o)); const T = mobile ? '모바일(터치)' : 'PC(마우스)';
-    const pg = await open(R, vS, { mobile }); const n = await pg.locator('#effp .evo').count(); ok(n === 4, `${T}: 선택 가능한 증거 4장이 각각 선택 카드로 표시 (${n})`);
-    ok(await pg.locator('#opp-lp .card.evsel').count() === 4, `${T}: 상대 증거 더미에서도 선택 가능 증거 강조`); const lab = await pg.locator('#effp .evo').allInnerTexts(); ok(lab.some(x => /앞면 증거/.test(x)) && lab.filter(x => /뒷면 증거/.test(x)).length === 3 && !lab.join().includes('EVID0'), `${T}: 앞면은 이름, 뒷면은 정체 비공개: ${lab.join(' / ').replace(/\n/g, ' ')}`);
-    ok(await pg.locator('#effp .evo.up .card:not(.back)').count() === 1, `${T}: 앞면 증거는 실제 카드 이미지`);
+    const pg = await open(R, vS, { mobile }); const n = await pg.locator('#etray .evo').count(); ok(n === 4, `${T}: 선택 가능한 증거 4장이 각각 선택 카드로 표시 (${n})`);
+    ok(await pg.locator('#opp-lp .card.evsel').count() === 4, `${T}: 상대 증거 더미에서도 선택 가능 증거 강조`); const lab = await pg.locator('#etray .evo').allInnerTexts(); ok(lab.some(x => /앞면 증거/.test(x)) && lab.filter(x => /뒷면 증거/.test(x)).length === 3 && !lab.join().includes('EVID0'), `${T}: 앞면은 이름, 뒷면은 정체 비공개: ${lab.join(' / ').replace(/\n/g, ' ')}`);
+    ok(await pg.locator('#etray .evo.up .card:not(.back)').count() === 1, `${T}: 앞면 증거는 실제 카드 이미지`);
     if (mobile) await pg.screenshot({ path: OUT + '/B_pick_mobile.png' }); else await pg.screenshot({ path: OUT + '/B_pick_pc.png' });
-    const target = 2; mobile ? await pg.locator('#effp .evo').nth(target).tap() : await pg.locator('#effp .evo').nth(target).click(); let sent = await pg.evaluate(() => window.__sent.filter(m => m.a === 'ans')); ok(sent.length === 1 && sent[0].v === target, `${T}: ${target + 1}번째 증거 클릭 → 서버에 v=${target} 전송 (${JSON.stringify(sent)})`);
+    const target = 2; mobile ? await pg.locator('#etray .evo').nth(target).tap() : await pg.locator('#etray .evo').nth(target).click(); let sent = await pg.evaluate(() => window.__sent.filter(m => m.a === 'ans')); ok(sent.length === 1 && sent[0].v === target, `${T}: ${target + 1}번째 증거 클릭 → 서버에 v=${target} 전송 (${JSON.stringify(sent)})`);
     // 서버에 그 답을 그대로 적용 → 선택한 카드가 실제로 이동
     const e = U.act(R, s, { a: 'ans', v: sent[0].v }); ok(!e, '서버 수락 ' + e); let g = 0; while (R.eff && g++ < 6) { const q = U.req(R); U.ans(R, q.kind === 'pick' ? [] : q.kind === 'yn' ? false : 0); } pump(R); ok(R.P[o].deck[0] === ids[target] && !R.P[o].evid.includes(ids[target]) && R.P[o].evid.length === 3, `${T}: 선택한 증거(${target + 1}번째)가 실제로 상대 덱 아래로 이동`);
     // 보드의 강조된 증거를 직접 클릭 (PC)
     if (!mobile) { const pg2 = await open(R, vS); await pg2.locator('#opp-lp .card.evsel').nth(1).click({ position: { x: 8, y: 2 } }); const s2 = await pg2.evaluate(() => window.__sent.filter(m => m.a === 'ans')); ok(s2.length === 1 && s2[0].v === 1, `${T}: 증거 더미의 강조된 카드를 직접 클릭해도 선택됨 (${JSON.stringify(s2)})`); await pg2.context().close(); }
-    const pgO = await open(R, vO, { mobile }); ok(await pgO.locator('#effp .evo').count() === 0 && /상대가 효과를 처리/.test(await pgO.evaluate(() => document.body.innerText)), `${T}: 상대 화면은 대기 표시 (선택지 없음)`); await pgO.context().close(); ok(pg.errs.length === 0, `${T}: JS 오류 없음 ${pg.errs}`); await pg.context().close();
+    const pgO = await open(R, vO, { mobile }); ok(await pgO.locator('#etray .evo').count() === 0 && /상대가 효과를 처리/.test(await pgO.evaluate(() => document.body.innerText)), `${T}: 상대 화면은 대기 표시 (선택지 없음)`); await pgO.context().close(); ok(pg.errs.length === 0, `${T}: JS 오류 없음 ${pg.errs}`); await pg.context().close();
   }
   // ───────── C. 선공/후공 칩 ─────────
   for (const mobile of [false, true]) { const R = mkR(); decorate(R); const first = R.first, T = mobile ? '모바일' : 'PC';

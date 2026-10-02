@@ -1,3 +1,4 @@
+process.env.BOT_ENGINE = process.env.BOT_ENGINE || 'expert'; // v1.8.0: 기본 봇은 규칙 스크립트. 이 테스트는 이전 탐색 엔진을 검증한다
 // PRO 봇 전략 규칙 테스트 (사용자 제공 운영 원칙): node test/bot_pro_test.js
 const H = require('./helpers.js'), SIM = require('../bot/simulate.js'), { decide } = require('../bot/decide.js'), { Searcher } = require('../bot/search.js'), POL = require('../bot/pro.js');
 let pass = 0, fail = 0;

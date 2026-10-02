@@ -1,3 +1,4 @@
+process.env.BOT_ENGINE = process.env.BOT_ENGINE || 'expert'; // v1.8.0: 기본 봇은 규칙 스크립트. 이 테스트는 이전 탐색 엔진을 검증한다
 // v1.5.0 Expert Knowledge Layer 테스트: node test/expert_test.js
 process.env.BOT_TACTICS = '0';   // v1.5.0 지식 계층 단독 테스트: Tactical Layer(v1.6.0) 는 test/tactics_test.js 가 검증한다
 //  1) 지식 베이스: 형식 검증·적용 범위(아키타입/매치업/선후공/봇)·오래된 환경 confidence 감소·카드 전용 지식의 global 금지·프로필 use/exclude/entries

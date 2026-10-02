@@ -1,3 +1,4 @@
+process.env.BOT_ENGINE = process.env.BOT_ENGINE || 'expert'; // v1.8.0: 기본 봇은 규칙 스크립트. 이 테스트는 이전 탐색 엔진을 검증한다
 // 봇 상황별 회귀 테스트 러너.
 // "이 상황에서는 이런 수를 둬야 하는데 봇이 잘못 뒀다" 사례를 test/bot_cases/*.js 에 파일 하나로 추가하면 여기서 자동 실행됩니다.
 // 케이스 파일 형식:  module.exports = { name: '설명', setup(H) { /* H = 헬퍼(game/give/find/fill ...) 로 R 을 만들어 반환 */ return R; }, seat: 생략 시 R.turn, expect(res, R, H) { /* res = decide() 결과 {mv, info} ; 조건이 틀리면 throw */ }, budget: { maxNodes: 4000 } }

@@ -1,3 +1,4 @@
+process.env.BOT_ENGINE = process.env.BOT_ENGINE || 'expert'; // v1.8.0: 기본 봇은 규칙 스크립트. 이 테스트는 이전 탐색 엔진을 검증한다
 // v1.6.0 Tactical Layer regression: 사용자가 정한 기본기 규칙을 "재현 가능한 상태 + 기대 행동" 으로 고정한다. (리살 → 평상시 운영 → 방어 → 멀리건 → 파트너)
 //   node test/tactics_test.js            전부 실행 (각 케이스의 AI 판단 로그 출력)       --only L1,P3  일부만       --quiet  로그 없이 결과만
 //   각 케이스 로그: 현재 상태 / 리살 판정 / 선택한 행동 / 다른 주요 후보 / 이유 / FILE 변화 / 증거 변화 / AP·컷인 판단
