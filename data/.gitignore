@@ -1,0 +1,5 @@
+# 자동 생성 보고서/백업/Excel 임시 파일은 커밋하지 않는다
+card_changes_report.txt
+cards.backup.xlsx
+*.tmp
+~$*

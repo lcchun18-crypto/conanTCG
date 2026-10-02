@@ -1,6 +1,6 @@
 {
   "name": "conan-sim",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -36,6 +36,10 @@
     "test:bot:fulldb": "node test/bot_fulldb.js --games 60 --a random --b heuristic --seed 100 && node test/bot_fulldb.js --games 12 --a expert --b expert --nodes 150 --seed 500",
     "test:ws": "node test/ws_reconnect_test.js",
     "test:tactics": "node test/tactics_test.js --quiet",
+    "cards:build": "python3 tools/build_cards_from_excel.py",
+    "cards:export": "python3 tools/export_cards_to_excel.py",
+    "cards:check": "python3 tools/build_cards_from_excel.py --check",
+    "test:cardsxlsx": "python3 test/cards_xlsx_test.py",
     "test:v19": "node test/v190_test.js && node test/v190_ws_test.js && node test/ui_v19_test.js",
     "test:v186": "node test/file_order_test.js && node test/color_override_test.js",
     "test:own": "node test/own_default_test.js",

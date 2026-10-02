@@ -7,3 +7,10 @@ services:
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /health
+    # v1.10.0: cards.xlsx 만 바뀐 커밋(= 아직 cards.json 이 만들어지기 전)은 배포하지 않는다.
+    # GitHub Actions 가 검증을 통과한 뒤 cards.json 을 커밋하면 그 커밋이 배포된다. (대시보드: Settings → Build & Deploy → Build Filters → Ignored Paths)
+    buildFilter:
+      ignoredPaths:
+        - data/cards.xlsx
+        - data/card_changes_report.txt
+        - .github/**

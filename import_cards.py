@@ -531,6 +531,7 @@ def write_outputs(a, out, cards, rows, fails):
     out.write_text(json.dumps({"cards": {k: cards[k] for k in order}, "decks": {}}, ensure_ascii=False, separators=(",", ":")), "utf-8")
     with open(out.with_suffix(".review.csv"), "w", newline="", encoding="utf-8-sig") as fh:
         w = csv.writer(fh); w.writerow(["ID", "이름", "파일", "확인 필요 사유"]); w.writerows(sorted(rows))
+    if out.name == "cards.json" and out.parent.name == "data": print("[Excel] 전체를 새로 만들었습니다. Excel 도 맞추려면: python tools/export_cards_to_excel.py --prefer-json")
     st = automation_stats(cards)
     print(f"카드 {len(cards)}장 | 종류별 {dict(collections.Counter(c['type'] for c in cards.values()))} | 효과 있는 카드 {st['with_fx']}장 중 완전 자동 {st['auto']}장({st['pct']}%), manual 포함 {st['manual']}장 | 확인 필요 {len(rows)}장 (→ {out.with_suffix('.review.csv')}) | 실패 {len(fails)}장")
     man = [(cid, c) for cid, c in sorted(cards.items()) if c["type"] != "partner" and c["fx"] and "manual" in json.dumps(c["ab"])]

@@ -1,0 +1,59 @@
+# data/cards.xlsx 를 GitHub 에 올리면: 검증 → data/cards.json 생성/커밋 → (Render 가 새 커밋을 감지해) 자동 배포.
+# 검증에 실패하면 cards.json 을 커밋하지 않으므로 잘못된 Excel 은 배포되지 않습니다 (Actions 탭에 어느 카드의 어느 셀이 문제인지 표시).
+name: Build cards.json from cards.xlsx
+
+on:
+  push:
+    branches: [main, master]
+    paths: ['data/cards.xlsx']
+  pull_request:
+    paths: ['data/cards.xlsx']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-cards
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install openpyxl
+        run: pip install -r tools/requirements.txt
+      - name: Validate and build (Excel → JSON)
+        run: |
+          set -o pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then FLAGS="--dry-run"; else FLAGS=""; fi
+          python tools/build_cards_from_excel.py $FLAGS 2>&1 | tee build.log
+      - name: Show result in the run summary
+        if: always()
+        run: |
+          echo '### cards.xlsx 검증/변환 결과' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          head -c 60000 build.log >> "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+      - name: Commit data/cards.json
+        if: github.event_name != 'pull_request'
+        run: |
+          if git diff --quiet -- data/cards.json; then
+            echo "cards.json 변경 없음"
+          else
+            git config user.name "cards-bot"
+            git config user.email "cards-bot@users.noreply.github.com"
+            git add data/cards.json
+            git commit -m "chore: cards.xlsx → cards.json 자동 생성 [skip ci]"
+            git pull --rebase origin "${{ github.ref_name }}" || true
+            git push origin "HEAD:${{ github.ref_name }}"
+          fi

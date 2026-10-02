@@ -491,3 +491,80 @@ npm run expert:regress       # + v1.2 PRO 와 비교 표시
 - **이번 턴 다시시작**: 메인 버튼 줄의 `[이번 턴 다시시작]`(현재 턴 플레이어에게만). 서버가 턴 시작 처리(오토/드로우/FILE/자동 효과) 직후의 정규 상태를 스냅샷(덱 순서·난수 상태 `R.rng` 포함)으로 보관하고, 복원은 드로우 재실행이 아니라 스냅샷 자체를 되돌린다 → 드로우 카드/덱 순서 동일. 효과 큐·선택 대기·컨택트·컷인·턴 한정 상태까지 모두 되돌리며, 같은 턴에 여러 번 눌러도 항상 원래 턴 시작 상태로 복원된다. 턴이 넘어가면 스냅샷은 폐기되고 새 턴 시작 스냅샷이 만들어진다. 사람 대전 방은 방별 난수(mulberry32)를 써서 같은 랜덤 효과를 다시 하면 같은 결과가 나온다.
 - **id_0909 수정**: v1.8.4 의 "대상 미지정 = 아군만" 기본값이 `…を1枚まで選び、リムーブする` 류(리무브 선택) 전체에 적용돼 상대 캐릭터를 고를 수 없었다. 리무브 선택은 대상 미지정이면 양쪽 모두 선택 가능으로 되돌리고(`fx.js`), id_0909 데이터에 `own:any` 를 명시. 슬립 등 다른 선택은 v1.8.4 규칙(아군만) 유지.
 - 테스트: `npm run test:v19` (`test/v190_test.js` 엔진 깊은 비교 12개 시나리오·난수·다시하기 반복, `test/v190_ws_test.js` 실제 서버+2클라이언트, `test/ui_v19_test.js` PC/모바일 팝업·확인창).
+
+
+## v1.10.0 — 카드 데이터를 Excel 로 관리 (cards.xlsx = 원본, cards.json = 자동 생성)
+
+### 한눈에 (비개발자용)
+**기존 카드 수정**
+1. `data/cards.xlsx` 열기
+2. `Cards` 시트에서 카드 ID 검색 (Ctrl+F, 예: `id_0831`)
+3. 원하는 칸 수정 (색 `color`, `ap`, `lp`, `lv`, 한국어 설명 `extra` …)
+4. 저장
+5. GitHub 에 올리기(push / 웹에서 파일 교체) → 자동으로 **검증 → cards.json 생성 → Render 재배포 → 게임 반영**.
+   잘못 고쳤다면 GitHub 의 **Actions 탭**에 빨간 ✗ 와 함께 `ERROR / 카드 ID / 시트·열·행 / 이유` 가 표시되고, **배포되지 않습니다**(기존 게임은 그대로).
+
+**신탄 추가**
+1. 새 이미지 폴더 준비
+2. 기존 명령 실행: `python add_new_cards.py "E:\conanTCG\newset"`
+3. `data/cards.xlsx` 를 열어 새 카드 행 확인 (자동으로 추가되어 있음 — 내가 Excel 에서 고친 값은 그대로 보존)
+4. 필요한 값 수정 후 저장
+5. GitHub 에 올리기 (`data/cards.xlsx` 와 `data/cards.json` 을 함께)
+
+> `data/cards.json` 은 직접 고치지 마세요(자동 생성 파일). 고칠 것은 항상 `cards.xlsx` 입니다. 처음 한 번만 `pip install openpyxl` 이 필요합니다(자동 배포 쪽은 GitHub 가 알아서 설치).
+
+### 구조
+```
+data/cards.xlsx ──(tools/build_cards_from_excel.py: 검증 후 변환)──▶ data/cards.json ──▶ 게임 서버(변경 없음)
+      ▲                                                                   │
+      └───────(tools/export_cards_to_excel.py: 병합, 신탄 추가 시 자동)────┘
+```
+* **source of truth = cards.xlsx**. cards.json 은 런타임용 산출물(이미지 base64 포함). 서버/엔진은 이전과 똑같이 cards.json 만 읽습니다.
+* 이미지(`img`, 약 18MB)는 Excel 에 넣지 않습니다. 빌드할 때 기존 cards.json 에서 **카드 ID 로 그대로 가져옵니다**(손실 없음). Excel 에는 `img_info`(참고용)만 표시됩니다.
+* 연결 키는 항상 **카드 ID**. 행 순서/정렬은 바꿔도 됩니다.
+
+### Excel 시트
+| 시트 | 내용 |
+|---|---|
+| `Guide` | 사용법, 머리글 색 설명, 모든 필드의 의미 |
+| `Cards` | 카드 1장 = 1행: `id type color lv lv2 ap lp kw trait n fx extra file` (+자동 계산 `ab_count`, 참고용 `img_info`) |
+| `Abilities` | 능력(ab) 1개 = 1행: `card_id ab_index ic txt lim cond tgt cost ops …`(현재 DB 에 존재하는 ab 키 전부가 열) |
+| `Ops` | 능력 안의 효과(primitive) 1개 = 1행: `card_id ab_index op_index op params`(params = JSON, 하위 ops 포함) |
+| `CardExtra` / `Meta` | 위에 없는 추가 카드 필드 / 최상위 항목(`decks` 등)을 잃지 않기 위한 시트 (현재는 비어 있거나 decks 만) |
+| `Lists` | 현재 DB 에 실제 존재하는 type/color/ic/op 값 (드롭다운용) |
+* 머리글 색: 파랑=연결 키(바꾸지 말 것) / 주황=엔진 동작에 영향 / 초록=표시용 텍스트(`fx` 일본어 원문, `extra` 한국어, `txt`) / 노랑=참고용(`file`) / 회색=자동 계산(무시됨).
+* **표시 텍스트와 실행 데이터는 분리**: 한국어/일본어 설명(`fx`, `extra`, `txt`)만 고치면 효과 로직은 바뀌지 않고, `Abilities`/`Ops` 를 고치면 게임 동작이 바뀝니다(현재 엔진이 지원하는 primitive 한정).
+* 열 이름을 `#메모` 처럼 `#` 또는 `_` 로 시작하면 변환 시 무시됩니다(메모용).
+
+### 검증 (하나라도 실패하면 배포 중단, 어느 셀인지 표시)
+시트/필수 열 누락·중복 열 · ID 누락/중복/형식 · 기존 카드 삭제(실수 방지, 의도한 삭제는 `--allow-delete id_xxxx`) · 카드 수 급감 · type/color/kw 값 · lv/lv2/ap/lp 숫자 형식 및 타입별 필수 값 · 카드명 · Abilities/Ops 가 가리키는 카드/능력 존재 · ab_index/op_index 연속성 · JSON 문법(cond/tgt/cost/params …) · 값 형식(현재 DB 와 같은 형식인지) · `lim` 범위 · **엔진 검증**(`fx.js` 의 cleanAb 로 정리해 비교): 지원되지 않는 효과 primitive, 알 수 없는 trigger(ic), 엔진이 인식하지 못하는 키/값(예: `do:"explode"`) · 이미지 data URL 형식.
+* 새 효과 기믹을 문자열로 적는다고 자동 구현되지 않습니다 → `지원되지 않는 효과 primitive` 오류. 그런 로직은 코드 구현이 필요합니다.
+* 변환 때마다 **변경 내역**(`변경된 카드: N장 / id / 필드: 이전 → 이후`)을 출력하고 `data/card_changes_report.txt` 에 저장합니다(`data/.gitignore` 로 커밋 제외).
+
+### 명령어
+```
+python tools/build_cards_from_excel.py            # Excel → cards.json (검증 후)
+python tools/build_cards_from_excel.py --dry-run  # 검증 + 변경 내역만 (파일 안 씀)
+python tools/build_cards_from_excel.py --check    # Excel 과 cards.json 이 같은지 확인
+python tools/export_cards_to_excel.py             # cards.json → Excel (병합: 새 카드만 추가, 내 수정은 보존)
+python tools/export_cards_to_excel.py --update-ids id_0123,id_0124   # 이 카드는 JSON 값으로 덮어쓰기
+python tools/export_cards_to_excel.py --prefer-json                   # 전부 JSON 값으로 (Excel 수정분 사라짐 — 주의)
+python tools/export_cards_to_excel.py --rebuild                       # Excel 을 JSON 에서 새로 생성
+```
+(`npm run cards:build` / `cards:export` / `cards:check` 도 같음)
+
+### 자동 배포 (GitHub Actions + Render)
+* `.github/workflows/build-cards.yml`: `data/cards.xlsx` 가 push 되면 → Python/Node 설치 → **검증+변환** → 성공하면 `data/cards.json` 을 자동 커밋(`[skip ci]`). 실패하면 커밋하지 않음 → Render 는 새 cards.json 을 못 받으므로 **배포 안 됨**. PR 에서는 검증만(dry-run).
+* Render 는 `main` 브랜치의 새 커밋(= Actions 가 올린 cards.json)을 감지해 평소처럼 재배포 → 서버가 새 cards.json 을 로드. `render.yaml` 의 `buildFilter` 는 `cards.xlsx` 만 바뀐 커밋에는 배포하지 않도록 합니다(대시보드로 설정했다면 Settings → Build & Deploy → **Build Filters → Ignored Paths** 에 `data/cards.xlsx` 추가).
+* Actions 가 커밋하려면 저장소 Settings → Actions → General → Workflow permissions 가 **Read and write** 여야 합니다. 그 직후 로컬에서는 `git pull` 로 새 cards.json 을 받으세요.
+* 로컬에서 별도 실행은 필수가 아닙니다(미리 검증해 보고 싶을 때만 `--dry-run`).
+
+### 신탄 추가 연동 / 두 파일이 갈라지지 않게
+* `add_new_cards.py` 가 새 카드를 cards.json 에 넣은 뒤 자동으로 ① `cards.xlsx` 에 새 카드 행 추가(기존 행은 Excel 값 유지; `--replace-existing` 로 교체된 ID 는 JSON 값으로 갱신) ② Excel→JSON 빌드로 두 파일을 일치시킵니다. 실패해도 신탄 추가 결과는 안전하며, 안내 메시지에 따라 `export_cards_to_excel.py` 를 수동 실행하면 됩니다.
+* `import_cards.py`(전체 새로 만들기)나 `test/recompile_db.py`(ab 재컴파일)처럼 cards.json 을 통째로 바꾸는 도구를 쓴 뒤에는 `python tools/export_cards_to_excel.py --prefer-json` 으로 Excel 을 맞추세요.
+* Excel 에서 cards.json 으로의 반영은 "Excel 이 이긴다" 규칙입니다. cards.json 을 직접 고쳤다면 `python tools/build_cards_from_excel.py --check` 가 차이를 알려 줍니다.
+
+### 테스트
+`npm run test:cardsxlsx` (= `python3 test/cards_xlsx_test.py`, openpyxl + node 필요): 1,251장 round-trip(바이트 동일, 필드 손실 0, 이미지 보존), 단일/다중 수정, 표시 텍스트만 수정 시 ab 불변, 행 순서 섞기, **Ops 수정 → 엔진에서 실제 동작 변경(드로우 2→3)**, 오류 26종 차단, 병합 export, 신탄 추가 연동, 모호한 값 인코딩, 서버 `validateCards` 통과.
+
+> 참고: `data/color_overrides.json`(v1.8.6)의 카드 색은 서버가 cards.json 위에 덮어써서 읽습니다. 그 파일에 있는 카드의 Excel `color` 를 다르게 고치면 변환 시 경고가 나오니, 그 줄을 지우고 Excel 에서 관리하세요.

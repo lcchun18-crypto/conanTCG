@@ -61,6 +61,26 @@ def atomic_write(path, data, expect_ids, keep):
         except FileNotFoundError: pass
 
 
+def sync_excel_after_import(db_path, added, replaced):
+    """v1.10.0: 신탄 추가 후 data/cards.xlsx 에 새 카드 행을 추가한다(내가 Excel 에서 고친 값은 보존).
+    그다음 Excel → cards.json 빌드를 한 번 더 실행해 두 파일이 같은 내용이 되도록 맞춘다. 실패해도 신탄 추가 결과(cards.json)는 그대로 유지된다."""
+    xlsx = db_path.parent / "cards.xlsx"
+    try:
+        sys.path.insert(0, str(HERE / "tools"))
+        import export_cards_to_excel as ex, build_cards_from_excel as bd
+    except Exception as e:
+        print(f"[Excel] 도구를 불러올 수 없어 cards.xlsx 갱신을 건너뜁니다: {e}"); return
+    try:
+        ex.export(db_path, xlsx, update_ids=replaced)
+    except SystemExit:
+        print("[Excel] 기존 cards.xlsx 에 오류가 있어 갱신하지 못했습니다. 오류를 고친 뒤 `python tools/export_cards_to_excel.py` 를 실행하세요."); return
+    except Exception as e:
+        print(f"[Excel] cards.xlsx 갱신 실패(신탄 추가 결과는 안전합니다): {e}\n   → pip install openpyxl 후 `python tools/export_cards_to_excel.py` 를 실행하세요."); return
+    code, _ = bd.build(xlsx, db_path, db_path)
+    if code != 0: print("[Excel] cards.xlsx 에 검증 오류가 있어 cards.json 을 다시 만들지 않았습니다 (위 ERROR 를 고친 뒤 `python tools/build_cards_from_excel.py`).")
+    else: print(f"[Excel] {xlsx.name} 에 새 카드 {len(added)}장이 추가되었습니다. Excel 에서 확인/수정한 뒤 GitHub 에 올리세요.")
+
+
 def main():
     ap = argparse.ArgumentParser(description="새 카드 세트를 기존 data/cards.json 에 추가")
     ap.add_argument("folder", help="새 카드 이미지 폴더 (하위 폴더 포함)")
@@ -157,7 +177,8 @@ def main():
     (rep_dir / f"add-{stamp}.manual.txt").write_text("\n".join(lines), "utf-8")
     if bk: print(f"백업: {bk}")
     print(f"확인 필요 목록(새 카드만): {rep_dir / f'add-{stamp}.review.csv'} ({len(rows)}장) / manual 목록: {rep_dir / f'add-{stamp}.manual.txt'}")
-    print("서버는 재시작하지 않아도 다음 접속부터 새 카드가 보입니다(파일 변경을 자동 감지). Render 에서는 cards.json 을 커밋/배포하세요.")
+    sync_excel_after_import(db_path, added, repl)
+    print("서버는 재시작하지 않아도 다음 접속부터 새 카드가 보입니다(파일 변경을 자동 감지). Render 에서는 cards.xlsx 와 cards.json 을 함께 커밋/배포하세요.")
     stats(len(added), len(fails), final, len(repl)); return 0
 
 
