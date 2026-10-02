@@ -1,3 +1,4 @@
+process.env.CONAN_DEFAULT_OWN = process.env.CONAN_DEFAULT_OWN || 'any'; // v1.8.4: 이 테스트는 "대상 미지정 = 양쪽" 이던 옛 규칙 기준 시나리오 (새 규칙은 own_default_test.js)
 const U = require('./mz_util'); const { t, G, real, dummy, field, hand, give, play, auto, ok, eq, has, S, FX, act, req, ans, fillFile, top, rem, pa, pump, endTurn } = U;
 const sol = R => { U.solve(R, R.turn); };
 const BASE = (pc = 'blue', kc = 'blue') => ({ p: { n: 'P', type: 'partner', color: pc, lp: '1' }, k: { n: 'K', type: 'case', color: kc, lv: '2', lv2: '3' } });

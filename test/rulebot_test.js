@@ -78,6 +78,24 @@ T('R7', '7번: 리살이 보이면 즉시 선택', () => {
   const r = think(R, s);
   return { log: [{ rule: r.info.rule, why: r.info.why }], checks: [[r.info.rule === '7' && r.mv.tag === 'solve', '사건 해결(리살) 즉시 선택']] };
 });
+const RM = lv => ({ n: 'RM', type: 'event', color: 'red', lv: String(lv), ab: [{ ic: 'event', ops: [{ op: 'select', n: 1, do: 'remove', filter: { own: 'opp' } }] }] });
+const fullTurn = (R, s, max = 60) => { const out = []; let g = 0; while (R.phase === 'play' && g++ < max && (R.turn === s || R.eff)) { const d = SIM.who(R); if (!d) break; const r = think(R, d.seat); out.push({ tag: r.mv.tag, desc: describe(R, r.mv), rule: r.info.rule, why: r.info.why }); run(R, r.mv); if (r.mv.tag === 'end') break; } return out; };
+T('R8', '효과 대상 선택: 상대 캐릭터 중 가능한 최고 코스트', () => {
+  const R = base({ RM: RM(1), L2: ch('L2', 2, 5000, 1), L5: ch('L5', 5, 1000, 1), L3: ch('L3', 3, 3000, 1) }, (R, s) => { H.fill(R, s, 6); H.give(R, s, 'RM', 'hand'); for (const k of ['L2', 'L5', 'L3']) field(H, R, 1 - s, k, 'a'); }), s = R.turn;
+  const opp = R.P[1 - s].field.slice(), log = fullTurn(R, s);
+  const gone = opp.filter(id => !R.P[1 - s].field.includes(id)).map(id => nm(R, id));
+  return { log, checks: [[gone.length === 1 && gone[0] === 'L5', `리무브된 캐릭터 = 레벨5 (${gone})`]] };
+});
+T('R9', '같은 코스트면 상대 필드를 제거하는 카드를 우선 사용', () => {
+  const R = base({ RM: RM(3), A: ch('A', 3, 3000, 1), O: ch('O', 1, 1000, 1) }, (R, s) => { H.fill(R, s, 6); H.give(R, s, 'A', 'hand'); H.give(R, s, 'RM', 'hand'); field(H, R, 1 - s, 'O', 'a'); }), s = R.turn;
+  const log = turnLog(R, s);
+  return { log, checks: [[log[0].tag === 'play' && /RM/.test(log[0].desc), '첫 사용 = 리무브 카드']] };
+});
+T('R10', '선언 효과를 쓸 수 있으면 적극 사용', () => {
+  const R = base({ C: ch('C', 1, 3000, 1, { ab: [{ ic: 'declare', ops: [{ op: 'draw', n: 1 }] }], extra: '【선언】 1장 드로우' }) }, (R, s) => { H.fill(R, s, 6); field(H, R, s, 'C', 'a'); }), s = R.turn;
+  const log = turnLog(R, s);
+  return { log, checks: [[log.some(l => l.tag === 'ability'), '필드 캐릭터의 선언 효과 사용']] };
+});
 T('R0', '합법 행동만 선택 (불법 0): 규칙 봇 자기 대전', () => {
   const U = require('./bot_util.js'), { playGame } = require('./bot_selfplay.js'); let ill = 0, stall = 0;
   for (let g = 0; g < 6; g++) { const st = playGame(900 + g, U.makeDeck(g * 2 + 1), U.makeDeck(g * 2 + 2), ['expert', 'expert'], g & 1); ill += st.illegal; if (st.stall) stall++; }

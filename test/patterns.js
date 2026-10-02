@@ -1,3 +1,4 @@
+process.env.CONAN_DEFAULT_OWN = process.env.CONAN_DEFAULT_OWN || 'any'; // v1.8.4: 이 테스트는 "대상 미지정 = 양쪽" 이던 옛 규칙 기준 시나리오 (새 규칙은 own_default_test.js)
 // 사용자의 실제 20장(fixture)에서 manual 로 남았던 패턴들이 엔진에서 "실제로 동작"하는지 검증한다.
 // 카드 데이터(이름/레벨/AP/LP/특징/색)는 fixture 원본, 효과 ab 는 test/fixtures/golden_ab.json (SPEC 이 목표로 하는 구조화 결과).
 const fs = require('fs'), path = require('path');

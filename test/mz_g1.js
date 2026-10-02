@@ -1,3 +1,4 @@
+process.env.CONAN_DEFAULT_OWN = process.env.CONAN_DEFAULT_OWN || 'any'; // v1.8.4: 이 테스트는 "대상 미지정 = 양쪽" 이던 옛 규칙 기준 시나리오 (새 규칙은 own_default_test.js)
 // g1 묶음(상시 규칙 / 키워드 부여 / 제한 / 스탯 보정 / 반응형 트리거) 28장: 실제 DB 의 ab 를 실제 엔진에서 자동 실행해 검증한다.
 // 실행: CARDS_DB=/tmp/aud/g1.json node test/mz_g1.js   (ONLY=id_0192 로 한 장만)
 const U = require('./mz_util'); const { t, G, real, dummy, field, hand, rem, pa, play, auto, ok, eq, has, FX, S, req, ans, fillFile, pump, give, act, attack, ready, endTurn, finishContact } = U;

@@ -1,3 +1,4 @@
+process.env.CONAN_DEFAULT_OWN = process.env.CONAN_DEFAULT_OWN || 'any'; // v1.8.4: 이 테스트는 "대상 미지정 = 양쪽" 이던 옛 규칙 기준 시나리오 (새 규칙은 own_default_test.js)
 // g3 묶음 검증: FILE / 증거 / 痕跡 / 카드명 바꿔쓰기 / 겹침 / 세트 / 손패·현장→리무브 코스트 (실제 DB 카드를 실제 엔진에서 실행)
 //  사용: CARDS_DB=/tmp/aud/g3.json node test/mz_g3.js
 const U = require('./mz_util'); const { t, G, real, dummy, field, hand, rem, pa, play, auto, ok, eq, has, req, ans, fillFile, pump, give, S, FX, act, top, evid, endTurn } = U;

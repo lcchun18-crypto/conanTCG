@@ -1,3 +1,4 @@
+process.env.CONAN_DEFAULT_OWN = process.env.CONAN_DEFAULT_OWN || 'any'; // v1.8.4: 이 테스트는 "대상 미지정 = 양쪽" 이던 옛 규칙 기준 시나리오 (새 규칙은 own_default_test.js)
 // 전체 DB(conan-db-full.json)에서 새로 자동화한 패턴의 대표 카드 검증.
 //  (1) 규칙 파서의 ab 결과(골든, test/fixtures/full_samples.json — API 없이 원문 fx 로만 생성)  (2) 실제 엔진이 그 ab 를 "실행"하는지.
 //  fixture 재생성: python3 test/gen_full_fixture.py conan-db-full.json   /  골든 일치 검사는 test/importer_test.py

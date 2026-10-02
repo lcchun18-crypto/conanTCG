@@ -1,3 +1,4 @@
+process.env.CONAN_DEFAULT_OWN = process.env.CONAN_DEFAULT_OWN || 'any'; // v1.8.4: 이 테스트는 "대상 미지정 = 양쪽" 이던 옛 규칙 기준 시나리오 (새 규칙은 own_default_test.js)
 // import_cards.py 프롬프트(SPEC)의 예시 8개가 엔진에서 그대로 유효한지 검증
 const { S, game, give, ok, eq, act } = require('./helpers');
 const ch = (n, extra = {}) => ({ n, type: 'char', color: 'red', lv: '0', ap: '3000', lp: '1', ...extra });

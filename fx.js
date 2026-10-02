@@ -11,7 +11,9 @@ module.exports = function (A) {
   const str = (x, n = 60) => String(x == null ? '' : x).slice(0, n);
   const num = (x, d = 0) => { x = Math.trunc(+x); return Number.isFinite(x) ? Math.max(-99999, Math.min(99999, x)) : d; };
   const opt = (x, arr, d = '') => arr.includes(x) ? x : d;
-  const cleanFilter = (f, depth = 0) => { f = f && typeof f === 'object' ? f : {}; const o = { own: opt(f.own, ['self', 'opp', 'any'], 'any') };
+  // v1.8.4 룰: 카드 텍스트에 [상대] 지정이 없는 대상/조건/비용은 아군(자신)만. (이전 동작이 필요하면 환경변수 CONAN_DEFAULT_OWN=any — 옛 카드 테스트용)
+  const DEF_OWN = process.env.CONAN_DEFAULT_OWN === 'any' ? 'any' : 'self';
+  const cleanFilter = (f, depth = 0) => { f = f && typeof f === 'object' ? f : {}; const o = { own: opt(f.own, ['self', 'opp', 'any'], DEF_OWN) };
     const refS = x => typeof x === 'string' && (x === 'self' || /^reg:[a-z]+:(sum|max|first|count)$/.test(x));
     const lv = k => (f[k] === 'file' || f[k] === 'used' || f[k] === 'costLv' || refS(f[k])) ? f[k] : (f[k] == null || f[k] === '' ? null : num(f[k]));
     for (const k of ['lvMax', 'lvMin']) o[k] = lv(k);
@@ -144,11 +146,11 @@ module.exports = function (A) {
   const hasTrDef = R => { if (R.phase === 'setup') return false; if (R._trD === undefined) R._trD = Object.values(R.defs || {}).some(d => (d.ab || []).some(a => a.tr)); return R._trD; };
   const traitsId = (R, id) => { const c = R.cards[id]; let l = traitsOf(D(R, id)).concat(c && R.tt ? R.tt[c.o] || [] : []);
     if (!_inTr && c && hasTrDef(R)) { _inTr = 1; try { const g = stat(R, id).tr; if (g) l = l.concat(g.split(/\s+/).filter(Boolean)); } finally { _inTr = 0; } } if (c && c.tmod) l = l.filter(x => !c.tmod.lose.includes(x)).concat(c.tmod.add); return l; };
-  const isMR = (R, id) => (D(R, id).ab || []).some(a => a.ic === 'mr');
+  const isMR = (R, id) => { const c = R.cards[id]; return !(c && (c.blank || c.lkiBlank)) && (D(R, id).ab || []).some(a => a.ic === 'mr'); };   // 효과 무효인 캐릭터는 MR 도 무효
   const inPa = (R, id) => !!R.cards[id] && R.P[R.cards[id].o].pa.includes(id);
   const onField = (R, id) => !!R.cards[id] && R.P[R.cards[id].o].field.includes(id);
   // 세트(セット)된 카드가 부여한 능력 + 이번 턴 임시로 받은 능력까지 합친 능력 목록
-  const abList = (R, id) => { const c = R.cards[id], d = D(R, id); let l = c && c.blank ? [] : (d.ab || []);   // blank: 이번 턴 동안 원래의 능력을 잃음(세트/임시 부여 능력은 유지)
+  const abList = (R, id) => { const c = R.cards[id], d = D(R, id); let l = c && (c.blank || c.lkiBlank) ? [] : (d.ab || []);   // blank: 이번 턴 동안 원래의 능력을 잃음(세트/임시 부여 능력은 유지)
     if (c && c.sets && c.sets.length) for (const sid of c.sets) for (const a of (D(R, sid).ab || [])) if (a.ic === 'grant' && a.g) l = l.concat([{ ...a.g, _from: sid }]);
     if (c && c.tab && c.tab.length) l = l.concat(c.tab);
     if (R._gaD === undefined && R.phase !== 'setup') R._gaD = Object.values(R.defs || {}).some(x => (x.ab || []).some(a => a.ic === 'static' && a.gab));
@@ -354,7 +356,7 @@ module.exports = function (A) {
     if (z === 'pa') { P.pa.push(id); say(R, `${D(R, id).n}: 상대 턴에 현장을 떠나 파트너 에리어로 이동`); }
     else if (z === 'hand') P.hand.push(id); else if (z === 'deckTop') P.deck.push(id); else if (z === 'deckBottom') P.deck.unshift(id); else P.rem.push(id);
     return z; }
-  function rmChar(R, id, why, killer) { const c = R.cards[id], o = c.o; c.pst = c.st || 'a'; c.ptm = c.tmod || null; c.lkiAb = abList(R, id).filter(a => !(D(R, id).ab || []).includes(a)); R._why = why; try { moveOut(R, id, 'rem'); } finally { R._why = null; } if (!(why === 'contact' && R.turn !== o && pk(R, R.turn, 'noremtrig'))) fire(R, 'onremoved', id, { by: why || 'effect' });
+  function rmChar(R, id, why, killer) { const c = R.cards[id], o = c.o; c.lkiBlank = c.blank ? 1 : 0; c.pst = c.st || 'a'; c.ptm = c.tmod || null; c.lkiAb = abList(R, id).filter(a => !(D(R, id).ab || []).includes(a)); R._why = why; try { moveOut(R, id, 'rem'); } finally { R._why = null; } if (!(why === 'contact' && R.turn !== o && pk(R, R.turn, 'noremtrig'))) fire(R, 'onremoved', id, { by: why || 'effect' }); c.lkiBlank = 0;
     fieldPa(R, o).forEach(x => x !== id && fire(R, 'onallyremoved', x, { by: why || 'effect', ent: id }));
     bus(R, 'removed', { s: o, ent: id, tid: killer, by: why || 'effect', cz: why === 'contact' || why === 'switch' ? null : (R.curS != null ? R.curS : null) }); }
   function mrEnter(R, s, id) { if (!isMR(R, id)) return; const P = R.P[s];
@@ -843,7 +845,7 @@ module.exports = function (A) {
   function cutOps(R, s, id, cin) { cutAbs(R, s, id).forEach(ab => { if (ab.ops.length && condOk(R, s, id, ab, { cin })) R.q.push({ kind: 'ab', s, src: id, ab, ctx: { cin } }); }); }
 
   // 클라이언트 표시용: 세트/임시로 받은 능력(d.ab 뒤에 붙는 것들)
-  const grantedAb = (R, id) => { const n = (D(R, id).ab || []).length; return abList(R, id).slice(n).map((a, k) => ({ i: n + k, ic: a.ic, lab: a.lab || '', txt: a.txt || '', lim: a.lim || 0 })); };
+  const grantedAb = (R, id) => { const n = R.cards[id] && (R.cards[id].blank || R.cards[id].lkiBlank) ? 0 : (D(R, id).ab || []).length; return abList(R, id).slice(n).map((a, k) => ({ i: n + k, ic: a.ic, lab: a.lab || '', txt: a.txt || '', lim: a.lim || 0 })); };
   const hasCut = (R, id) => cutAbs(R, 0, id).length > 0 || handCutV(R, R.cards[id].o, id) > 0;
   const X = require('./fx_ext')({ nameBanned, fieldMax, chosenCheck, useOk, A, D, say, shuf, pull, chk, gain, nm, fcount, cols, fOk, rf, countOf, condOk, regIds, setReg, pickReq, yn, onField, inPa, moveCards, applyG, applyTo, placeCards, inZone: inZoneFx, rmChar, leave, moveOut, release, unsetOne, takeOut, runOps, lvOf, traitsId, traitsOf, bus, fire, kwHas, enterSt, noteEnter, mrEnter, remLeft, ally, faceDown, flipEv, flipPick, evOpts, dynNum, regNumBy, cleanFilter, cleanCond, cleanOps, cleanAb, cleanCost, cx, str, num, opt, queueEvent, abList, setCards, canPayOne, pay, noTarget, fieldPa, setSolved, replaceCheck });
   FXX = X;

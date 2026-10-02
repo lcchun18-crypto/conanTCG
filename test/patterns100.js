@@ -1,3 +1,4 @@
+process.env.CONAN_DEFAULT_OWN = process.env.CONAN_DEFAULT_OWN || 'any'; // v1.8.4: 이 테스트는 "대상 미지정 = 양쪽" 이던 옛 규칙 기준 시나리오 (새 규칙은 own_default_test.js)
 // 사용자의 실제 무작위 100장(sample100)에서 manual 이던 문장들이 엔진에서 "실제로 동작"하는지 검증한다.
 // 카드 ab 는 test/fixtures/sample100.rules.json = `import_cards.py --effects-only --rules-only` 로 원문(fx)에서 만든 결과(API 없음).
 // 각 테스트는 실제 카드 1장 + (가능하면) 숫자/이름/특징이 다른 변형 ab 로 일반성도 확인한다.

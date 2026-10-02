@@ -133,6 +133,14 @@ body.m #firstb,body.m #turnb{white-space:nowrap}body.m #firstb{font-size:11px;pa
 #leaveBtn{padding:5px 12px;font-size:12px;flex:none}body.mullph #turnb,body.mullph #info{display:none}
 #msg{flex:1 1 200px;font-size:14px;font-weight:600;color:#dfe8f2}#err{color:#ff9b94;flex:none;font-weight:600}
 #btns{display:flex;flex-wrap:wrap;gap:8px}#btns button{padding:9px 20px;font-size:14px}
+.card .mods{position:absolute;left:2px;right:2px;bottom:2px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;pointer-events:none;z-index:4}
+.card .mods i{font-style:normal;font-size:10px;font-weight:800;line-height:14px;padding:0 5px;border-radius:7px;box-shadow:0 1px 4px #000c;white-space:nowrap}
+.card .mods i.up{background:#7be3a5;color:#06210f}.card .mods i.dn{background:#ff9b94;color:#3a0a07}
+.card.mup{box-shadow:0 0 10px 2px #7be3a5aa}.card.mdn{box-shadow:0 0 10px 2px #ff6a6aaa}.card.mup.mdn{box-shadow:0 0 10px 2px #ffd167aa}
+body.m .card .mods i{font-size:8.5px;line-height:12px;padding:0 3px}
+.card.blk{filter:saturate(.45) brightness(.85);outline:2px dashed #ff6a6a;outline-offset:-1px}
+.card .blkb{position:absolute;left:0;right:0;top:6px;text-align:center;background:#b3261ee6;color:#fff;font-size:10px;font-weight:800;line-height:16px;letter-spacing:0;pointer-events:none;z-index:5;box-shadow:0 1px 4px #000a;white-space:nowrap}
+body.m .card .blkb{font-size:9px;line-height:14px}
 /* v1.8.1 효과 처리: 오른쪽 설명 패널(클릭 안 됨) + 현장/손패에서 직접 선택 */
 #effp{position:absolute;right:10px;top:10px;z-index:15;width:clamp(230px,27vw,340px);max-height:78%;overflow:hidden;pointer-events:none}
 #effp:empty,#etray:empty{display:none}
@@ -513,12 +521,12 @@ const A=(a,o={})=>{if(M)closeSheet();S({t:'act',a,...o})};
 function onMsg(e){let m;try{m=JSON.parse(e.data)}catch{return}
  if(m.t==='joined')sessPut({code:m.code,seat:m.seat,token:m.token});
  else if(m.t==='resumeFail'){sessPut(null);toLobby();netUI('warn',m.msg||'방을 복구하지 못했습니다.')}
- else if(m.t==='err'){loading(false);$('lerr').textContent=m.msg;$('err').textContent=m.msg;setTimeout(()=>$('err').textContent='',4000)}
+ else if(m.t==='err'){loading(false);if(V){$('lerr').textContent='';$('err').textContent=m.msg;setTimeout(()=>{if($('err').textContent===m.msg)$('err').textContent=''},4000)}else{$('lerr').textContent=m.msg}}   // 게임 중 오류는 게임 화면에만, 로비 오류는 로비에만
  else if(m.t==='defs'){DEFS=m.defs;V&&render()}
  else if(m.t==='left'){sessPut(null);toLobby();if(botAuto==='restart'&&botCfg)botStart(botCfg);else botAuto=false}
  else if(m.t==='botlog'){if(m.err)return alert(m.err);const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(m.log,null,1)],{type:'application/json'}));a.download='conan-bot-log.json';a.click()}
- else if(m.t==='v'){loading(false);V=m;if(m.phase==='over'&&NET.sess)sessPut(null);if(V.bot&&botAuto===true&&V.phase==='setup'&&!V.P[0].ready){botAuto=false;loadDeck()}$('lobby').style.display='none';$('game').style.display='flex';document.body.classList.add('ing');sizes();if(!V.sub||V.sub.who!==V.me)selm=selm;render()}}
-function toLobby(){V=null;prevSolved=null;document.body.classList.remove('ing','topopen','logopen');try{closeSheet()}catch{}$('game').style.display='none';$('lobby').style.display=''}
+ else if(m.t==='v'){loading(false);V=m;$('lerr').textContent='';if(m.phase==='over'&&NET.sess)sessPut(null);if(V.bot&&botAuto===true&&V.phase==='setup'&&!V.P[0].ready){botAuto=false;loadDeck()}$('lobby').style.display='none';$('game').style.display='flex';document.body.classList.add('ing');sizes();if(!V.sub||V.sub.who!==V.me)selm=selm;render()}}
+function toLobby(){V=null;$('lerr').textContent='';$('err').textContent='';prevSolved=null;document.body.classList.remove('ing','topopen','logopen');try{closeSheet()}catch{}$('game').style.display='none';$('lobby').style.display=''}
 netUI('conn','서버 연결 중...');netConnect();
 const kw=f=>String(f.kw||'').toLowerCase();
 const canSel=()=>V&&V.phase==='play'&&V.turn===V.me&&!V.sub&&!V.eff&&!V.fl.hw;
@@ -529,6 +537,7 @@ const fxHtml=t=>esc(t).replace(/(【[^】]*】)/g,'<em>$1</em>');
 const cardId=(f,c)=>String((f&&f.id)||(c&&c.d)||'').replace(/^\d+:/,'');
 function pv(f,c){const cols=String(f.color||'').split(/[\/,&]/).map(x=>x.trim().toLowerCase()).filter(Boolean);
  const ch=[`<span class="chipm ty">${esc(TYPE_KO[f.type]||f.type||'')}</span>`];
+ if(c&&c.bl)ch.push('<span class="chipm" style="background:#b3261e;border-color:#ff8a80;color:#fff">⛔ 효과 무효 (이번 턴)</span>');
  if(f.lv!==''&&f.lv!=null&&f.type!=='partner')ch.push(`<span class="chipm">Lv ${esc(f.type==='case'&&f.lv2?f.lv+' / '+f.lv2:f.lv)}</span>`);
  {const dl=(b,m)=>m?`${(+b||0)+m} <small style="color:${m>0?'#7be3a5':'#ff9b94'}">(${m>0?'+':''}${m})</small>`:esc(b);
   if(f.type==='char'&&f.ap!=='')ch.push(`<span class="chipm">AP ${dl(f.ap,c&&c.apm)}</span>`);
@@ -547,6 +556,12 @@ function mk(c,o={}){const f=DEFS[c.d]||{n:'?'},bk=o.back||c.hidden,d=document.cr
   // 카드 위에는 AP/증거/코스트 같은 수치 오버레이를 붙이지 않는다 (카드 이미지 + 오른쪽 상세 패널 + 전투 표시로 확인)
   d.innerHTML=(f.img?'':`<b>${esc(f.n)}</b>`)+(c.st==='s'||c.st==='x'?`<em class="chip">${c.st==='s'?'슬립':'스턴'}</em>`:'');
   d.onmouseenter=()=>pv(f,c);d._pv=[f,c];}
+ if(!bk&&c.bl){d.classList.add('blk');d.insertAdjacentHTML('beforeend','<span class="blkb" title="효과 무효: 이번 턴 동안 이 카드의 텍스트 효과가 모두 발동하지 않습니다">효과 무효</span>')}
+ // v1.8.2 효과로 코스트(레벨)/AP/LP 가 오르거나 내려간 캐릭터: 카드에 변화량 표시 + 초록(상승)/빨강(하락) 테두리 빛
+ if(!bk&&!o.land&&!o.kase&&(f.type==='char'||f.type==='partner')){const md=[],lvd=(c.lvx!=null&&f.lv!==''&&f.lv!=null&&c.st!==undefined)?c.lvx-(+f.lv||0):0;
+  const add=(k,v)=>{if(v)md.push(`<i class="${v>0?'up':'dn'}" title="효과로 ${k} ${v>0?'+':''}${v}">${k} ${v>0?'▲':'▼'}${Math.abs(v)}</i>`)};
+  if(f.type==='char'){add('AP',+c.apm||0);add('Lv',lvd)}add('LP',+c.lpm||0);
+  if(md.length){d.insertAdjacentHTML('beforeend',`<span class="mods">${md.join('')}</span>`);const vs=[+c.apm||0,+c.lpm||0,lvd];if(vs.some(v=>v>0))d.classList.add('mup');if(vs.some(v=>v<0))d.classList.add('mdn')}}
  if(c.st)d.dataset.st=c.st;
  d.style.transform=(o.land||o.kase)?'':c.st==='s'?'rotate(90deg)':c.st==='x'?'rotate(180deg)':'';if(c.sum)d.classList.add('sum');
  if(o.sel)d.classList.add('sel');if(o.tgt)d.classList.add('tgt');if(c.solved)d.style.borderColor='#4fd18b';d.onclick=e=>{o.click&&o.click(e)};

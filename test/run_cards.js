@@ -1,3 +1,4 @@
+process.env.CONAN_DEFAULT_OWN = process.env.CONAN_DEFAULT_OWN || 'any'; // v1.8.4: 이 테스트는 "대상 미지정 = 양쪽" 이던 옛 규칙 기준 시나리오 (새 규칙은 own_default_test.js)
 // 카드별 회귀 테스트 전체 실행기: 전체 카드 DB(data/cards.json 또는 CARDS_DB)로 mz_*.js 를 모두 돌리고 roundtrip/전수 검사까지 한다.
 const { spawnSync } = require('child_process'), fs = require('fs'), path = require('path');
 const DBP = path.resolve(process.env.CARDS_DB || path.join(__dirname, '../data/cards.json')); const env = { ...process.env, CARDS_DB: DBP };

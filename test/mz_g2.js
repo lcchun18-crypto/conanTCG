@@ -1,3 +1,4 @@
+process.env.CONAN_DEFAULT_OWN = process.env.CONAN_DEFAULT_OWN || 'any'; // v1.8.4: 이 테스트는 "대상 미지정 = 양쪽" 이던 옛 규칙 기준 시나리오 (새 규칙은 own_default_test.js)
 // g2 묶음 검증: 다단계 이벤트/모달 선택/덱 공개·탐색/능력 부여 카드를 실제 DB 의 ab 로 실제 엔진에서 실행한다.
 //  실행: CARDS_DB=/tmp/aud/g2.json node test/mz_g2.js
 const U = require('./mz_util'); const { t, G, real, dummy, field, hand, rem, pa, play, auto, ok, eq, has, req, ans, fillFile, pump, give, S, FX, act, top, evid, endTurn } = U;
