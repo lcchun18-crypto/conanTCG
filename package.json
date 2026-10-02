@@ -1,6 +1,6 @@
 {
   "name": "conan-sim",
-  "version": "1.8.4",
+  "version": "1.8.6",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -36,6 +36,7 @@
     "test:bot:fulldb": "node test/bot_fulldb.js --games 60 --a random --b heuristic --seed 100 && node test/bot_fulldb.js --games 12 --a expert --b expert --nodes 150 --seed 500",
     "test:ws": "node test/ws_reconnect_test.js",
     "test:tactics": "node test/tactics_test.js --quiet",
+    "test:v186": "node test/file_order_test.js && node test/color_override_test.js",
     "test:own": "node test/own_default_test.js",
     "test:blank": "node test/blank_test.js",
     "test:v18b": "node test/ui_v18b_test.js",

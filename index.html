@@ -109,7 +109,7 @@ body.m #firstb,body.m #turnb{white-space:nowrap}body.m #firstb{font-size:11px;pa
 .card.back.land{background:#1a1208}
 .ph.land{width:var(--ch);height:var(--cw)}
 .stk{position:relative;flex:none;display:flex;align-items:center;justify-content:center;width:100%;height:100%}
-.stk .pile{position:relative}
+.stk{isolation:isolate}.stk .pile{position:relative}
 .stk .pile .card{position:absolute;left:0;margin:0;cursor:default;box-shadow:0 2px 4px #000a}
 .stk .pile .card.upf{outline:2px solid #f2bd4b;outline-offset:-1px;cursor:zoom-in;z-index:3}
 .stk .pile .card.evsel{cursor:pointer;z-index:6;outline:3px solid #6fe0ff;outline-offset:1px;animation:evpulse 1s ease-in-out infinite}
@@ -117,7 +117,7 @@ body.m #firstb,body.m #turnb{white-space:nowrap}body.m #firstb{font-size:11px;pa
 #effp .cs.evpick{display:flex;flex-wrap:wrap;gap:8px}#effp .evo{background:#0d151d;border:2px solid #6fe0ff88;border-radius:10px;padding:5px;color:#dce8f2;font-size:11px;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;min-width:84px}
 #effp .evo:hover,#effp .evo:focus-visible{border-color:#6fe0ff;box-shadow:0 0 12px #6fe0ff88;outline:none}#effp .evo.up{border-color:#f2bd4b99}
 .stk .pile .empty{position:absolute;left:0;top:0;width:var(--ch);height:var(--cw);border:2px dashed #ffffff30;border-radius:7px}
-.stk .lab{position:absolute;right:8px;bottom:5px;font-weight:800;font-size:13px;background:#0b1118f0;border:1px solid #ffffff40;border-radius:999px;padding:1px 11px;white-space:nowrap;z-index:9}
+.stk .lab{position:absolute;right:8px;bottom:5px;font-weight:800;font-size:13px;background:#0b1118f0;border:1px solid #ffffff40;border-radius:999px;padding:1px 11px;white-space:nowrap;z-index:50}
 .stk.lp .lab{color:var(--gold);border-color:#f2bd4b88}.stk.file .lab{color:#8fd3ff;border-color:#8fd3ff88}
 .card.kase{width:var(--ch);height:var(--cw);background-size:100% 100%;background-repeat:no-repeat}
 .stk.ev .pile .card.ev{box-shadow:0 -5px 8px #000d,0 0 0 2px #0b1118,0 0 0 3px #ffffff4d}
@@ -538,8 +538,8 @@ const cardId=(f,c)=>String((f&&f.id)||(c&&c.d)||'').replace(/^\d+:/,'');
 function pv(f,c){const cols=String(f.color||'').split(/[\/,&]/).map(x=>x.trim().toLowerCase()).filter(Boolean);
  const ch=[`<span class="chipm ty">${esc(TYPE_KO[f.type]||f.type||'')}</span>`];
  if(c&&c.bl)ch.push('<span class="chipm" style="background:#b3261e;border-color:#ff8a80;color:#fff">⛔ 효과 무효 (이번 턴)</span>');
- if(f.lv!==''&&f.lv!=null&&f.type!=='partner')ch.push(`<span class="chipm">Lv ${esc(f.type==='case'&&f.lv2?f.lv+' / '+f.lv2:f.lv)}</span>`);
  {const dl=(b,m)=>m?`${(+b||0)+m} <small style="color:${m>0?'#7be3a5':'#ff9b94'}">(${m>0?'+':''}${m})</small>`:esc(b);
+  if(f.lv!==''&&f.lv!=null&&f.type!=='partner'){const lvm=(f.type==='char'&&c&&c.lvx!=null)?c.lvx-(+f.lv||0):0;ch.push(`<span class="chipm">Lv ${f.type==='case'&&f.lv2?esc(f.lv+' / '+f.lv2):(lvm?dl(f.lv,lvm):esc(f.lv))}</span>`)}
   if(f.type==='char'&&f.ap!=='')ch.push(`<span class="chipm">AP ${dl(f.ap,c&&c.apm)}</span>`);
   if((f.type==='char'||f.type==='partner')&&f.lp!=='')ch.push(`<span class="chipm">증거 ${dl(f.lp,c&&c.lpm)}</span>`);}
  cols.forEach(c=>{const k=COL[c];ch.push(k?`<span class="chipm"><span class="dot" style="background:${k[1]}"></span>${k[0]}</span>`:`<span class="chipm">${esc(c)}</span>`)});
@@ -886,7 +886,7 @@ const zkey=e=>{const z=e.closest('#hand,#me-field,#opp-field,#me-partner,#opp-pa
 function snap(){const ids={};document.querySelectorAll('#oppl .card[data-id],#mel .card[data-id]').forEach(e=>{if(e.closest('.stk:not(.file)'))return;ids[e.dataset.id]={...rectOf(e),z:zkey(e),el:e,mine:!!e.closest('#mel')}});
  const P=[0,1].map(i=>{const pre=i===V.me?'me':'opp',Q=V.P[i];return{deck:Q.deck,hand:Array.isArray(Q.hand)?Q.hand.length:Q.hand,file:Q.file,evid:Q.evid,rem:new Set(Q.rem.map(c=>String(c.id))),r:{deck:rectOf($(pre+'-deck')),file:rectOf($(pre+'-file')),evid:rectOf($(pre+'-lp')),hand:rectOf($(pre==='me'?'hand':'opp-hand')),rem:rectOf($(pre+'-rem'))},sh:[...document.querySelectorAll(`#${pre==='me'?'mel':'oppl'} .card.sethid`)].map(rectOf)}});
  return{w:innerWidth,h:innerHeight,me:V.me,ids,P}}
-function flyEl(el,from,cur){if(!from)return;const dx=from.cx-cur.cx,dy=from.cy-cur.cy,rot=el.style.transform||'';el.style.zIndex=40;const an=el.animate([{transform:`translate(${dx}px,${dy}px) ${rot}`},{transform:`translate(0,0) ${rot}`}],{duration:440,easing:'cubic-bezier(.2,.8,.2,1)'});an.onfinish=an.oncancel=()=>{el.style.zIndex=''}}
+function flyEl(el,from,cur){if(!from)return;const dx=from.cx-cur.cx,dy=from.cy-cur.cy,rot=el.style.transform||'';const z0=el.style.zIndex;el.style.zIndex=40;const an=el.animate([{transform:`translate(${dx}px,${dy}px) ${rot}`},{transform:`translate(0,0) ${rot}`}],{duration:440,easing:'cubic-bezier(.2,.8,.2,1)'});an.onfinish=an.oncancel=()=>{el.style.zIndex=z0}}   // 원래 z-index(FILE/증거 더미의 순서)를 복원 — 비우면 파트너가 FILE 카드 뒤로 가려진다
 function ghost(node,from,to,o={}){if(flying>12||!from)return;flying++;const g=node,land=g.classList.contains('land')||g.classList.contains('kase'),lw=land?CH:CW,lh=land?CW:CH;g.classList.add("flyg");g.style.left=(from.cx-lw/2)+'px';g.style.top=(from.cy-lh/2)+'px';g.style.width=lw+'px';g.style.height=lh+'px';document.body.appendChild(g);
  const rot=g.style.transform||'',dx=to?to.cx-from.cx:0,dy=to?to.cy-from.cy:0,er=o.rot!=null?` rotate(${o.rot}deg)`:'';
  const an=g.animate([{transform:`translate(0,0) ${rot}`,opacity:1},{transform:`translate(${dx}px,${dy}px) ${rot}${er} scale(${to?.8:1})`,opacity:to?.9:0,offset:.85},{transform:`translate(${dx}px,${dy}px) ${rot}${er} scale(${to?.8:1})`,opacity:0}],{duration:o.d||520,easing:'cubic-bezier(.2,.8,.2,1)'});an.onfinish=an.oncancel=()=>{g.remove();flying--}}

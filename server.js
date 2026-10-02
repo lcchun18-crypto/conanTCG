@@ -234,9 +234,13 @@ function validateCards(j) {
 }
 // 파일이 바뀌면(add_new_cards.py 실행 후) 서버 재시작 없이 다음 요청에서 다시 읽는다. 실패하면 예외 → 호출한 쪽이 오류 응답.
 function loadCards() {
-  const st = fs.statSync(CARDS_PATH), key = st.mtimeMs + ':' + st.size;
+  const st = fs.statSync(CARDS_PATH), OVP = path.join(path.dirname(CARDS_PATH), 'color_overrides.json'); let ost = null; try { ost = fs.statSync(OVP); } catch (e) {}
+  const key = st.mtimeMs + ':' + st.size + ':' + (ost ? ost.mtimeMs + ':' + ost.size : '');
   if (_cards.key === key && _cards.body) return _cards;
-  const raw = fs.readFileSync(CARDS_PATH, 'utf8'), j = JSON.parse(raw), n = validateCards(j);
+  const raw = fs.readFileSync(CARDS_PATH, 'utf8'), j = JSON.parse(raw);
+  // v1.8.6: OCR 로 구분이 애매한 카드의 색은 data/color_overrides.json ({"id_0548":"white","id_0930":"blue/black"}) 으로 개별 지정 — cards.json 을 다시 만들어도 유지된다
+  if (ost) { try { const ov = JSON.parse(fs.readFileSync(OVP, 'utf8')); for (const [id, col] of Object.entries(ov)) if (j.cards && j.cards[id] && typeof col === 'string') j.cards[id].color = col; } catch (e) { console.error('color_overrides.json 을 읽지 못했습니다:', e.message); } }
+  const n = validateCards(j);
   const body = Buffer.from(JSON.stringify({ cards: j.cards }), 'utf8');
   _cards = { key, body, gz: zlib.gzipSync(body), etag: '"' + require('crypto').createHash('md5').update(body).digest('hex') + '"', count: n };
   return _cards;
