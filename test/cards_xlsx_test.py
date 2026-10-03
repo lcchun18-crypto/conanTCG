@@ -107,7 +107,7 @@ d = fresh("eng"); ok(engine(BASE) == 2, "수정 전: id_0284 사용 → 카드 2
 def efx(wb):
     ws = wb["Ops"]
     for r in range(2, ws.max_row + 1):
-        if ws.cell(r, 1).value == "id_0284" and ws.cell(r, 4).value == "draw": ws.cell(r, 5).value = '{"n":3}'
+        if ws.cell(r, 1).value == "id_0284" and ws.cell(r, 4).value == "draw": ws.cell(r, hcol(ws, "params")).value = '{"n":3}'
 edit(d, efx); code, o = build(d); ok(code == 0 and out(d)["cards"]["id_0284"]["ab"][0]["ops"][0] == {"op": "draw", "n": 3} and card_diff(BASE, out(d)) == {"id_0284": ["ab"]}, "Ops 시트 params 수정 → ab 만 변경")
 ok(engine(out(d)) == 3, "수정 후: 같은 카드가 게임에서 3장 드로우 (Excel 수정만으로 동작 변경)")
 # ───── 7. 오류 → 빌드 실패 ─────
@@ -143,12 +143,12 @@ def unkop(wb):
     for r in range(2, ws.max_row + 1):
         if ws.cell(r, 1).value == "id_0284" and ws.cell(r, 4).value == "draw": ws.cell(r, 4).value = "teleport"
 bad("존재하지 않는 primitive", unkop, ["id_0284", "지원되지 않는 효과 primitive 'teleport'"])
-bad("깨진 params JSON", lambda wb: [setattr(wb["Ops"].cell(r, 5), "value", '{"n":') for r in range(2, wb["Ops"].max_row + 1) if wb["Ops"].cell(r, 1).value == "id_0284"], ["id_0284", "params"])
+bad("깨진 params JSON", lambda wb: [setattr(wb["Ops"].cell(r, 6), "value", '{"n":') for r in range(2, wb["Ops"].max_row + 1) if wb["Ops"].cell(r, 1).value == "id_0284"], ["id_0284", "params"])
 bad("알 수 없는 trigger", setcell("Abilities", "id_0257", "ic", "onfoo"), ["id_0257", "onfoo"])
 bad("cond JSON 깨짐", setcell("Abilities", "id_0244", "cond", '{"pcolor":'), ["id_0244", "JSON"])
 bad("cond 형식(배열)", setcell("Abilities", "id_0244", "cond", "[1,2]"), ["id_0244", "cond"])
 bad("lim 범위", setcell("Abilities", "id_0257", "lim", 9), ["id_0257", "lim"])
-bad("잘못된 enum 값(select.do)", lambda wb: [setattr(wb["Ops"].cell(r, 5), "value", wb["Ops"].cell(r, 5).value.replace('"do":"stun"', '"do":"explode"')) for r in range(2, wb["Ops"].max_row + 1) if wb["Ops"].cell(r, 1).value == "id_0244" and wb["Ops"].cell(r, 4).value == "if"], ["id_0244", "허용되지 않는 값"])
+bad("잘못된 enum 값(select.do)", lambda wb: [setattr(wb["Ops"].cell(r, 6), "value", wb["Ops"].cell(r, 6).value.replace('"do":"stun"', '"do":"explode"')) for r in range(2, wb["Ops"].max_row + 1) if wb["Ops"].cell(r, 1).value == "id_0244" and wb["Ops"].cell(r, 4).value == "if"], ["id_0244", "허용되지 않는 값"])
 bad("Abilities 가 없는 카드", setcell("Abilities", "id_0257", "card_id", "id_9999"), ["id_9999"])
 bad("ab_index 불연속", setcell("Abilities", "id_0257", "ab_index", 5), ["id_0257", "연속"])
 bad("Ops 가 없는 능력", setcell("Ops", "id_0284", "ab_index", 7), ["id_0284", "Abilities 시트에 없는 능력"])
@@ -162,7 +162,7 @@ def dupcol(wb):
 bad("열 중복", dupcol, ["중복"])
 def stripops(wb):
     ws = wb["Ops"]; rows = [r for r in range(2, ws.max_row + 1) if ws.cell(r, 1).value == "id_0284"]
-    for r in rows: ws.cell(r, 1).value = None; ws.cell(r, 4).value = None; ws.cell(r, 5).value = None
+    for r in rows: ws.cell(r, 1).value = None; ws.cell(r, 4).value = None; ws.cell(r, 5).value = None; ws.cell(r, 6).value = None
 bad("ops 행 삭제(→Ops 표시 남음)", stripops, ["id_0284", "Ops 시트에 행이 없습니다"])
 d = TMP / "corrupt"; d.mkdir(); (d / "cards.json").write_text(BASE_TEXT); (d / "cards.xlsx").write_bytes(b"not an xlsx"); code, o = build(d); ok(code == 1 and "열 수 없습니다" in o, "깨진 xlsx 파일 → 명확한 오류")
 # 의도적 삭제는 허용

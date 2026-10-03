@@ -14,6 +14,11 @@ let raw = ''; process.stdin.on('data', d => raw += d).on('end', () => {
   for (const [id, ab] of Object.entries(inp.cards)) {
     if (!Array.isArray(ab)) { out.push({ id, where: 'Abilities 시트', msg: 'ab 형식이 배열이 아닙니다' }); continue; }
     let acc; try { acc = run(ab); } catch (e) { out.push({ id, where: 'Abilities/Ops 시트', msg: '효과 데이터를 해석할 수 없습니다: ' + e.message }); continue; }
+    // v1.11.0: 새로 추가/수정된 카드에서 own(소유자) 이 비어 있는 실제 효과 대상·트리거 주체 필터를 경고한다 (엔진은 플레이를 막지 않도록 제한 없이(양쪽) 처리 — 의도한 범위를 own 으로 명시하세요)
+    if (FX.auditOwn && (!(inp.base && inp.base[id]) || JSON.stringify(inp.base[id]) !== JSON.stringify(ab))) {
+      const prev = new Set(inp.base && inp.base[id] ? FX.auditOwn(inp.base[id]).map(x => x.ab + '|' + x.ctx + '|' + x.op) : []);
+      for (const x of FX.auditOwn(ab)) if (!prev.has(x.ab + '|' + x.ctx + '|' + x.op)) out.push({ id, where: `ab_index ${x.ab}${x.op ? ', op ' + x.op : ''}`, level: 'WARN',
+        msg: `${x.ctx === 'target' ? '실제 효과 대상(filter)' : '트리거 주체 필터'}의 own 이 비어 있습니다 — self(내 쪽) / opp(상대 쪽) / any(양쪽) 중 하나로 명시하세요 (지금은 제한 없이 양쪽으로 처리됩니다)` }); }
     if (!acc.length) continue;
     const hasBase = !!(inp.base && inp.base[id]); const known = new Set(hasBase ? run(inp.base[id]).map(sig) : []);
     for (const d of acc) { if (known.has(sig(d))) continue;

@@ -19,6 +19,15 @@ import cards_xlsx as X  # noqa: E402
 ROOT = X.ROOT
 
 
+def show_warns(warns, log, limit=20):
+    """own 미지정 경고는 수백 건일 수 있어 한 줄로 요약하고, 나머지 경고가 가려지지 않게 한다."""
+    own = [p for p in warns if "own 이 비어 있습니다" in p.msg]
+    rest = [p for p in warns if p not in own]
+    for p in rest[:limit]: log("WARN\n" + str(p))
+    if len(rest) > limit: log(f"… 외 경고 {len(rest) - limit}건")
+    for p in own[:limit]: log("WARN\n" + str(p))
+    if len(own) > limit: log(f"… 외 own 미지정 경고 {len(own) - limit}건 (전체: node tools/ownership_audit.js, data/ownership_review.csv)")
+
 def build(xlsx, base_path, out_path, allow_delete=(), dry_run=False, check=False, use_node=True, report=None, quiet=False):
     """반환: (종료코드, 정보 dict)"""
     log = (lambda *a: None) if quiet else print
@@ -51,7 +60,7 @@ def build(xlsx, base_path, out_path, allow_delete=(), dry_run=False, check=False
         log(f"\n배포 중단: 오류 {len(errs)}건 — cards.json 은 변경되지 않았습니다.\n")
         for p in errs[:200]: log("ERROR\n" + str(p) + "\n")
         if len(errs) > 200: log(f"… 외 {len(errs) - 200}건")
-        for p in warns[:20]: log("WARN\n" + str(p) + "\n")
+        show_warns(warns, log)
         return 1, {"errors": errs}
     added, removed, ch, other = X.changes(base, new)
     text = X.report_text(added, removed, ch, other)
@@ -62,7 +71,7 @@ def build(xlsx, base_path, out_path, allow_delete=(), dry_run=False, check=False
     new_text = X.dumps(new)
     same = base_text is not None and new_text == base_text
     log(f"카드 {len(new['cards'])}장 검증 통과" + (f" (경고 {len(warns)}건)" if warns else ""))
-    for p in warns[:20]: log("WARN\n" + str(p))
+    show_warns(warns, log)
     if same: log("변경 없음 — cards.xlsx 와 cards.json 이 같습니다."); return 0, {"changed": 0, "same": True, "cards": len(new["cards"]), "warns": warns}
     lines = text.splitlines()
     log("\n".join(lines[:150]) + (f"\n… (전체 {len(lines)}줄은 {rp} 참고)" if len(lines) > 150 else ""))

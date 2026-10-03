@@ -1,10 +1,10 @@
 {
   "name": "conan-sim",
-  "version": "1.10.0",
+  "version": "1.11.0",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node test/unit.js && node test/run_cards.js && node test/spec_examples.js && node test/patterns.js && node test/patterns100.js && node test/patterns_v11.js && node test/patterns_v12.js && node test/acts_test.js && node test/fuzz.js 200 && node test/ui_test.js && node test/deck_test.js && node test/e2e_ui.js && node test/deploy_test.js && node test/autoload_test.js && node test/bot_units.js && node test/bot_regress.js && node test/bot_room_test.js && node test/specialist_deck_test.js && node test/specialist_cli_test.js && node test/specialist_test.js && node test/specialist_regress.js && node test/expert_test.js && node test/expert_regress.js && node test/ws_reconnect_test.js && node test/tactics_test.js --quiet && node test/evidence_pick_test.js && node test/ui_v17_test.js && node test/cost_has_test.js && node test/evid_hand_test.js && node test/leave_room_test.js",
+    "test": "node test/unit.js && node test/run_cards.js && node test/spec_examples.js && node test/patterns.js && node test/patterns100.js && node test/patterns_v11.js && node test/patterns_v12.js && node test/acts_test.js && node test/fuzz.js 200 && node test/ui_test.js && node test/deck_test.js && node test/e2e_ui.js && node test/deploy_test.js && node test/autoload_test.js && node test/bot_units.js && node test/bot_regress.js && node test/bot_room_test.js && node test/specialist_deck_test.js && node test/specialist_cli_test.js && node test/specialist_test.js && node test/specialist_regress.js && node test/expert_test.js && node test/expert_regress.js && node test/ws_reconnect_test.js && node test/tactics_test.js --quiet && node test/evidence_pick_test.js && node test/ui_v17_test.js && node test/cost_has_test.js && node test/evid_hand_test.js && node test/leave_room_test.js && node test/ownership_contexts_test.js && node test/own_default_test.js && node test/id0886_test.js",
     "test:importer": "python test/importer_test.py && python3 test/ext_wiring_test.py && python3 test/color_test.py",
     "test:color": "python3 test/color_test.py",
     "color:scan": "python3 test/color_scan.py",
@@ -39,15 +39,18 @@
     "cards:build": "python3 tools/build_cards_from_excel.py",
     "cards:export": "python3 tools/export_cards_to_excel.py",
     "cards:check": "python3 tools/build_cards_from_excel.py --check",
+    "test:id0886": "node test/id0886_test.js",
     "test:cardsxlsx": "python3 test/cards_xlsx_test.py",
     "test:v19": "node test/v190_test.js && node test/v190_ws_test.js && node test/ui_v19_test.js",
     "test:v186": "node test/file_order_test.js && node test/color_override_test.js",
-    "test:own": "node test/own_default_test.js",
+    "test:own": "node test/own_default_test.js && node test/ownership_contexts_test.js",
     "test:blank": "node test/blank_test.js",
     "test:v18b": "node test/ui_v18b_test.js",
     "test:v18": "node test/ui_v18_test.js",
     "test:rulebot": "node test/rulebot_test.js --quiet",
-    "test:v17": "node test/evidence_pick_test.js && node test/cost_has_test.js && node test/evid_hand_test.js && node test/leave_room_test.js && node test/ui_v17_test.js"
+    "test:v17": "node test/evidence_pick_test.js && node test/cost_has_test.js && node test/evid_hand_test.js && node test/leave_room_test.js && node test/ui_v17_test.js",
+    "test:ownership": "node test/ownership_contexts_test.js && python3 test/ownership_xlsx_test.py",
+    "audit:own": "node tools/ownership_audit.js"
   },
   "engines": {
     "node": ">=18"

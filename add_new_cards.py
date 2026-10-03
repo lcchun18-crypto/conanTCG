@@ -159,6 +159,14 @@ def main():
 
     # ── 백업 → 임시 파일 → 검증 → 교체
     added = [c for c in new if c not in old]; repl = [c for c in new if c in old]
+    # v1.11.0: 새 카드의 효과 대상(select 등)·트리거 주체 필터의 own(소유자)을 원문 근거로 명시한다 (확실한 것만 — 나머지는 확인용 CSV 로 남김)
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent / "tools")); import ownership_migrate as _om
+        _ap, _rv, _ = _om.run({"cards": new}, apply=True)
+        _om.write_csv(rep_dir / f"add-{stamp}.ownership_review.csv", _rv)
+        print(f"own(소유자) 자동 명시 {len(_ap)}건 / 사람이 확인할 항목 {len(_rv)}건 → {rep_dir / f'add-{stamp}.ownership_review.csv'}")
+    except Exception as e:
+        print(f"[경고] own(소유자) 자동 명시를 건너뜀: {e}")
     merged = {**old, **new}; out = {**data, "cards": {k: merged[k] for k in sorted(merged)}}
     keep = {k: v for k, v in old.items() if k not in repl}
     bk = None

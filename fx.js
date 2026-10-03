@@ -11,9 +11,29 @@ module.exports = function (A) {
   const str = (x, n = 60) => String(x == null ? '' : x).slice(0, n);
   const num = (x, d = 0) => { x = Math.trunc(+x); return Number.isFinite(x) ? Math.max(-99999, Math.min(99999, x)) : d; };
   const opt = (x, arr, d = '') => arr.includes(x) ? x : d;
-  // v1.8.4 룰: 카드 텍스트에 [상대] 지정이 없는 대상/조건/비용은 아군(자신)만. (이전 동작이 필요하면 환경변수 CONAN_DEFAULT_OWN=any — 옛 카드 테스트용)
-  const DEF_OWN = process.env.CONAN_DEFAULT_OWN === 'any' ? 'any' : 'self';
-  const cleanFilter = (f, depth = 0, dOwn = DEF_OWN) => { f = f && typeof f === 'object' ? f : {}; const o = { own: opt(f.own, ['self', 'opp', 'any'], dOwn) };
+  // ───────── v1.11.0 ownership(소유자) 문맥 분리 ─────────
+  // 필터의 own(self|opp|any) 이 비어 있을 때의 의미는 "어디에 쓰인 필터인가(문맥)"에 따라 다르다. 전역 기본값 하나로 처리하지 않는다.
+  //   cost           굵은 코스트(ab.cost[])                      → 소유자 미지정 = self (코난 TCG 룰: 굵은 조건/코스트는 [상대] 지정이 없으면 우리 쪽)
+  //   condition      굵은 발동 조건(ab.cond, ifc.cond, 개수/1枚につき) → 소유자 미지정 = self (같은 룰)
+  //   target         실제 효과의 대상(ab.ops[] 의 필드 대상)         → 데이터의 own 을 그대로 사용. 미지정(끝까지 확정 못한 것)은 제한 없음(permissive) + 검증 경고
+  //   conditionCheck if / ifLeft / ifCost / ifSelf — 이미 정해진 카드를 검사 → 소유자 제한 없음(미지정)
+  //   zonePick       손패/리무브/덱/FILE 등 구역에서 고르는 필터(pick, fetch, play, look, discard …) → 풀의 소유자는 구역이 정함. 필터는 제한 없음(미지정)
+  //   triggerSubject 트리거 주체(ab.sf / ef / tf, delay.sf)         → 데이터의 own 을 그대로 사용. 미지정(끝까지 확정 못한 것)은 제한 없음(permissive) + 검증 경고
+  //   staticTarget   상시 능력 대상(ab.tgt.filter)                 → 쪽은 tgt.sel(allies/opp/all/self) 이 정함. 필터는 제한 없음(미지정)
+  // op 이름으로 own 을 바꾸지 않는다(select+remove→any 같은 예외 없음). 구역 풀/검사 op 인지는 "op 가 읽는 풀이 무엇인가"의 구조 정보(OP_CTX)이다.
+  const LEG_ENV = process.env.CONAN_DEFAULT_OWN === 'any' ? 'any' : 'self';   // 옛 테스트 호환용(환경변수). 운영에서는 설정하지 않는다
+  const OWN_CTX = { cost: LEG_ENV, condition: LEG_ENV, target: LEG_ENV, triggerSubject: LEG_ENV, conditionCheck: '', zonePick: '', staticTarget: '' };
+  const OP_CTX = {};
+  for (const k of ['if', 'ifLeft', 'ifCost', 'ifSelf']) OP_CTX[k] = 'conditionCheck';
+  for (const k of ['pick', 'fetch', 'play', 'playSeen', 'look', 'reveal', 'revealTop', 'peek', 'discard', 'stack', 'stackFrom', 'set', 'setFd', 'setFrom', 'setFromHand', 'useEv', 'rhand', 'nameSwap', 'mv', 'lvBudgetRm', 'paRemove', 'moveUnder']) OP_CTX[k] = 'zonePick';   // paRemove=상대 PA 구역, moveUnder=자기 필드 구역 — 풀이 구역으로 정해진 op
+  const FILTER_REQUIRED = new Set(['select', 'selAdv', 'selLvSum', 'blankAb', 'triggerFlash', 'setSelf']);   // 필터가 곧 대상 지정인 op — 필터 자체가 없어도 own 미지정으로 본다(검증)
+  let FCTX = 'condition', AUDIT = null, CUR_OP = '';   // FCTX: 지금 정리 중인 필터의 문맥. AUDIT: 검증 수집기(배열이면 own 미지정 target/subject 를 기록)
+  const withCtx = (ctx, fn) => { const prev = FCTX; FCTX = ctx; try { return fn(); } finally { FCTX = prev; } };
+  const cleanFilter = (f, depth = 0, ctx = FCTX) => { const had = !!f && typeof f === 'object'; f = had ? f : {}; const explicit = ['self', 'opp', 'any'].includes(f.own);
+    const unresolved = !explicit && depth === 0 && (ctx === 'target' || ctx === 'triggerSubject') && (had || FILTER_REQUIRED.has(CUR_OP));
+    if (unresolved && AUDIT) AUDIT.push({ ctx, op: CUR_OP });
+    // 끝까지 확정하지 못한 target/주체(own 미지정)는 플레이를 막지 않는다 = 제한 없음(permissive) + 검증 경고. (잘못 막는 것보다 잘못 허용하는 쪽 — 연습용 시뮬레이터 원칙)
+    const o = { own: explicit ? f.own : unresolved ? '' : (depth === 0 ? (OWN_CTX[ctx] !== undefined ? OWN_CTX[ctx] : LEG_ENV) : '') };   // any:[…] 하위 필터(depth>0)는 기본값 없음 — 부모 own 이 이미 적용됨
     const refS = x => typeof x === 'string' && (x === 'self' || /^reg:[a-z]+:(sum|max|first|count)$/.test(x));
     const lv = k => (f[k] === 'file' || f[k] === 'used' || f[k] === 'costLv' || refS(f[k])) ? f[k] : (f[k] == null || f[k] === '' ? null : num(f[k]));
     for (const k of ['lvMax', 'lvMin']) o[k] = lv(k);
@@ -26,11 +46,12 @@ module.exports = function (A) {
     o.hasIc = opt(f.hasIc, IC, ''); o.hasKw = str(f.hasKw, 20).toLowerCase(); o.acting = !!f.acting; o.contacting = !!f.contacting;
     o.plain = !!f.plain; o.bang = !!f.bang; o.nameCtx = !!f.nameCtx; o.lvIn = opt(f.lvIn, ['disc'], ''); o.traitOf = opt(f.traitOf, ['ent'], '');
     o.apGt = f.apGt === 'self' ? 'self' : '';
-    o.any = depth < 1 ? (Array.isArray(f.any) ? f.any : []).slice(0, 4).map(x => cleanFilter(x, depth + 1)) : [];
+    o.any = depth < 1 ? (Array.isArray(f.any) ? f.any : []).slice(0, 4).map(x => cleanFilter(x, depth + 1, ctx)) : [];
     return o; };
   const WHO_ = ['self', 'opp'];
   const SRC = ['field', 'oppField', 'fieldBoth', 'hand', 'oppHand', 'file', 'oppFile', 'evid', 'oppEvid', 'evidUp', 'evidDown', 'rem', 'oppRem', 'pa', 'sets', 'fdSets', 'setsAll', 'under'];
-  const cleanCond = c => { c = c && typeof c === 'object' ? c : {}; const r = { turn: opt(c.turn, ['self', 'opp']), pcolor: str(c.pcolor, 12).toLowerCase(),
+  const cleanCond = c => withCtx('condition', () => cleanCond0(c));
+  const cleanCond0 = c => { c = c && typeof c === 'object' ? c : {}; const r = { turn: opt(c.turn, ['self', 'opp']), pcolor: str(c.pcolor, 12).toLowerCase(),
     ccolor: str(c.ccolor, 30).toLowerCase(), ctrait: str(c.ctrait, 30), fileMin: num(c.fileMin), cstate: opt(c.cstate, ['kase', 'solve']), bond: str(c.bond, 40),
     fieldMin: num(c.fieldMin), selfSt: opt(c.selfSt, ['a', 's', 'sx']), trace: opt(c.trace, ['found', 'unfound']), selfApMin: num(c.selfApMin), killed: !!c.killed,
     handMax: c.handMax == null || c.handMax === '' ? null : num(c.handMax), ohandMax: c.ohandMax == null || c.ohandMax === '' ? null : num(c.ohandMax), swapName: str(c.swapName, 40), fhN: Math.max(0, Math.min(num(c.fhN, 1), 10)), fhDist: !!c.fhDist, noEnter: !!c.noEnter, hayAny: !!c.hayAny, cnot: str(c.cnot, 12).toLowerCase(),
@@ -50,11 +71,13 @@ module.exports = function (A) {
   const PFROM = REGS.concat(['hand', 'rem', 'pa', 'evid', 'evidUp', 'evidDown', 'file']);
   const regN = x => opt(x, REGS, '');
   const dynN = o => ({ nref: o.nref && typeof o.nref === 'object' ? { ref: opt(o.nref.ref, REGS, 'removed'), by: opt(o.nref.by, ['count', 'lv', 'ap1000'], 'count') } : null,
-    ncnt: o.ncnt && typeof o.ncnt === 'object' ? { src: opt(o.ncnt.src, SRC, 'field'), f: o.ncnt.f && typeof o.ncnt.f === 'object' ? cleanFilter(o.ncnt.f) : null } : null, nmul: o.nmul ? Math.max(1, Math.min(num(o.nmul), 20)) : null });
+    ncnt: o.ncnt && typeof o.ncnt === 'object' ? { src: opt(o.ncnt.src, SRC, 'field'), f: o.ncnt.f && typeof o.ncnt.f === 'object' ? cleanFilter(o.ncnt.f, 0, 'condition') : null } : null, nmul: o.nmul ? Math.max(1, Math.min(num(o.nmul), 20)) : null });
   function cleanActs(o) { const list = Array.isArray(o.acts) && o.acts.length ? o.acts : [{ do: o.do, v: o.v, until: o.until, per: o.per, g: o.g }];
     return list.slice(0, 4).map(a => { const g = a && a.g && a.g.ic !== 'grant' ? cleanAb([a.g])[0] : null; return { do: opt(a && a.do, DO, 'sleep'), v: str(a && a.v, 40), until: opt(a && a.until, UNTIL, 'turn'), per: opt(a && a.per, ['flip'], ''), g: g || null }; }); }
   function cleanOps(a, depth = 0) { if (!Array.isArray(a) || depth > 6) return []; return a.slice(0, 14).map(o => cleanOp(o, depth)).filter(Boolean); }
-  function cleanOp(o, depth) { if (!o || typeof o !== 'object') return null; const p = { op: str(o.op, 12) }, n = () => Math.max(1, Math.min(num(o.n, 1), 99));
+  function cleanOp(o, depth) { if (!o || typeof o !== 'object') return null; const ctx = OP_CTX[o.op] || 'target', prev = FCTX, pop = CUR_OP; FCTX = ctx; CUR_OP = String(o.op);
+    try { return cleanOp0(o, depth); } finally { FCTX = prev; CUR_OP = pop; } }
+  function cleanOp0(o, depth) { const p = { op: str(o.op, 12) }, n = () => Math.max(1, Math.min(num(o.n, 1), 99));
     const who = () => opt(o.who, WHO, 'self');
     switch (p.op) {
       case 'draw': return { ...p, n: n(), who: who(), opt: !!o.opt, ...dynN(o) };
@@ -68,7 +91,7 @@ module.exports = function (A) {
       case 'pick': return { ...p, msg: str(o.msg, 30), from: opt(o.from, PFROM, 'seen'), own: opt(o.own, ['self', 'opp'], 'self'), filter: cleanFilter(o.filter), n: n(), min: Math.max(0, Math.min(num(o.min, 0), 20)), as: regN(o.as) || 'chosen', reveal: !!o.reveal, chooser: opt(o.chooser, WHO, 'self'),
         groups: (Array.isArray(o.groups) ? o.groups : []).slice(0, 3).map(g => g && ({ filter: cleanFilter(g.filter), n: Math.max(1, Math.min(num(g.n, 1), 10)), diffColor: !!g.diffColor })).filter(Boolean), sumLv: o.sumLv == null ? null : num(o.sumLv), distinct: !!o.distinct, all: !!o.all, ...dynN(o) };
       case 'turnPk': return { ...p, key: opt(o.key, ['nocutin', 'nodisev', 'noevent', 'nodisguise'], 'nocutin'), who: opt(o.who, WHO, 'opp'), until: opt(o.until, ['turn', 'action'], 'turn') };
-      case 'delay': return { ...p, evs: (Array.isArray(o.evs) ? o.evs : []).map(x => opt(x, EVS, '')).filter(Boolean).slice(0, 3), who: opt(o.who, WHO, ''), ops: cleanOps(o.ops, depth + 1), keep: !!o.keep, sf: o.sf && typeof o.sf === 'object' ? cleanFilter(o.sf) : null };
+      case 'delay': return { ...p, evs: (Array.isArray(o.evs) ? o.evs : []).map(x => opt(x, EVS, '')).filter(Boolean).slice(0, 3), who: opt(o.who, WHO, ''), ops: cleanOps(o.ops, depth + 1), keep: !!o.keep, sf: o.sf && typeof o.sf === 'object' ? cleanFilter(o.sf, 0, 'triggerSubject') : null };
       case 'hayIgn': return p;
       case 'nameSel': return p;
       case 'gain': case 'loseEvid': return { ...p, n: n(), who: who(), opt: !!o.opt };
@@ -78,11 +101,11 @@ module.exports = function (A) {
       case 'shuffle': return { ...p, who: opt(o.who, ['self', 'opp', 'both'], 'self') };
       case 'look': return { ...p, n: n(), from: opt(o.from, ['top', 'bottom'], 'top'), filter: cleanFilter(o.filter), max: Math.max(0, Math.min(num(o.max, 1), 20)), by: opt(o.by, ['opp'], ''),
         then: opt(o.then, ['hand', 'field', 'fieldSleep', 'rem'], 'hand'), rest: opt(o.rest, ['bottom', 'shuffleBottom', 'top', 'rem', 'hand', 'keep'], 'bottom') };
-      case 'select': return { ...p, force: !!o.force, opt: !!o.opt, all: !!o.all, n: n(), filter: cleanFilter(o.filter, 0, o.do === 'remove' && process.env.CONAN_DEFAULT_OWN !== 'self' ? 'any' : DEF_OWN), acts: cleanActs(o), do: opt(o.do, DO, 'sleep'), v: str(o.v, 40), until: opt(o.until, UNTIL, 'turn'),
+      case 'select': return { ...p, force: !!o.force, opt: !!o.opt, all: !!o.all, n: n(), filter: cleanFilter(o.filter), acts: cleanActs(o), do: opt(o.do, DO, 'sleep'), v: str(o.v, 40), until: opt(o.until, UNTIL, 'turn'),
         alt: o.alt && typeof o.alt === 'object' ? { cond: cleanCond(o.alt.cond), do: opt(o.alt.do, DO, 'remove') } : null, when: opt(o.when, ['lpLeOwnMax'], ''), sumLv: o.sumLv == null ? null : num(o.sumLv), ...dynN(o),
         groups: (Array.isArray(o.groups) ? o.groups : []).slice(0, 3).map(g => g && ({ filter: cleanFilter(g.filter), n: Math.max(1, Math.min(num(g.n, 1), 10)) })).filter(Boolean), pairSt: !!o.pairSt };
       case 'self': return { ...p, do: opt(o.do, DO, 'sleep'), v: str(o.v, 40), until: opt(o.until, UNTIL, 'turn'), opt: !!o.opt, mul: o.mul && typeof o.mul === 'object' ? { ref: opt(o.mul.ref, REGS, 'removed'), by: opt(o.mul.by, ['count', 'lv', 'ap1000'], 'count') } : null,
-        pc: o.pc && typeof o.pc === 'object' ? { src: opt(o.pc.src, SRC, 'field'), f: o.pc.f && typeof o.pc.f === 'object' ? cleanFilter(o.pc.f) : null } : null };
+        pc: o.pc && typeof o.pc === 'object' ? { src: opt(o.pc.src, SRC, 'field'), f: o.pc.f && typeof o.pc.f === 'object' ? cleanFilter(o.pc.f, 0, 'condition') : null } : null };
       case 'play': return { ...p, distinct: !!o.distinct, dlv: !!o.dlv, n: n(), from: opt(o.from, ['hand', 'rem', 'handrem', 'picked', 'rempa'], 'hand'), filter: cleanFilter(o.filter), asleep: !!o.asleep };
       case 'choose': return { ...p, opts: (Array.isArray(o.opts) ? o.opts : []).slice(0, 4).map(x => ({ lab: str(x && x.lab, 60), ops: cleanOps(x && x.ops, depth + 1) })) };
       case 'chooseMulti': return { ...p, max: Math.max(1, Math.min(num(o.max, 1), 6)), opts: (Array.isArray(o.opts) ? o.opts : []).slice(0, 6).map(x => ({ lab: str(x && x.lab, 80), ops: cleanOps(x && x.ops, depth + 1) })) };
@@ -115,27 +138,28 @@ module.exports = function (A) {
       case 'manual': default: { const r = X.clean(o, depth, p.op); return r || { op: 'manual', txt: str(o.txt || o.op, 200) }; } } }
   const EVS = ['handRem', 'act', 'reason', 'contact', 'evgain', 'evrem', 'removed', 'enter', 'declared', 'cutin', 'disguise', 'useev', 'actend', 'sleep', 'guard', 'setOff', 'holdLeft', 'sleepEv', 'mis', 'hint', 'turnEnd', 'fileHand', 'setOn', 'fdOff', 'hrev'];
   const COSTS = ['sleepSelf', 'discard', 'deckrem', 'selfBottom', 'sleepOther', 'flipEvid', 'fieldBottom', 'selfRem', 'selfPa', 'unset', 'unstack', 'remBottom', 'revealHand', 'fileRem', 'paRem', 'sleepAny', 'fieldRem', 'stackCost', 'either', 'lpSelf', 'discardTo', 'handDeckTop'];
-  const cleanCost = (a, depth = 0) => (Array.isArray(a) ? a : []).slice(0, 5).map(c => c && ({ ...(c.c && X.hasCost(c.c) ? X.costClean(c) : {}), c: COSTS.includes(c.c) || X.hasCost(c.c) ? c.c : '', n: Math.max(1, Math.min(num(c.n, 1), 10)), filter: cleanFilter(c.filter), var: !!c.var, fd: !!c.fd, scope: opt(c.scope, ['self', 'any', 'opp', 'mine'], 'self'),
+  const cleanCost = (a, depth = 0) => withCtx('cost', () => cleanCost0(a, depth));
+  const cleanCost0 = (a, depth = 0) => (Array.isArray(a) ? a : []).slice(0, 5).map(c => c && ({ ...(c.c && X.hasCost(c.c) ? X.costClean(c) : {}), c: COSTS.includes(c.c) || X.hasCost(c.c) ? c.c : '', n: Math.max(1, Math.min(num(c.n, 1), 10)), filter: cleanFilter(c.filter), var: !!c.var, fd: !!c.fd, scope: opt(c.scope, ['self', 'any', 'opp', 'mine'], 'self'),
     to: opt(c.to, ['sleep', 'stun'], 'sleep'), orSelf: !!c.orSelf, from: opt(c.from, ['field', 'hand'], 'field'), onto: opt(c.onto, ['self', 'pick'], 'self'), ontoF: c.ontoF && typeof c.ontoF === 'object' ? cleanFilter(c.ontoF) : null, v: num(c.v), order: !!c.order,
-    per: c.per && typeof c.per === 'object' ? { src: opt(c.per.src, SRC, 'field'), f: c.per.f && typeof c.per.f === 'object' ? cleanFilter(c.per.f) : null } : null,
+    per: c.per && typeof c.per === 'object' ? { src: opt(c.per.src, SRC, 'field'), f: c.per.f && typeof c.per.f === 'object' ? cleanFilter(c.per.f, 0, 'condition') : null } : null,
     alts: depth < 1 ? (Array.isArray(c.alts) ? c.alts : []).slice(0, 3).map(x => cleanCost(x, depth + 1)) : [] })).filter(c => c && c.c);
   function cleanAb(list) { if (!Array.isArray(list)) return []; return list.slice(0, 10).map(a => { if (!a || typeof a !== 'object') return null;
     const ic = opt(a.ic, IC, 'manual'), r = { ic, cond: cleanCond(a.cond), lim: Math.max(0, Math.min(num(a.lim), 3)), cost: cleanCost(a.cost), ops: cleanOps(a.ops),
       v: num(a.v), on: { k: opt(a.on && a.on.k, ['char', 'case']), by: opt(a.on && a.on.by, ['contact', 'effect']) }, lab: str(a.lab, 60), txt: str(a.txt, 400) };
     if (a.pa) r.pa = true; if (a.bang) r.bang = true; if (a.fromHand) r.fromHand = true; if (a.fromRem) r.fromRem = true; if (a.fromUp) r.fromUp = true; if (a.es) r.es = true;
-    if (a.ef) r.ef = cleanFilter(a.ef);
+    if (a.ef) r.ef = cleanFilter(a.ef, 0, 'triggerSubject');
     r.hay = !!a.hay; r.first = !!a.first;
     if (ic === 'enter') r.st = opt(a.st, ['s'], 's');
     if (ic === 'cutin' && a.alt && typeof a.alt === 'object') r.alt = { cond: cleanCond(a.alt.cond), v: num(a.alt.v) };
-    if (ic === 'cutin' && a.per && typeof a.per === 'object') r.per = { src: opt(a.per.src, SRC, 'field'), f: a.per.f && typeof a.per.f === 'object' ? cleanFilter(a.per.f) : null };
+    if (ic === 'cutin' && a.per && typeof a.per === 'object') r.per = { src: opt(a.per.src, SRC, 'field'), f: a.per.f && typeof a.per.f === 'object' ? cleanFilter(a.per.f, 0, 'condition') : null };
     if (ic === 'ontrig') { r.evs = (Array.isArray(a.evs) ? a.evs : []).map(x => opt(x, EVS, '')).filter(Boolean).slice(0, 4); if (!r.evs.length) { r.ic = 'manual'; r.ops = [{ op: 'manual', txt: r.txt }]; }
-      r.who = opt(a.who, ['self', 'opp'], ''); r.sub = opt(a.sub, ['self', 'notSelf', 'orSelf'], ''); r.sf = a.sf && typeof a.sf === 'object' ? cleanFilter(a.sf) : null; r.tf = a.tf && typeof a.tf === 'object' ? cleanFilter(a.tf) : null;
+      r.who = opt(a.who, ['self', 'opp'], ''); r.sub = opt(a.sub, ['self', 'notSelf', 'orSelf'], ''); r.sf = a.sf && typeof a.sf === 'object' ? cleanFilter(a.sf, 0, 'triggerSubject') : null; r.tf = a.tf && typeof a.tf === 'object' ? cleanFilter(a.tf, 0, 'triggerSubject') : null;
       r.tself = !!a.tself; r.dself = !!a.dself; r.hw = opt(a.hw, ['self', 'opp'], ''); r.hself = !!a.hself; r.k = opt(a.k, ['char', 'case'], ''); r.by = opt(a.by, ['contact', 'effect', 'reason', 'action', 'hint', 'hand', 'mis', 'cost'], ''); r.cz = opt(a.cz, ['self', 'opp'], ''); r.turnEnd = !!a.turnEnd; r.sw = !!a.sw; r.incl = !!a.incl; }
-    if (ic === 'hand') { r.lv = Math.max(0, Math.min(num(a.lv), 20)); r.lvd = a.lvd == null ? null : Math.max(-9, Math.min(num(a.lvd), 9)); if (a.per && typeof a.per === 'object') r.per = { src: opt(a.per.src, SRC, 'field'), f: a.per.f && typeof a.per.f === 'object' ? cleanFilter(a.per.f) : null }; }
+    if (ic === 'hand') { r.lv = Math.max(0, Math.min(num(a.lv), 20)); r.lvd = a.lvd == null ? null : Math.max(-9, Math.min(num(a.lvd), 9)); if (a.per && typeof a.per === 'object') r.per = { src: opt(a.per.src, SRC, 'field'), f: a.per.f && typeof a.per.f === 'object' ? cleanFilter(a.per.f, 0, 'condition') : null }; }
     if (ic === 'replace') { r.rep = { to: opt(a.rep && a.rep.to, ['hand', 'deckBottom', 'deckTop', 'rem', 'stay'], 'hand'), unsetSelf: !!(a.rep && a.rep.unsetSelf) }; r.forced = !!a.forced; r.msg = str(a.msg, 80); }
     if (ic === 'grant') { const g = a.g && a.g.ic !== 'grant' ? cleanAb([a.g]) : []; r.g = g[0] || null; if (!r.g) r.ic = 'manual', r.ops = [{ op: 'manual', txt: r.txt }]; }
-    if (ic === 'static') { const t = a.tgt || {}; r.tgt = { sel: opt(t.sel, ['self', 'allies', 'opp', 'all'], 'self'), filter: cleanFilter(t.filter), notSelf: !!t.notSelf };
-      r.ap = num(a.ap); r.lp = num(a.lp); r.lv = num(a.lv); r.kw = str(a.kw, 60); r.tr = str(a.tr, 30); r.nm = str(a.nm, 40); if (a.per && typeof a.per === 'object') r.per = { src: opt(a.per.src, SRC, 'field'), f: a.per.f && typeof a.per.f === 'object' ? cleanFilter(a.per.f) : null }; r.pk = opt(a.pk, ['pcolorAll', 'nocutinOwn', 'handLv', 'evcase','noflash', 'nocutin', 'nodisev', 'onlytrait', 'field4', 'handcut', 'altdecl', 'noremtrig', 'nosolve', 'norefresh'], ''); }
+    if (ic === 'static') { const t = a.tgt || {}; r.tgt = { sel: opt(t.sel, ['self', 'allies', 'opp', 'all'], 'self'), filter: cleanFilter(t.filter, 0, 'staticTarget'), notSelf: !!t.notSelf };
+      r.ap = num(a.ap); r.lp = num(a.lp); r.lv = num(a.lv); r.kw = str(a.kw, 60); r.tr = str(a.tr, 30); r.nm = str(a.nm, 40); if (a.per && typeof a.per === 'object') r.per = { src: opt(a.per.src, SRC, 'field'), f: a.per.f && typeof a.per.f === 'object' ? cleanFilter(a.per.f, 0, 'condition') : null }; r.pk = opt(a.pk, ['pcolorAll', 'nocutinOwn', 'handLv', 'evcase','noflash', 'nocutin', 'nodisev', 'onlytrait', 'field4', 'handcut', 'altdecl', 'noremtrig', 'nosolve', 'norefresh'], ''); }
     if (ic === 'static') { if (a.az) r.az = true; if (r.tgt && a.tgt && a.tgt.zone === 'hand') r.tgt.zone = 'hand'; if (a.gab && typeof a.gab === 'object' && a.gab.ic !== 'static') { const g = cleanAb([a.gab]); if (g[0] && g[0].ic !== 'manual') r.gab = g[0]; } }
     if (ic === 'manual' && !r.ops.length) r.ops = [{ op: 'manual', txt: r.txt }];
     return r; }).filter(Boolean); }
@@ -264,7 +288,7 @@ module.exports = function (A) {
     if (f.plain && !((d.ab || []).every(a => a.ic === 'cutin' || a.ic === 'flash') && !/[a-z]/.test(cardKw(R, id).replace(/cutin[:=]?\d*/g, '')))) return false;
     if (f.acting && R.actor !== id) return false; if (f.contacting && !(R.sub && (R.sub.atk === id || R.sub.def === id))) return false;
     if (f.st) { const st = (!R.P[c.o].field.includes(id) && c.pst) ? c.pst : (c.st || 'a'); if (f.st === 'sx' ? !(st === 's' || st === 'x') : st !== f.st) return false; }
-    if (f.any && f.any.length && !f.any.some(a => fOk(R, s, id, { ...a, own: 'any' }, src, noStat))) return false;
+    if (f.any && f.any.length && !f.any.some(a => fOk(R, s, id, a, src, noStat))) return false;
     return true; }
   // 상징 필터 → 실행 시점 값으로 치환(사용한 카드 레벨, 코스트로 리무브한 카드 레벨, 발견된 카드 레벨, 트리거 대상 특징)
   const isRegS = x => typeof x === 'string' && x.startsWith('reg:');
@@ -850,6 +874,8 @@ module.exports = function (A) {
   const hasCut = (R, id) => cutAbs(R, 0, id).length > 0 || handCutV(R, R.cards[id].o, id) > 0;
   const X = require('./fx_ext')({ nameBanned, fieldMax, chosenCheck, useOk, A, D, say, shuf, pull, chk, gain, nm, fcount, cols, fOk, rf, countOf, condOk, regIds, setReg, pickReq, yn, onField, inPa, moveCards, applyG, applyTo, placeCards, inZone: inZoneFx, rmChar, leave, moveOut, release, unsetOne, takeOut, runOps, lvOf, traitsId, traitsOf, bus, fire, kwHas, enterSt, noteEnter, mrEnter, remLeft, ally, faceDown, flipEv, flipPick, evOpts, dynNum, regNumBy, cleanFilter, cleanCond, cleanOps, cleanAb, cleanCost, cx, str, num, opt, queueEvent, abList, setCards, canPayOne, pay, noTarget, fieldPa, setSolved, replaceCheck });
   FXX = X;
-  return { noteEnter, carry, bus, pkVals, countOf, useOk, hasAbIc, ignoreColor, disguiseOk, disAbs, lvOf, enterSt, noAct, noTarget, fireAlly, fireAllyKill, fireAllyContact, fireMain, remLeft, release, hasCut, cutOk, cleanAb, fire, queueEvent, queueFlash, rmChar, leave, moveOut, mrEnter, isMR, winAlt, setSolved,
+  // v1.11.0: own 미지정으로 남은 target/triggerSubject 필터를 모은다(검증용). 반환: [{ab, ctx, op}]
+  function auditOwn(list) { const out = []; (Array.isArray(list) ? list : []).forEach((a, i) => { AUDIT = []; CUR_OP = ''; try { cleanAb([a]); } finally { const r = AUDIT; AUDIT = null; r.forEach(x => out.push({ ab: i, ctx: x.ctx, op: x.op })); } }); return out; }
+  return { auditOwn, OWN_CTX, OP_CTX, noteEnter, carry, bus, pkVals, countOf, useOk, hasAbIc, ignoreColor, disguiseOk, disAbs, lvOf, enterSt, noAct, noTarget, fireAlly, fireAllyKill, fireAllyContact, fireMain, remLeft, release, hasCut, cutOk, cleanAb, fire, queueEvent, queueFlash, rmChar, leave, moveOut, mrEnter, isMR, winAlt, setSolved,
     flipEv, flipPick, evOpts, nameBanned, fieldMax, replaceAvail, pk, hasKwTk: kwHas, grantedAb, pump, answer, declare, declareCheck, abInfo, canPay, stat, cutV, cutOps, condOk, traitsOf, traitsId };
 };

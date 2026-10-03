@@ -13,6 +13,7 @@
 - 카드 텍스트에 [상대] 같은 지정이 없는 대상(선택·비용·조건)은 **아군(자신)만** 대상이 됨 (기본 own = self). `own:'opp'`(상대) / `own:'any'`(양쪽)로 명시된 것은 그대로
 - “모든 캐릭터” 류 3장(id_0438 / 0721 / 0931)은 양쪽(any)을 명시해 유지
 - 옛 동작이 필요하면 환경변수 `CONAN_DEFAULT_OWN=any` (옛 카드 시나리오 테스트가 이 값으로 실행됨). 새 규칙 테스트: `npm run test:own`
+- ⚠ v1.11.0 에서 이 "기본값"은 **굵은 발동 조건/코스트에만** 적용되도록 문맥별로 분리됐습니다 (아래 v1.11.0 참고). 실제 효과 대상은 데이터의 `own` 이 정합니다.
 
 ## 🚫 v1.8.3 — 효과 무효 수정/표시, 로비 오류 메시지
 - 효과 무효(`blankAb`) 대상이 현장을 떠날 때 【현장 리무브 시】 등 원래 능력이 발동하던 문제 수정(떠나는 순간 무효 표시가 풀리던 것이 원인). MR 도 무효 처리
@@ -568,3 +569,31 @@ python tools/export_cards_to_excel.py --rebuild                       # Excel �
 `npm run test:cardsxlsx` (= `python3 test/cards_xlsx_test.py`, openpyxl + node 필요): 1,251장 round-trip(바이트 동일, 필드 손실 0, 이미지 보존), 단일/다중 수정, 표시 텍스트만 수정 시 ab 불변, 행 순서 섞기, **Ops 수정 → 엔진에서 실제 동작 변경(드로우 2→3)**, 오류 26종 차단, 병합 export, 신탄 추가 연동, 모호한 값 인코딩, 서버 `validateCards` 통과.
 
 > 참고: `data/color_overrides.json`(v1.8.6)의 카드 색은 서버가 cards.json 위에 덮어써서 읽습니다. 그 파일에 있는 카드의 Excel `color` 를 다르게 고치면 변환 시 경고가 나오니, 그 줄을 지우고 Excel 에서 관리하세요.
+
+## v1.10.1 — id_0886 수정
+- 「지정한 캐릭터가 레벨 6 이하인 경우 AP+3000」처럼 이미 지정된 카드를 거르는 조건(`if`/`pick`/`ifLeft` 필터)에 v1.8.4 의 "아군만" 기본값이 적용돼, 지정한 **상대** 캐릭터가 조건 검사에서 항상 탈락하던 버그를 수정했습니다. 테스트: `npm run test:id0886`.
+
+## v1.11.0 — own(소유자) 문맥 분리
+`own`(self=내 쪽 / opp=상대 쪽 / any=양쪽)이 **비어 있을 때의 의미**는 필터가 쓰이는 문맥마다 다릅니다. 전역 기본값(self 또는 any) 하나로 처리하던 구조를 없애고 문맥별로 분리했습니다.
+
+| 문맥 | 데이터 위치 | own 이 비어 있으면 |
+|---|---|---|
+| cost | `ab.cost[]` (굵은 코스트) | **self** (코난 TCG 룰: 굵은 조건/코스트는 [상대] 지정이 없으면 우리 쪽) |
+| condition | `ab.cond`, `ifc.cond`, 개수/1枚につき | **self** (같은 룰) |
+| target | `ab.ops[]` 의 필드 대상 (`select` 등) | **데이터의 own 을 그대로 사용**. 비어 있으면(끝까지 확정 못한 것) 제한 없음(permissive) + 검증 경고 (op 이름으로 추측하지 않음) |
+| conditionCheck | `if` / `ifLeft` / `ifCost` / `ifSelf` | 소유자 제한 없음 (이미 정해진 카드를 검사) |
+| zonePick | `pick` / `fetch` / `play` / `look` / `discard` / `paRemove` … | 소유자 제한 없음 (풀의 소유자는 **구역**이 정함. `pick.own` = 어느 쪽 구역, `filter.own` = 그 안에서 다시 거름) |
+| triggerSubject | `ab.sf` / `ef` / `tf` | 데이터의 own 을 그대로 사용 (누가 한 행동인지는 `who`) |
+| staticTarget | `ab.tgt.filter` | 소유자 제한 없음 (쪽은 `tgt.sel` 이 정함) |
+
+- 제거한 땜질: `select + do:remove → any`, `if/filters → ANY_OWN`, `pick → ANY_OWN`, `ifLeft → 'any'`, `bottomSame` 의 강제 `own:opp`, `any:[…]` 하위 필터의 강제 `own:any`.
+- 실제 효과 대상 `select` 등 own 이 비어 있던 데이터 518건(412장)을 아래 순서로 확정해 `own` 을 명시했습니다 (`tools/ownership_migrate.py`, 근거는 `data/ownership_applied.csv`).
+  1. **공식 룰북 p.22**: 「『キャラを～枚まで選び』と書かれている効果では、指定のないかぎりどちらの『現場』にいるキャラでも選べ…」 → 대상 절에 `自分の/相手の` 가 없으면 **효과 종류(리무브/슬립/스턴/AP+/키워드 …)와 무관하게 any** (457건).
+  2. **카드 원문/구조**: `自分の/相手の` 가 있으면 그 범위, コンタクト중/アクション중 참조 대상(any), 트리거 `who`, 컷인 이벤트의 tid(컷인한 쪽 캐릭터) 등 (61건).
+  3. 끝까지 확정할 수 없는 것은 **제한 없음(permissive) + 검증 경고**(플레이를 막지 않음). 현재 데이터에는 0건이라 `data/ownership_review.csv` 는 헤더만 있습니다. 새 카드에 own 이 비어 있으면 경고가 나오고, 그 대상은 양쪽 모두 선택할 수 있습니다 — 확인 후 Excel 의 `filter_own` 열에서 `self/opp/any` 로 정하세요.
+- 굵은 코스트/조건 규칙은 그대로입니다 (own 미지정 = self). 코스트에 `scope:any` 가 있는 카드(id_0193/0292/0777/0872/1082/0456/0574/1022/1083/1084)는 풀을 넓힐 뿐 코스트 필터(own:self)가 상대 카드를 걸러 내므로 수정하지 않았습니다(테스트로 확인).
+- 검증: `node tools/ownership_audit.js` (own 이 비어 있는 target/주체 필터 목록, `--strict` 면 있을 때 실패). Excel 빌드는 잘못된 own 값을 오류로, 새/수정 카드의 미지정 own 을 경고로 알려 줍니다.
+- Excel: Ops 시트의 `filter_own` 열(드롭다운 self/opp/any)이 최상위 효과의 `filter.own` 을 관리합니다. 굵은 조건/코스트의 own 은 Abilities 의 cond/cost JSON 안에 있습니다.
+- 신탄 추가(`add_new_cards.py`)는 새 카드의 own 을 같은 방식으로 명시하고, 애매한 항목은 `reports/add-*.ownership_review.csv` 로 남깁니다.
+- 숨은 버그도 함께 해결됨: 상대 행동을 보는 트리거(id_0348/0756/1127), 상대에게 적용되는 상시 능력(id_0290/0301), 상대 파트너 에리어 리무브(id_1149) 등이 "기본 self" 때문에 동작하지 않던 문제.
+- 테스트: `npm run test:ownership` (= `node test/ownership_contexts_test.js && python3 test/ownership_xlsx_test.py`). 옛 시나리오 테스트용 `CONAN_DEFAULT_OWN=any` 환경변수는 운영에서 쓰지 않습니다.

@@ -23,7 +23,9 @@ CORE_KEYS = set(CARD_COLS) | {CARD_ABKEY, CARD_IMG}
 AB_FIXED = ["card_id", "ab_index"]
 AB_FIRST = ["ic", "txt", "lim", "cond", "tgt", "cost", "ops"]            # 항상 앞에 두는 열
 AB_READONLY = ["ops_count"]
-OPS_COLS = ["card_id", "ab_index", "op_index", "op", "params"]
+OPS_COLS = ["card_id", "ab_index", "op_index", "op", "params"]                  # 필수 열
+OPS_ALL = ["card_id", "ab_index", "op_index", "op", "filter_own", "params"]      # 실제로 쓰는 열 (filter_own 은 선택 열: 없는 옛 Excel 도 읽힌다)
+OWN_VALUES = ("self", "opp", "any")
 OPS_PLACEHOLDER = "→Ops"                                                 # Abilities.ops 셀: 이 능력의 ops 는 Ops 시트에 있음
 COLOR_TOKENS_DEFAULT = ["red", "blue", "green", "yellow", "white", "black", "purple"]
 ID_RE = re.compile(r"^id_[0-9A-Za-z_]+$")
@@ -42,6 +44,7 @@ DESC = {   # 필드 설명 / 편집 구분
  "card_id": ("카드 ID", "key"), "ab_index": ("카드 안에서의 능력 번호 (0부터)", "key"), "ic": ("trigger/능력 종류 (onplay, declare, flash …)", "logic"),
  "txt": ("이 능력의 일본어 원문 (표시용)", "display"), "lim": ("사용 제한 횟수(ターン n)", "logic"), "cond": ("발동 조건 (JSON 객체)", "logic"), "tgt": ("대상 지정 (JSON 객체)", "logic"),
  "cost": ("코스트 (JSON 배열)", "logic"), "ops": ("실행 효과 → Ops 시트 참조", "logic"), "ops_count": ("ops 개수 — 자동 계산", "readonly"),
+ "filter_own": ("실제 효과 대상(filter)의 소유자: self=내 쪽 / opp=상대 쪽 / any=양쪽. 최상위 효과의 filter.own 을 여기서 관리합니다 (params 의 filter 에는 own 이 안 보임). 비워 두면 own 미지정 — 엔진은 플레이를 막지 않도록 제한 없이(양쪽) 처리하고 검증이 경고합니다. 굵은 조건/코스트의 own 은 Abilities 시트의 cond/cost 안에 있습니다.", "logic"),
  "op_index": ("능력 안에서의 효과 순서 (0부터)", "key"), "op": ("효과 primitive 이름 (엔진이 지원하는 것만)", "logic"), "params": ("효과 매개변수 (JSON 객체, 하위 ops 포함)", "logic"),
 }
 FILL = {"key": "D9E1F2", "logic": "FCE4D6", "display": "E2EFDA", "meta": "FFF2CC", "readonly": "D9D9D9"}
@@ -122,7 +125,10 @@ def card_rows(cards):
                         if not isinstance(o, dict) or not isinstance(op, str):
                             raise ValueError(f"{cid} ab[{i}].ops[{j}] 형식이 op 객체가 아닙니다")
                         params = {pk: pv for pk, pv in o.items() if pk != "op"}
-                        orows.append({"card_id": cid, "ab_index": i, "op_index": j, "op": op, "params": json.dumps(params, ensure_ascii=False, separators=(",", ":")) if params else ""})
+                        fown = ""
+                        if isinstance(params.get("filter"), dict) and "own" in params["filter"] and isinstance(params["filter"]["own"], str):
+                            fown = params["filter"]["own"]; params["filter"] = {fk: fv for fk, fv in params["filter"].items() if fk != "own"}   # own 은 filter_own 열에서 관리
+                        orows.append({"card_id": cid, "ab_index": i, "op_index": j, "op": op, "filter_own": fown, "params": json.dumps(params, ensure_ascii=False, separators=(",", ":")) if params else ""})
                 else: arow[k] = enc(v) if k not in ("ic", "txt", "lim") else v
             arow["ops_count"] = len(a.get("ops") or [])
             ar.append(arow)
@@ -240,6 +246,15 @@ def read_workbook(path):
             ok, v = _jloads(str(p))
             if not ok or not isinstance(v, dict): probs.append(Problem("ERROR", cid, w("params"), f"params 는 JSON 객체여야 합니다: {str(p)[:60]}")); continue
             params = v
+        if "filter_own" in hx:
+            fo = row[hx["filter_own"]]; fo = "" if fo is None else str(fo).strip()
+            if fo:
+                if fo not in OWN_VALUES: probs.append(Problem("ERROR", cid, w("filter_own"), f"filter_own 값이 올바르지 않습니다: {fo!r} (self / opp / any 중 하나)")); continue
+                f_ = params.get("filter")
+                if f_ is None: f_ = {}; params["filter"] = f_
+                if not isinstance(f_, dict): probs.append(Problem("ERROR", cid, w("params"), "filter_own 을 쓰려면 params 의 filter 가 객체여야 합니다")); continue
+                if "own" in f_ and f_["own"] != fo: probs.append(Problem("ERROR", cid, w("filter_own"), f"filter_own({fo}) 과 params.filter.own({f_['own']!r}) 이 서로 다릅니다 — 한쪽만 남기세요")); continue
+                f_["own"] = fo
         if oi in opsrows.setdefault((cid, ai), {}): probs.append(Problem("ERROR", cid, f"Ops 시트 {r}행", f"op_index {oi} 이(가) 중복되었습니다 (ab_index {ai})")); continue
         opsrows[(cid, ai)][oi] = {"op": opn, **params}
     # --- 능력 조립
@@ -357,6 +372,24 @@ def base_stats(base):
     return {"types": types, "colors": colors, "tokens": tokens or set(COLOR_TOKENS_DEFAULT), "ics": ics, "kw": kwt, "abtypes": abtypes}
 
 
+def own_problems(cid, abs_):
+    """모든 own(소유자) 값이 올바른지 재귀 검사한다 (필터의 own = self/opp/any, pick 효과의 own(구역 소유자) = self/opp)."""
+    out = []
+    def walk(x, path, in_pick=False):
+        if isinstance(x, dict):
+            is_pick = x.get("op") == "pick"
+            for k, v in x.items():
+                if k == "own":
+                    ok_ = ("self", "opp") if is_pick else OWN_VALUES
+                    if not isinstance(v, str) or v not in ok_:
+                        out.append(Problem("ERROR", cid, f"Abilities/Ops 시트, {path or '(능력)'}", f"own 값이 올바르지 않습니다: {v!r} ({' / '.join(ok_)} 중 하나" + (" — pick 의 own 은 어느 쪽 구역에서 고를지)" if is_pick else ")")))
+                else: walk(v, f"{path}.{k}" if path else k)
+        elif isinstance(x, list):
+            for i, v in enumerate(x): walk(v, f"{path}[{i}]")
+    for ix, a in enumerate(abs_ if isinstance(abs_, list) else []): walk(a, f"ab_index {ix}")
+    return out
+
+
 def validate_cards(cards, base, allow_delete=(), use_node=True, min_ratio=0.9, partial=False):
     """의미 검증(스키마). 반환: problems 리스트."""
     probs = []; st = base_stats(base); bc = (base or {}).get("cards", {}) if base else {}
@@ -384,6 +417,7 @@ def validate_cards(cards, base, allow_delete=(), use_node=True, min_ratio=0.9, p
                 if ts and type(v).__name__ not in ts and not (v is None) and not (ts == {"int"} and isinstance(v, float)):
                     probs.append(Problem("ERROR", cid, f"{w}, 열 {k}", f"'{k}' 값의 형식이 올바르지 않습니다 (현재 DB: {'/'.join(sorted(ts))}, 입력: {type(v).__name__} {json.dumps(v, ensure_ascii=False)[:50]})"))
             if "lim" in a and (not isinstance(a["lim"], int) or isinstance(a["lim"], bool) or not 0 <= a["lim"] <= 3): probs.append(Problem("ERROR", cid, f"{w}, 열 lim", f"lim 은 0~3 의 정수여야 합니다: {a['lim']!r}"))
+    for cid in sorted(cards): probs += own_problems(cid, cards[cid].get("ab") or [])
     # 카드 삭제/급감 (요약을 맨 앞에)
     missing = [] if partial else sorted(set(bc) - set(cards)); ad = set(allow_delete); head = []
     if bc and not partial and len(cards) < len(bc) * min_ratio and not ad: head.append(Problem("ERROR", None, "Cards 시트", f"카드 수가 급감했습니다 ({len(bc)} → {len(cards)}장). 행을 실수로 지운 것이 아닌지 확인하세요"))
@@ -500,14 +534,14 @@ def write_workbook(db, path, base_for_img=None):
     for rr in range(2, len(cr) + 2): ws.cell(rr, ccols.index("ab_count") + 1).value = f'=COUNTIF(Abilities!$A:$A,A{rr})'; ws.cell(rr, ccols.index("ab_count") + 1).fill = fill("readonly")
     acols = AB_FIXED + ab_columns(cards) + AB_READONLY
     sheet("Abilities", acols, ar, {"card_id": 11, "ab_index": 8, "ic": 12, "txt": 60, "lim": 6, "cond": 36, "tgt": 30, "cost": 30, "ops": 10}, wrap=("txt", "cond", "tgt", "cost"), freeze="C2", numeric=("lim",))
-    sheet("Ops", OPS_COLS, orows, {"card_id": 11, "ab_index": 8, "op_index": 9, "op": 16, "params": 100}, wrap=("params",), freeze="E2")
+    sheet("Ops", OPS_ALL, orows, {"card_id": 11, "ab_index": 8, "op_index": 9, "op": 16, "filter_own": 11, "params": 100}, wrap=("params",), freeze="E2")
     sheet("CardExtra", ["card_id", "key", "value"], er, {"card_id": 11, "key": 20, "value": 60}, kinds={"value": "logic", "key": "key"})
     meta = [{"key": k, "value": enc(v)} for k, v in db.items() if k != "cards"]
     sheet("Meta", ["key", "value"], meta, {"key": 20, "value": 80}, kinds={"value": "meta", "key": "key"})
     # 현재 DB 에 실제 존재하는 값 목록 + 드롭다운
     st = base_stats(db); wl = wb.create_sheet("Lists")
     ops_names = sorted({o["op"] for o in orows})
-    lists = {"type": sorted(st["types"] - {None}), "color": sorted(c for c in st["colors"] if c), "ic": sorted(st["ics"] - {None}), "op": ops_names}
+    lists = {"type": sorted(st["types"] - {None}), "color": sorted(c for c in st["colors"] if c), "ic": sorted(st["ics"] - {None}), "op": ops_names, "own": list(OWN_VALUES)}
     for j, (k, vals) in enumerate(lists.items(), 1):
         wl.cell(1, j, k).font = hdrfont
         for i, v in enumerate(vals, 2): wl.cell(i, j, v)
@@ -519,7 +553,9 @@ def write_workbook(db, path, base_for_img=None):
                            errorTitle="현재 DB 에 없는 값", error="현재 카드 DB 에 존재하지 않는 값입니다. 정말 맞는지 확인하세요.")
         ws_.add_data_validation(d); d.add(f"{_colname(j - 1)}2:{_colname(j - 1)}{max(n_rows + 1, 2) + 500}")
     dv(wb["Cards"], "type", ccols, "type", len(cr), "stop"); dv(wb["Cards"], "color", ccols, "color", len(cr), "warning")
-    dv(wb["Abilities"], "ic", acols, "ic", len(ar), "warning"); dv(wb["Ops"], "op", OPS_COLS, "op", len(orows), "warning")
+    dv(wb["Abilities"], "ic", acols, "ic", len(ar), "warning"); dv(wb["Ops"], "op", OPS_ALL, "op", len(orows), "warning")
+    d_own = DataValidation(type="list", formula1='"self,opp,any"', allow_blank=True, errorStyle="stop", showErrorMessage=True, errorTitle="own 값", error="self(내 쪽) / opp(상대 쪽) / any(양쪽) 중 하나만 입력할 수 있습니다.")
+    wb["Ops"].add_data_validation(d_own); jown = OPS_ALL.index("filter_own") + 1; d_own.add(f"{_colname(jown - 1)}2:{_colname(jown - 1)}{max(len(orows) + 1, 2) + 500}")
     # 안내 시트
     g = wb.create_sheet("Guide", 0); g.column_dimensions["A"].width = 24; g.column_dimensions["B"].width = 80; g.column_dimensions["C"].width = 16
     rows = [("명탐정 코난 TCG 카드 데이터 (cards.xlsx)", "", ""), ("", "", ""),
@@ -527,12 +563,13 @@ def write_workbook(db, path, base_for_img=None):
             ("연결 키", "항상 카드 ID(id / card_id). 행 순서·정렬은 마음대로 바꿔도 됩니다.", ""),
             ("시트", "Cards=카드 기본 정보 / Abilities=능력(ab) 1개당 1행 / Ops=능력 안의 효과(primitive) 1개당 1행 / CardExtra=추가 필드 / Meta=최상위 항목", ""),
             ("이미지", "이미지(base64)는 Excel 에 없습니다. cards.json 에 그대로 보존되며 ID 로 자동 연결됩니다.", ""),
+            ("own(소유자)", "굵은 발동 조건/코스트(Abilities 의 cond/cost)에서 own 이 없으면 자기 쪽(self)입니다. 실제 효과 대상은 Ops 시트의 filter_own 열(self/opp/any 드롭다운)에서 관리합니다. 비워 두면 '미지정'으로 검증이 경고합니다.", ""),
             ("메모 열", "열 이름 앞에 # 또는 _ 를 붙이면 변환 시 무시됩니다.", ""), ("", "", ""), ("머리글 색", "의미", ""),
             ("파랑", "연결 키(ID/번호) — 바꾸지 마세요", "key"), ("주황", "엔진 동작에 영향을 주는 값(색/AP/LP/효과 등)", "logic"), ("초록", "표시용 텍스트 — 고쳐도 게임 로직은 바뀌지 않음", "display"),
             ("노랑", "참고용 메타데이터", "meta"), ("회색", "자동 계산 열 — 수정해도 무시됨", "readonly"), ("", "", ""), ("필드", "설명 / 구분", "")]
     for r_ in rows: g.append(list(r_))
-    for r_i in range(10, 15): g.cell(r_i, 1).fill = fill(rows[r_i - 1][2])
-    g.cell(1, 1).font = Font(bold=True, size=14); g.cell(9, 1).font = hdrfont; g.cell(16, 1).font = hdrfont
+    for r_i in range(11, 16): g.cell(r_i, 1).fill = fill(rows[r_i - 1][2])
+    g.cell(1, 1).font = Font(bold=True, size=14); g.cell(10, 1).font = hdrfont; g.cell(17, 1).font = hdrfont
     for k, (d, kind) in DESC.items(): g.append([k, d, {"key": "연결 키", "logic": "엔진 동작", "display": "표시용", "meta": "참고용", "readonly": "자동"}[kind]]); g.cell(g.max_row, 1).fill = fill(kind)
     for r_ in g.iter_rows(min_row=1):
         for c in r_: c.alignment = Alignment(wrap_text=True, vertical="top")

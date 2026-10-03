@@ -75,7 +75,7 @@ module.exports = function (K, def) {
 
   // bottomSame (카드 전용: 工藤新一 id_0735): 상대 현장의 캐릭터 1장(조건)과 상대 리무브 에리어의 같은 카드 이름 캐릭터 1장을 골라, 상대가 순서를 정해 덱 아래로 옮긴다
   def('bottomSame', o => ({ op: 'bottomSame', filter: cleanFilter(o.filter) }), function* (R, s, src, o, ctx, it) {
-    ctx.done = false; const t = 1 - s, T = R.P[t], f = rf(R, { ...(o.filter || {}), own: 'opp' }, ctx);
+    ctx.done = false; const t = 1 - s, T = R.P[t], f = rf(R, o.filter, ctx);
     const cand = T.field.filter(x => fOk(R, s, x, f, src) && !noTarget(R, x, src)); let ch = [];
     if (cand.length) { ch = (yield pickReq(s, '덱 아래로 보낼 상대 캐릭터를 최대 1장 선택', cand, 0, 1)).filter(x => cand.includes(x)); if (ch.length) ch = yield* chosenCheck(R, s, src, ch, it); }
     let rm = []; if (ch.length) { const nmx = D(R, ch[0]).n, rc = T.rem.filter(x => D(R, x).type === 'char' && D(R, x).n === nmx);
