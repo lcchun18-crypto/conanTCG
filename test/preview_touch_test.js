@@ -51,8 +51,8 @@ let pass = 0, fail = 0; const ok = (c, m) => { console.log(c ? '✓' : '✗', m)
     await pg.feed(hv()); const rc = hv().P[s].hand.slice(0, 2); await pg.feed({ t: 'reveal', id: 9, by: 1 - s, to: [s], ack: 1 - s, msg: '공개', src: 'X', cards: rc }); await pg.waitForSelector('#rvl.on .ri .card'); [x, y] = await center('#rvl .ri .card'); await down(x, y); await pg.waitForTimeout(80);
     ok(await pvImg(pg) === R.defs[rc[0].d].img, '모바일 공개 카드 팝업: 닿는 즉시 상세 패널 표시'); await up();
     // 드래그/스크롤을 막지 않음: 닿은 뒤 움직이는 동안에도 preview 유지 & touchmove 취소 안 함
-    await pg.click('#rvOk'); await pg.feed(hv()); [x, y] = await center('#hand .card'); await down(x, y); await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + 40, y: y }] }); await pg.waitForTimeout(60);
-    ok(await pvImg(pg) === hid, '모바일: 닿은 채 움직여도 처음 닿은 카드 preview 유지(스크롤/드래그 막지 않음)'); await up();
+    await pg.click('#rvOk'); await pg.feed(hv()); [x, y] = await center('#hand .card'); await down(x, y); await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 3, y: 3 }] }); await pg.waitForTimeout(60);
+    ok(await pvImg(pg) === hid, '모바일: 닿은 채 카드 없는 빈 곳으로 움직이면 마지막 preview 유지 (다른 카드 위로 가는 경우는 preview_sweep_test)'); await up();
     ok(pg.errs.length === 0, '모바일: JS 오류 없음 ' + pg.errs.join('|')); await pg.ctx.close(); }
   // ───── 행동 확정은 기존 tap 그대로 (새 페이지: 손가락 닿음 → preview 만 / tap → 선택 확정)
   { const pg = await mkPage(true); await pg.feed(effView('pick')); await pg.waitForTimeout(200); const b2 = await pg.locator('#etray .card').nth(1).boundingBox(); await pg.evaluate(() => { window.__sent.length = 0; });

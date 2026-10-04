@@ -598,6 +598,14 @@ python tools/export_cards_to_excel.py --rebuild                       # Excel �
 - 숨은 버그도 함께 해결됨: 상대 행동을 보는 트리거(id_0348/0756/1127), 상대에게 적용되는 상시 능력(id_0290/0301), 상대 파트너 에리어 리무브(id_1149) 등이 "기본 self" 때문에 동작하지 않던 문제.
 - 테스트: `npm run test:ownership` (= `node test/ownership_contexts_test.js && python3 test/ownership_xlsx_test.py`). 옛 시나리오 테스트용 `CONAN_DEFAULT_OWN=any` 환경변수는 운영에서 쓰지 않습니다.
 
+## v1.12.6 — 터치: 손가락을 누른 채 훑으면 상세가 계속 따라 바뀜
+
+- 카드에 손가락을 대고 떼지 않은 채 다른 카드 위로 끌면, 마우스 hover 처럼 오른쪽 상세 패널이 현재 손가락 아래 카드로 즉시 바뀝니다.
+- 구현: `pointerdown`/`touchstart` 로 추적 시작 → `pointermove`/`touchmove` 마다 `document.elementFromPoint(x,y).closest('.card,.cc,.dg,.fxi')` 로 실제 좌표 hit-test (event.target 은 암묵적 pointer capture 로 최초 요소라 사용 안 함). 다른 카드면 preview 갱신, 빈 공간은 마지막 preview 유지, 손을 떼면 종료.
+- 스크롤이 시작돼 `pointercancel` 이 나와도 `touchmove` 로 계속 추적. 필드/손패/효과팝업 카드에만 `touch-action:none` 적용(전역 preventDefault 없음, 리스너 모두 passive). 선택 팝업·덱빌더처럼 스크롤되는 곳은 스크롤을 그대로 두고 touchmove 로 추적.
+- preview 전용: 훑는 동안 선택·등장·공격·대상 지정·덱 추가/삭제 없음. 행동은 기존 tap(click) 그대로.
+- 테스트: `test/preview_sweep_test.js`.
+
 ## v1.12.5 — 팝업 카드 hover preview / 터치는 "닿는 순간" preview
 1. **효과 확인 팝업의 카드 이미지**가 마우스를 올려도 반응하지 않던 원인: 팝업(`#effp`)이 보드 클릭을 막지 않으려고 `pointer-events:none` 이었고, 그 안의 이미지는 일반 카드와 달리 preview 등록(`_pv`)도 없었습니다. → 이미지만 `pointer-events:auto` + 일반 카드와 같은 `_pv`/`pv()` 경로로 연결. 공개 카드 팝업·카드 선택 팝업은 원래 일반 카드(`mk()`)라 hover 가 되고 있어 같은 테스트로 확인. **hover 가 끝나면(팝업 카드에서 벗어나면) hover 전에 보던 preview 로 복귀**합니다.
 2. **터치 기기**: 예전에는 카드를 450ms 길게 눌러야 preview 가 떴습니다. 이제 `pointerdown`(닿는 순간, 손 떼기 전)에 바로 오른쪽 상세 패널이 갱신됩니다. 대상: 필드/손패/증거/FILE/리무브 등 `.card`, 효과·공개·선택 팝업 카드, 덱빌더 목록/덱 카드(`.cc`,`.dg`). 닿은 채 움직여도 처음 닿은 카드 preview 유지.
