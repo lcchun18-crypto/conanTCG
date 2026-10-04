@@ -38,6 +38,7 @@ class BotCtl {
     this.R = R; this.seat = seat; this.deps = deps; this.tr = new Tracker(); this.cfg = cfgFromEnv(); this.log = []; this.busy = false; this.stopped = false; this.illegal = 0; this.plan = null; this.decisions = 0; this.startedAt = Date.now();
     this.slimDefs = null; this.slimN = -1;
   }
+  sysDirty() { this.tr.base = require('./simulate.js').cloneable(this.R) ? clone(this.R) : null; this.tr.acts = []; this.tr.ver++; this.plan = null; }   // v1.12.0: 연습 모드 시스템 변경 후 탐색 추적기 재설정
   apply(seat, m, actFn) { return this.tr.apply(this.R, seat, m, actFn); }
   drop() { dropSearcher(this.R.code); if (W) { try { W.postMessage({ type: 'drop', code: this.R.code }); } catch (e) {} } } // 탐색 캐시(메모리) 반환
   stop() { this.stopped = true; this.drop(); }
@@ -60,6 +61,15 @@ class BotCtl {
   snapshotIfNeeded() { if (!this.tr.base && cloneable(this.R)) { this.tr.base = clone(this.R); this.tr.acts = []; } }
   async run(t0) {
     const R = this.R; if (this.stopped || R.phase === 'over') return; const d = who(R); if (!d || d.seat !== this.seat) return;
+    if (this.training && R.bot === this) { // v1.12.0 연습 스크립트: Expert 탐색보다 우선 (기본 꺼짐, 방 생성 때 명시적으로 켠 경우만)
+      let t = null; try { t = require('./training.js').next(this, d); } catch (e) { console.error('training error:', e && e.stack || e); this.training = false; R.log.push('[TRAINING] 오류로 연습 스크립트를 끄고 평소 Expert 로 진행합니다: ' + (e && e.message)); }
+      const d2 = who(R); if (!d2 || d2.seat !== this.seat) { this.deps.bc(R); return; }
+      if (t) { const ver0 = this.tr.ver, wait0 = this.cfg.delayMs - (Date.now() - t0); if (wait0 > 0) await new Promise(r => setTimeout(r, wait0));
+        if (this.stopped || ver0 !== this.tr.ver || R.phase === 'over') return;
+        const e = this.deps.dispatch(R, t.mv.seat, t.mv.m); this.decisions++;
+        this.log.push({ n: this.decisions, at: new Date().toISOString(), kind: d2.kind, training: true, chosen: { desc: t.desc, move: t.mv.m }, error: e || undefined });
+        if (e) { this.illegal++; this.training = false; R.log.push('[TRAINING] 연습 행동이 거부되어 평소 Expert 로 진행합니다: ' + e); this.fallback('illegal: ' + e); } else if (t.commit) t.commit();
+        this.deps.bc(R); return; } }
     const ver = this.tr.ver, sum = summary(R), snap = d.kind === 'main' ? require('./snapshot.js').snapshot(R) : undefined;; /* snap: 실전 피드백 → 회귀 테스트 재현용(게임 종료 후 로그로만 공개) */  let res = this.planned(R, d);
     if (!res) {
       this.snapshotIfNeeded(); if (!this.tr.base) throw new Error('no base snapshot');
@@ -102,7 +112,7 @@ function createRoom({ rooms, mkR, ready, dispatch, loadCards, say, cl, ws, m, se
   const R = rooms[c] = mkR(c); R.ws[0] = ws; R.firstPref = m.first === 'first' ? 0 : m.first === 'second' ? 1 : undefined;
   const fake = { readyState: 1, bot: true, send() {}, close() {} }; R.ws[1] = fake;
   const defs = {}; for (const id of [...new Set(list), bd.partner, bd.kase]) defs[id] = DB[id];
-  const ctl = new BotCtl(R, 1, { dispatch, bc }); R.bot = ctl; ctl.name = botName; ctl.specialist = specId; if (specId) ctl.cfg.specialist = specId; else if (!legacy) ctl.cfg.specialist = 'pro';   // v1.2.0: 범용 Expert 는 PRO 전략 정책(bot/pro.js)을 쓴다. 'classic' 은 이전 방식
+  const ctl = new BotCtl(R, 1, { dispatch, bc }); R.bot = ctl; ctl.name = botName; ctl.specialist = specId; ctl.training = m.training === true && !specId && !legacy; if (specId) ctl.cfg.specialist = specId; else if (!legacy) ctl.cfg.specialist = 'pro';   // v1.2.0: 범용 Expert 는 PRO 전략 정책(bot/pro.js)을 쓴다. 'classic' 은 이전 방식
   const e = dispatch(R, 1, { t: 'ready', defs, list, partner: bd.partner, kase: bd.kase }); if (e) { delete rooms[c]; throw new Error('봇 덱이 규칙에 맞지 않습니다: ' + e); }
   say(R, '🤖 ' + botName + ' 와의 대전입니다. 내 덱을 등록하면 시작합니다.'); return R;
 }

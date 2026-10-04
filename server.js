@@ -348,5 +348,6 @@ function main() {
   const PORT = Number(process.env.PORT) || 3000;
   server.listen(PORT, () => console.log(`listening on port ${PORT}`));
 }
-module.exports = { turnRestart, resetRoom, snapTake, flushReveal, bc, actsFor, playCheck, mkR, ready, act, view, FX, ap, lpOf, tk, loadCards, validateCards, dispatch, D, tok, fcount, okc, mustGuard, mustDesig, cols };
+const sysRun = (R, f) => withCur(R, () => { const r = f(); FX.pump(R); settle(R); return r; });   // v1.12.0: 연습 모드(Training AI) 전용 시스템 처리 — 난수 컨텍스트 + 효과 큐 처리
+module.exports = { sysRun, turnRestart, resetRoom, snapTake, flushReveal, bc, actsFor, playCheck, mkR, ready, act, view, FX, ap, lpOf, tk, loadCards, validateCards, dispatch, D, tok, fcount, okc, mustGuard, mustDesig, cols };
 if (require.main === module) main();
