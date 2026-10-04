@@ -205,7 +205,10 @@ module.exports = function (A) {
       { const c0 = R.cards[id]; if (c0 && !onField(R, id) && (R.P[c0.o].deck.includes(id) || R.P[c0.o].rem.includes(id))) g = g.concat((D(R, id).ab || []).filter(a => a.ic === 'static' && a.az && a.nm).map(a => a.nm)); }   // static az: 덱/리무브 에리어에서만 해당 카드명으로도 취급
       return g.some(n => (!f.name || n.includes(f.name)) && (!f.names || !f.names.length || f.names.some(x => n.includes(x)))); } finally { _inNm = 0; } };
   const effN = (R, id) => (R.fl && R.fl.nmx && R.fl.nmx[id] != null && onField(R, id)) ? R.fl.nmx[id] : D(R, id).n;   // 「ターン終了時までカード名を書き換える」効果を反映した現在のカード名
-  const nameHit = (d, f) => (!f.name || d.n.includes(f.name)) && (!f.names || !f.names.length || f.names.some(x => d.n.includes(x)));
+  // v1.12.2: 카드 DB 에 영문으로 인쇄된 이름(id_0438 'SHUICHI AKAI' 등)도 일본어 카드명 조건(「赤井秀一」 등)에 해당한다
+  const NAME_ALIAS = { 'SHUICHI AKAI': '赤井秀一', 'Conan Edogawa': '江戸川コナン', 'AIHARA': '灰原哀', 'Ran Mori & Conan Edogawa': '江戸川コナン&毛利蘭\n毛利蘭&江戸川コナン', 'Conan Edogawa & Ai Haibara': '江戸川コナン&灰原哀\n灰原哀&江戸川コナン' };
+  const nameOf = n => NAME_ALIAS[n] ? n + '\n' + NAME_ALIAS[n] : n;
+  const nameHit = (d, f) => { const n = nameOf(d.n); return (!f.name || n.includes(f.name)) && (!f.names || !f.names.length || f.names.some(x => n.includes(x))); };
   function condOk(R, s, id, ab, ctx) { const c = ab.cond || {}, P = R.P[s], x = ctx || {};
     if (c.viaEffect && !x.viaEffect) return false;
     if (c.viaHint && !R.fl.hw) return false;   // 넥스트 힌트로 얻은 사용 기회 중일 때만(예: 「ネクストヒントで手札から使用する場合」)
@@ -263,7 +266,7 @@ module.exports = function (A) {
     const sv = k => f[k] === 'self' ? (k.startsWith('ap') ? (R.cards[src] ? A.ap(R, src) : null) : (R.cards[src] ? lvOf(R, src) : null)) : f[k];
     if (f.own === 'self' && c.o !== s) return false; if (f.own === 'opp' && c.o === s) return false;
     if (f.notSelf && id === src) return false; if (f.self && id !== src) return false; if (f.type && d.type !== f.type) return false;
-    if (f.lvMax != null || f.lvMin != null || f.lvEq != null || f.lvSet) { const lv = lvOf(R, id, noStat), lvm = f.lvMax === 'file' ? fcount(R, s) : sv('lvMax'), lvn = f.lvMin === 'file' ? fcount(R, s) : sv('lvMin');
+    if (f.lvMax != null || f.lvMin != null || f.lvEq != null || f.lvSet) { const lv = lvOf(R, id, noStat && _inStat > 0), lvm = f.lvMax === 'file' ? fcount(R, s) : sv('lvMax'), lvn = f.lvMin === 'file' ? fcount(R, s) : sv('lvMin');
       if (lvm != null && lv > lvm) return false; if (lvn != null && lv < lvn) return false;
       if (f.lvEq != null && lv !== f.lvEq) return false; if (f.lvSet && !f.lvSet.includes(lv)) return false; }
     if (f.apMax != null || f.apMin != null || f.apEq != null) { const a = apv(), mx = sv('apMax'), mn = sv('apMin'), eq = sv('apEq'); if (mx != null && a > mx) return false; if (mn != null && a < mn) return false; if (eq != null && a !== eq) return false; }
@@ -305,12 +308,13 @@ module.exports = function (A) {
     return g; }
 
   // 상시 능력(static) 합산: 필드 캐릭터·사건에 붙은 static 능력을 대상 카드에 적용
-  function stat(R, id) { const c = R.cards[id], out = { ap: 0, lp: 0, lv: 0, kw: '' }; if (!c || R.phase === 'setup') return out;
+  let _inStat = 0;   // v1.12.2: 상시 효과(stat) 계산 중에는 레벨 필터가 상시 레벨 증감을 다시 계산하지 않는다(재귀 방지). 그 밖(효과 처리/조건 판정)에서는 현재 레벨(상시 증감 포함)로 판정
+  function stat(R, id) { const c = R.cards[id], out = { ap: 0, lp: 0, lv: 0, kw: '' }; if (!c || R.phase === 'setup') return out; _inStat++; try {
     for (const t of [0, 1]) { const P = R.P[t]; for (const sid of [...P.field, P.kase, ...P.pa]) { if (sid == null) continue; const d = D(R, sid); if (!d.ab && !(R.cards[sid].sets || []).length && !(R.cards[sid].tab || []).length) continue; const pa = P.pa.includes(sid);
       for (const ab of abList(R, sid)) { if (ab.ic !== 'static' || ab.az || (pa && !ab.pa) || !condOk(R, t, sid, ab)) continue; const g = ab.tgt || { sel: 'self' };
         const hit = g.sel === 'self' ? sid === id : g.sel === 'allies' ? c.o === t && !(g.notSelf && sid === id) && fOk(R, t, id, g.filter, sid, true)
           : g.sel === 'opp' ? c.o !== t && fOk(R, t, id, g.filter, sid, true) : !(g.notSelf && sid === id) && fOk(R, t, id, g.filter, sid, true);
-        if (hit && (sid === id || R.P[c.o].field.includes(id))) { const m = ab.per ? countOf(R, t, sid, ab.per) : 1; out.ap += (ab.ap || 0) * m; out.lp += (ab.lp || 0) * m; out.lv += (ab.lv || 0) * m; if (ab.kw) out.kw += ' ' + ab.kw; if (ab.tr) out.tr = (out.tr || '') + ' ' + ab.tr; if (ab.nm) out.nm = (out.nm || '') + '\n' + ab.nm; } } } }
+        if (hit && (sid === id || R.P[c.o].field.includes(id))) { const m = ab.per ? countOf(R, t, sid, ab.per) : 1; out.ap += (ab.ap || 0) * m; out.lp += (ab.lp || 0) * m; out.lv += (ab.lv || 0) * m; if (ab.kw) out.kw += ' ' + ab.kw; if (ab.tr) out.tr = (out.tr || '') + ' ' + ab.tr; if (ab.nm) out.nm = (out.nm || '') + '\n' + ab.nm; } } } } } finally { _inStat--; }
     return out; }
   // 플레이어 단위 상시 효과(pk): 예) 상대는 【ヒラメキ】를 발동할 수 없다
   function pk(R, s, key) { const P = R.P[s]; if ((R.fl.pk && R.fl.pk[s] && R.fl.pk[s][key]) || (R.fl.pkA && R.fl.pkA[s] && R.fl.pkA[s][key])) return true;

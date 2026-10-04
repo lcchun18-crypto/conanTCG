@@ -26,10 +26,11 @@ let pass = 0, fail = 0; const ok = (c, m) => { console.log(c ? '✓' : '✗', m)
     if (mobile) await pg.evaluate(() => document.body.classList.remove('topopen'));
     // 이번 턴 다시시작 버튼
     const rt = await pg.evaluate(() => { const b = document.getElementById('rtBtn'); return b ? b.textContent : null; }); ok(rt === '이번 턴 다시시작', `${T}: 내 턴에 [이번 턴 다시시작] 버튼 (${rt})`);
+    { const pos = await pg.evaluate(() => { const a = document.getElementById('restartBtn'), b = document.getElementById('rtBtn'); return { next: a.nextElementSibling === b, top: !!b.closest('#top'), inBar: !!document.querySelector('#acts #rtBtn, #abar #rtBtn') }; }); ok(pos.next && pos.top && !pos.inBar, `${T}: [이번 턴 다시시작] 이 상단 [다시하기] 바로 옆에 위치`); }
     await pg.evaluate(() => document.getElementById('rtBtn').click()); ok(await vis('yn') && /턴 시작 상태로 돌아가시겠습니까/.test(await pg.evaluate(() => document.querySelector('#yn .ym').textContent)), `${T}: 확인창 문구`);
     await pg.evaluate(() => document.getElementById('ynN').click()); ok(!(await pg.evaluate(() => window.__sent.some(m => m.t === 'restartTurn'))), `${T}: [아니오] → 요청 안 보냄`);
     await pg.evaluate(() => document.getElementById('rtBtn').click()); await pg.evaluate(() => document.getElementById('ynY').click()); ok(await pg.evaluate(() => window.__sent.some(m => m.t === 'restartTurn')), `${T}: [예] → restartTurn 전송`);
-    await feed(ov); ok(!(await pg.evaluate(() => !!document.getElementById('rtBtn'))), `${T}: 상대 턴에는 다시시작 버튼 없음`); await feed(hv);
+    await feed(ov); ok(!(await vis('rtBtn')) && !(await pg.evaluate(() => !!document.getElementById('rtBtnA'))), `${T}: 상대 턴에는 다시시작 버튼 안 보임`); await feed(hv);
     // 공개 팝업
     await feed({ t: 'reveal', id: 1, by: o, to: [s], ack: o, msg: '상대가 공개', src: 'TESTCARD', cards }); await pg.waitForTimeout(100);
     const rv = await pg.evaluate(() => ({ on: document.getElementById('rvl').classList.contains('on'), n: document.querySelectorAll('#rvl .ri .card').length, names: [...document.querySelectorAll('#rvl .ri b')].map(x => x.textContent), ids: [...document.querySelectorAll('#rvl .ri small')].map(x => x.textContent), bg: [...document.querySelectorAll('#rvl .ri .card')].map(x => x.style.backgroundImage || getComputedStyle(x).backgroundImage).every(x => /svg|url/.test(x)), box: (() => { const r = document.querySelector('#rvl .rb').getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom, innerWidth, innerHeight]; })() }));

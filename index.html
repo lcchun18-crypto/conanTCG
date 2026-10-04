@@ -452,7 +452,7 @@ body.m #dbErr>div{max-width:94vw}
 #rvl .ri{display:flex;flex-direction:column;align-items:center;gap:4px;max-width:calc(var(--cw) + 20px)}#rvl .ri .card{margin:0;transform:none;cursor:default}#rvl .ri b{font-size:12.5px;color:#fff;line-height:1.25}#rvl .ri small{font-size:11px;color:#9fb3c8}
 #rvl button,#yn button{padding:9px 26px;font-size:15px;min-height:42px}
 #yn .yb{max-width:min(92vw,440px)}#yn .ym{font-size:15px;color:#eef3f8;line-height:1.5}#yn .yr{display:flex;gap:10px}
-#restartBtn{padding:5px 12px;font-size:12px;flex:none}#rtBtn{border-color:#6fe0ff}
+#restartBtn,#rtBtn{padding:5px 12px;font-size:12px;flex:none}#rtBtn{border-color:#6fe0ff}
 </style></head><body>
 <div id="net" role="status" aria-live="polite"></div>
 <div id="lobby"><h1>명탐정 코난 TCG</h1><div class="sub">카드게임 시뮬레이터</div>
@@ -467,7 +467,7 @@ body.m #dbErr>div{max-width:94vw}
 <div class="rowb" id="botTrainRow" title="AI가 어시스트·넥스트 힌트로 고코스트 캐릭터를 빠르게 전개하고 내 캐릭터를 제거하는 연습용 스크립트 (일반 Expert AI 아님)"><label><input type="checkbox" id="botTrain"> 연습 모드 (강제 전개 스크립트)</label></div>
 <div id="botErr"></div><div class="rowb"><button class="pri" onclick="botStart()">대전 시작</button><button class="ghost" onclick="$('botm').style.display='none'">취소</button></div>
 <small>봇은 내 손패와 뒷면 세트 카드까지 볼 수 있지만, 앞으로의 덱 순서는 모릅니다. 난이도는 EXPERT 하나입니다(전문 봇은 같은 Expert 탐색 + 덱 전용 전략). 전문 봇은 정해진 덱을 씁니다. 저장한 덱(40장 + 사건 + 파트너)만 고를 수 있습니다.</small></div></div>
-<div id="game"><div id="top"><span class="brand">명탐정 코난 TCG</span><span id="turnb">-</span><span id="firstb" class="order" style="display:none" aria-live="polite"></span><span class="pill">방 코드 <b id="rc"></b></span><span class="pill" id="info"></span><span class="sp"></span><button id="restartBtn" class="ghost" type="button" title="현재 게임을 초기화하고 처음부터 다시 시작">🔄 다시하기</button><button id="leaveBtn" class="ghost" type="button" title="로비로 나가기">🚪 로비로</button><button class="mbtn" id="mLog">📜 로그</button><button class="mbtn" id="mMenu">☰ 메뉴</button><span id="botpill" class="pill" style="display:none">🤖 BOT / EXPERT</span><span id="botover" class="grp" style="display:none"><button class="pri" onclick="botRestart()">다시 대전</button><button onclick="botLog()">AI 기록 다운로드</button></span>
+<div id="game"><div id="top"><span class="brand">명탐정 코난 TCG</span><span id="turnb">-</span><span id="firstb" class="order" style="display:none" aria-live="polite"></span><span class="pill">방 코드 <b id="rc"></b></span><span class="pill" id="info"></span><span class="sp"></span><button id="restartBtn" class="ghost" type="button" title="현재 게임을 초기화하고 처음부터 다시 시작">🔄 다시하기</button><button id="rtBtn" class="ghost" type="button" style="display:none" title="이번 턴의 모든 행동을 취소하고 턴 시작 상태로 되돌립니다">이번 턴 다시시작</button><button id="leaveBtn" class="ghost" type="button" title="로비로 나가기">🚪 로비로</button><button class="mbtn" id="mLog">📜 로그</button><button class="mbtn" id="mMenu">☰ 메뉴</button><span id="botpill" class="pill" style="display:none">🤖 BOT / EXPERT</span><span id="botover" class="grp" style="display:none"><button class="pri" onclick="botRestart()">다시 대전</button><button onclick="botLog()">AI 기록 다운로드</button></span>
 <span class="grp" id="topmenu"><select id="dsel"></select><button class="pri" onclick="loadDeck()">덱 등록</button><button onclick="openDB()">카드 / 덱 관리</button><button class="danger" onclick="confirm('항복할까요?')&&A('resign')">항복</button></span></div>
 <div id="main"><div id="logc"><div class="lh"><span>플레이 로그</span><button class="ghost" id="logt" onclick="toggleLog()">접기</button></div><div id="log"></div></div>
 <div id="board"><div id="oppl" class="half opp"></div>
@@ -541,7 +541,8 @@ function rvClose(){const m=rvCur;rvCur=null;$('rvl').classList.remove('on');if(m
 $('rvOk').onclick=rvClose;
 function uiReset(kind){rvQ=[];rvCur=null;$('rvl').classList.remove('on');$('yn').classList.remove('on');ynCb=null;hsel=null;mode=null;selm=[];pend=null;esel=[];effKey='';try{closeSheet()}catch{}
  if(kind==='game'){endShown=null;$('endb').className='';DEFS={}}}
-$('restartBtn').onclick=()=>askYN('정말 현재 게임을 초기화하고 다시 시작하시겠습니까?',()=>S({t:'restartGame'}));
+$('restartBtn').onclick=()=>V&&V.bot?askYN('현재 봇 대전을 끝내고 같은 설정으로 새 게임을 시작하시겠습니까?',()=>botRestart()):askYN('정말 현재 게임을 초기화하고 다시 시작하시겠습니까?',()=>S({t:'restartGame'}));
+$('rtBtn').onclick=askTurnRestart;
 function askTurnRestart(){askYN('이번 턴의 모든 행동을 취소하고 턴 시작 상태로 돌아가시겠습니까?',()=>S({t:'restartTurn'}))}
 function onMsg(e){let m;try{m=JSON.parse(e.data)}catch{return}
  if(m.t==='joined')sessPut({code:m.code,seat:m.seat,token:m.token});
@@ -571,8 +572,8 @@ function pv(f,c){const cols=String(f.color||'').split(/[\/,&]/).map(x=>x.trim().
   if((f.type==='char'||f.type==='partner')&&f.lp!=='')ch.push(`<span class="chipm">증거 ${dl(f.lp,c&&c.lpm)}</span>`);}
  cols.forEach(c=>{const k=COL[c];ch.push(k?`<span class="chipm"><span class="dot" style="background:${k[1]}"></span>${k[0]}</span>`:`<span class="chipm">${esc(c)}</span>`)});
 
+ String(f.trait||'').split(',').map(x=>x.trim()).filter(Boolean).forEach(t=>ch.push(`<span class="chipm tr" title="특징">${esc(t)}</span>`));   // v1.12.4: 특징 badge (카드 ID 앞)
  {const cid=cardId(f,c);if(cid)ch.push(`<span class="chipm cid" title="눌러서 복사" data-cid="${esc(cid)}">카드 ID: ${esc(cid)}</span>`)}
- String(f.trait||'').split(',').map(x=>x.trim()).filter(Boolean).forEach(t=>ch.push(`<span class="chipm">${esc(t)}</span>`));
  const kr=String(f.extra||'').trim();
  $('pv').innerHTML=(f.img?`<img src="${f.img}" alt="">`:`<div class="noimg">${esc(f.n)}</div>`)+`<div class="meta">${ch.join('')}</div>`+(f.img?`<div class="nm">${esc(f.n)}</div>`:'')
   +(kr?`<div class="fx">${fxHtml(kr)}</div>`:(f.fx?'<div class="nofx">한국어 효과 텍스트가 등록되지 않은 카드입니다.</div>':''))
@@ -858,11 +859,11 @@ function ui(){const me=V.me,T=V.turn===me,s=V.sub,b=$('btns');b.innerHTML='';let
  else{m=V.fl.hw?'넥스트 힌트: 손패에서 1장 사용(레벨 ≤ FILE 수) 또는 스킵':'메인 페이즈 — 카드를 클릭하면 오른쪽 아래에 행동 버튼이 나옵니다';
   if(pend)m+=' — 스위치할 내 캐릭터를 클릭';if(mode&&mode.k==='act')m+=' — 대상(상대 캐릭터 / 상대 사건)을 클릭';
   if(V.fl.hw)B('스킵',()=>A('skip'),'pri');else{B('넥스트 힌트',()=>A('hint'));B('턴 종료',()=>{mode=null;A('end')},'pri')}}
- if(V.rt&&V.phase==='play'){B('이번 턴 다시시작',askTurnRestart,'ghost');b.lastChild.id='rtBtn';b.lastChild.title='이번 턴의 모든 행동을 취소하고 턴 시작 상태로 되돌립니다'}
+ if(typeof M!=='undefined'&&M&&V.rt&&V.phase==='play'){B('이번 턴 다시시작',askTurnRestart,'ghost');b.lastChild.id='rtBtnA';b.lastChild.title='이번 턴의 모든 행동을 취소하고 턴 시작 상태로 되돌립니다'}   // 모바일은 상단 메뉴가 접혀 있어 행동 버튼 줄에도 둔다
  $('msg').textContent=Tm(m);actUI()}
 $('leaveBtn').onclick=leaveGame;
 let prevSolved=null;const solvedFx=[0,0];
-function render(){if(!V)return;const me=V.me;effSync();$('botpill').style.display=V.bot?'':'none';$('restartBtn').style.display=V.bot?'none':'';if(V.bot)$('botpill').textContent='🤖 '+(V.botName||'BOT / EXPERT');$('botover').style.display=V.bot&&V.phase==='over'?'':'none';document.body.classList.toggle('botmode',!!V.bot);if(mode&&!canSel())mode=null;if(hsel&&!(handTurn()&&V.P[me].hand.some(x=>x.id===hsel)))hsel=null;$('rc').textContent=V.code;const PH={setup:'덱 준비',mull:'멀리건',over:'게임 종료'};$('info').textContent=V.phase==='play'?`${V.n}번째 턴`:(PH[V.phase]||V.phase);document.body.classList.toggle('playing',V.phase!=='setup');{const fb=$('firstb');if(V.phase!=='setup'&&(V.first===0||V.first===1)){fb.style.display='';const f=V.first===me;fb.className='order '+(f?'f':'s');fb.textContent=f?'선공':'후공';fb.title=f?'내가 선공입니다':'내가 후공입니다'}else fb.style.display='none'}
+function render(){if(!V)return;const me=V.me;effSync();$('botpill').style.display=V.bot?'':'none';$('restartBtn').style.display='';$('rtBtn').style.display=V.rt&&V.phase==='play'?'':'none';if(V.bot)$('botpill').textContent='🤖 '+(V.botName||'BOT / EXPERT');$('botover').style.display=V.bot&&V.phase==='over'?'':'none';document.body.classList.toggle('botmode',!!V.bot);if(mode&&!canSel())mode=null;if(hsel&&!(handTurn()&&V.P[me].hand.some(x=>x.id===hsel)))hsel=null;$('rc').textContent=V.code;const PH={setup:'덱 준비',mull:'멀리건',over:'게임 종료'};$('info').textContent=V.phase==='play'?`${V.n}번째 턴`:(PH[V.phase]||V.phase);document.body.classList.toggle('playing',V.phase!=='setup');{const fb=$('firstb');if(V.phase!=='setup'&&(V.first===0||V.first===1)){fb.style.display='';const f=V.first===me;fb.className='order '+(f?'f':'s');fb.textContent=f?'선공':'후공';fb.title=f?'내가 선공입니다':'내가 후공입니다'}else fb.style.display='none'}
  {const sv=[0,1].map(i=>!!(V.P[i].kase&&V.P[i].kase.solved));if(prevSolved)sv.forEach((x,i)=>{if(x&&!prevSolved[i])solvedFx[i]=Date.now()+1400});prevSolved=sv}
  document.body.classList.toggle('mullph',V.phase!=='play');const tb=$('turnb');if(V.phase==='play'){tb.className=V.turn===me?'me':'opp';tb.textContent=V.turn===me?'▶ 내 턴':'상대 턴'}else{tb.className='';tb.textContent=PH[V.phase]||V.phase}
  pl('oppl',V.P[1-me],false);pl('mel',V.P[me],true);
@@ -1023,7 +1024,7 @@ function bRender(){const g=$('dbGrid');bList=bFilter();g.innerHTML='';g.scrollTo
 function bMore(){const g=$('dbGrid');let guard=0;while(bShown<bList.length&&guard++<40){const f=document.createDocumentFragment();for(const c of bList.slice(bShown,bShown+120))f.appendChild(bCell(c));bShown=Math.min(bList.length,bShown+120);g.appendChild(f);if(g.scrollHeight>g.clientHeight+600)break}}
 function bCellsOf(id){return document.querySelectorAll(`#dbGrid .cc[data-id="${CSS.escape(id)}"]`)}
 function bPv(id){const c=DB.cards[id];if(!c)return;const im=$('dbPvImg');im.innerHTML='';im.style.backgroundImage=c.img?`url("${c.img}")`:'';if(!c.img)im.textContent=c.n;
- const ch=[B_TYPE[c.type]||c.type,...bCols(c).map(k=>(B_COL.find(x=>x[0]===k)||[0,k])[1]+'색'),c.lv!==''&&c.lv!=null?(c.type==='case'?'사건 Lv '+c.lv+(c.lv2?' / '+c.lv2:''):'Lv '+c.lv):'',c.ap?'AP '+c.ap:'',c.lp!==''&&c.lp!=null?'LP '+c.lp:'','카드 ID: '+(c.id||id)].filter(Boolean);
+ const ch=[B_TYPE[c.type]||c.type,...bCols(c).map(k=>(B_COL.find(x=>x[0]===k)||[0,k])[1]+'색'),c.lv!==''&&c.lv!=null?(c.type==='case'?'사건 Lv '+c.lv+(c.lv2?' / '+c.lv2:''):'Lv '+c.lv):'',c.ap?'AP '+c.ap:'',c.lp!==''&&c.lp!=null?'LP '+c.lp:'',...String(c.trait||'').split(',').map(x=>x.trim()).filter(Boolean),'카드 ID: '+(c.id||id)].filter(Boolean);   // v1.12.4: 특징 badge (카드 ID 앞)
  $('dbChips').innerHTML=ch.map(x=>`<span>${esc(x)}</span>`).join('');
  const kr=String(c.extra||'').trim();$('dbTx').innerHTML=kr?(typeof fxHtml==='function'?fxHtml(kr):esc(kr)):(c.fx?'<div class="nofx">한국어 효과 텍스트가 등록되지 않은 카드입니다.</div>':'<div class="nofx">효과가 없는 카드입니다.</div>')}
 // ── 덱 편집 (클릭=추가 / 덱의 카드 클릭=1장 빼기). 규칙: 메인 40장 · 같은 카드 3장 · 사건 1 · 파트너 1 (사건/파트너는 교체)
