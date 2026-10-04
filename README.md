@@ -598,6 +598,13 @@ python tools/export_cards_to_excel.py --rebuild                       # Excel �
 - 숨은 버그도 함께 해결됨: 상대 행동을 보는 트리거(id_0348/0756/1127), 상대에게 적용되는 상시 능력(id_0290/0301), 상대 파트너 에리어 리무브(id_1149) 등이 "기본 self" 때문에 동작하지 않던 문제.
 - 테스트: `npm run test:ownership` (= `node test/ownership_contexts_test.js && python3 test/ownership_xlsx_test.py`). 옛 시나리오 테스트용 `CONAN_DEFAULT_OWN=any` 환경변수는 운영에서 쓰지 않습니다.
 
+## v1.12.5 — 팝업 카드 hover preview / 터치는 "닿는 순간" preview
+1. **효과 확인 팝업의 카드 이미지**가 마우스를 올려도 반응하지 않던 원인: 팝업(`#effp`)이 보드 클릭을 막지 않으려고 `pointer-events:none` 이었고, 그 안의 이미지는 일반 카드와 달리 preview 등록(`_pv`)도 없었습니다. → 이미지만 `pointer-events:auto` + 일반 카드와 같은 `_pv`/`pv()` 경로로 연결. 공개 카드 팝업·카드 선택 팝업은 원래 일반 카드(`mk()`)라 hover 가 되고 있어 같은 테스트로 확인. **hover 가 끝나면(팝업 카드에서 벗어나면) hover 전에 보던 preview 로 복귀**합니다.
+2. **터치 기기**: 예전에는 카드를 450ms 길게 눌러야 preview 가 떴습니다. 이제 `pointerdown`(닿는 순간, 손 떼기 전)에 바로 오른쪽 상세 패널이 갱신됩니다. 대상: 필드/손패/증거/FILE/리무브 등 `.card`, 효과·공개·선택 팝업 카드, 덱빌더 목록/덱 카드(`.cc`,`.dg`). 닿은 채 움직여도 처음 닿은 카드 preview 유지.
+   - **행동 확정은 그대로**: pointerdown 에서는 preview 만 하며 선택/사용/공격/대상 지정은 기존 tap(click) 규칙 유지. `preventDefault` 를 새로 쓰지 않고 passive 리스너라 스크롤/드래그에 영향 없음. (이전에 길게 누른 뒤 click 을 삼키던 처리는 제거)
+   - (참고) 현재 모바일 전용 레이아웃(`isMobile()`)은 꺼져 있고 터치 기기도 PC 화면 구성을 쓰므로 위 터치 경로가 실제로 쓰입니다. 모바일 전용 레이아웃을 다시 켤 경우를 대비해 해당 경로에도 pointerdown preview(시트 / 누르는 동안만 보이는 `#pvf`)를 넣어 두었습니다.
+- 테스트: `node test/preview_touch_test.js` (`npm run test:preview`, 21개 검사: PC hover/복귀, 터치 pointerdown 즉시 preview, 행동 확정 회귀).
+
 ## v1.12.4 — 카드 상세에 특징(trait) badge
 - 카드 상세 패널(게임 우측 `#pv`, 덱 빌더 `#dbChips`)의 [종류] [색] [Lv] [AP] [LP/증거] badge 줄에 `data/cards.json` 의 기존 `trait` 를 쉼표로 나눠 **특징마다 badge** 로 표시합니다 (예: [探偵] [毛利探偵事務所] [少年探偵団]). 새 데이터는 만들지 않고, 특징이 없는 카드는 아무것도 표시하지 않습니다. badge 는 자동 줄바꿈, **카드 ID 는 항상 마지막**.
 - UI 표시만 변경(게임 로직/카드 효과 무영향). 테스트: `node test/trait_chip_test.js` (특징 1개/여러 개/없음 × PC/모바일 × 게임 패널/덱 빌더).

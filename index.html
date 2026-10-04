@@ -145,7 +145,8 @@ body.m .card .blkb{font-size:9px;line-height:14px}
 #effp{position:absolute;right:10px;top:10px;z-index:15;width:clamp(230px,27vw,340px);max-height:78%;overflow:hidden;pointer-events:none}
 #effp:empty,#etray:empty{display:none}
 #effp .box{background:linear-gradient(#22303fee,#16212dee);border:1.5px solid var(--gold);border-radius:14px;padding:10px 12px;box-shadow:0 10px 30px #000a;min-width:0;pointer-events:none}
-#effp .fxh{gap:10px}#effp .fxh .fxi{width:clamp(78px,7vw,105px)}
+#pvf{position:fixed;top:8%;z-index:99999;display:none;pointer-events:none;width:min(42vw,300px);background:#0d151df2;border:1px solid #ffffff33;border-radius:12px;padding:8px;box-shadow:0 8px 28px #000c}#pvf.on{display:block}#pvf.l{left:10px}#pvf.r{right:10px}#pvf img{width:100%;border-radius:8px;display:block}#pvf .pft{margin-top:6px;font-size:12px;display:flex;flex-direction:column;gap:2px}#pvf .pft span{font-family:ui-monospace,Consolas,monospace;color:#9fd0ff}#pvf .pfn{padding:30px 8px;text-align:center;font-weight:700}
+#effp .fxi{pointer-events:auto}#effp .fxh{gap:10px}#effp .fxh .fxi{width:clamp(78px,7vw,105px)}
 .card.epk{outline:3px solid #ffd167;outline-offset:1px;box-shadow:0 0 14px 3px #ffd167cc;cursor:pointer;animation:epk 1.1s ease-in-out infinite;z-index:6}
 @keyframes epk{50%{box-shadow:0 0 20px 6px #ffd167}}
 .card.epk.sel{outline-color:#4fd18b;box-shadow:0 0 16px 4px #4fd18bcc}
@@ -563,7 +564,7 @@ const COL={red:['빨강','#e5544b'],blue:['파랑','#4a8fe8'],green:['초록','#
 const fxHtml=t=>esc(t).replace(/(【[^】]*】)/g,'<em>$1</em>');
 // 카드 상세: 일본어 효과 원문(fx)은 표시하지 않고 한국어 번역(extra)만 표시한다. 카드 이름은 이미지로 확인 (한글 이름 필드가 DB 에 없으므로 원본 이름을 작게만 표기).
 const cardId=(f,c)=>String((f&&f.id)||(c&&c.d)||'').replace(/^\d+:/,'');
-function pv(f,c){const cols=String(f.color||'').split(/[\/,&]/).map(x=>x.trim().toLowerCase()).filter(Boolean);
+function pv(f,c){PVNOW=[f,c];const cols=String(f.color||'').split(/[\/,&]/).map(x=>x.trim().toLowerCase()).filter(Boolean);
  const ch=[`<span class="chipm ty">${esc(TYPE_KO[f.type]||f.type||'')}</span>`];
  if(c&&c.bl)ch.push('<span class="chipm" style="background:#b3261e;border-color:#ff8a80;color:#fff">⛔ 효과 무효 (이번 턴)</span>');
  {const dl=(b,m)=>m?`${(+b||0)+m} <small style="color:${m>0?'#7be3a5':'#ff9b94'}">(${m>0?'+':''}${m})</small>`:esc(b);
@@ -683,7 +684,7 @@ function fitHand(){for(const h of [$('hand'),$('opp-hand')]){if(!h)continue;cons
 // ══════ 모바일 / 태블릿 ══════
 // v1.4.0: 모바일 전용 레이아웃 폐지. 모든 기기에서 PC 와 동일한 UI. 해상도(뷰포트 맞춤)와 조작(터치)만 기기에 맞춘다. (M 은 항상 false)
 const MQ_COARSE=matchMedia('(pointer:coarse)'),QS=new URLSearchParams(location.search);
-let M=false,LAND=false,TAB=false,CHs=120,CWs=86,mFit=0,mScale=1,PVC=null,lpFired=false,prevNeed=null;
+let PVNOW=null,pvPrev=null;let M=false,LAND=false,TAB=false,CHs=120,CWs=86,mFit=0,mScale=1,PVC=null,lpFired=false,prevNeed=null;
 const isMobile=()=>false;
 const Tm=s=>M?String(s).replace(/오른쪽 아래(에|의)?/g,'아래$1').replace(/클릭/g,'터치'):s;
 function applyMode(){const m=isMobile(),b=document.body,ae=document.activeElement,typing=ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName);
@@ -720,12 +721,24 @@ const targetMode=()=>!!(V&&((mode&&mode.k==='act')||pend||V.eff||V.peek||(V.sub&
 function syncSheet(){if(M&&targetMode())closeSheet()}
 function onCardTap(el){if(targetMode())return;const[f,c]=el._pv;pvOpen(f,c,el)}
 let pd=null,lpT=0;
-document.addEventListener('pointerdown',e=>{lpFired=false;if(!M)return;const el=e.target.closest&&e.target.closest('.card');pd={x:e.clientX,y:e.clientY,el,moved:false};clearTimeout(lpT);
- if(el&&el._pv&&e.pointerType!=='mouse')lpT=setTimeout(()=>{if(pd&&!pd.moved){lpFired=true;openFs(el._pv[0],el._pv[1])}},480)},{passive:true});
+const PVSEL='.card,.fxi',MODAL='#effp,#etray,#pk,#remp,#rvl,#ovl';
+const pvEl=t=>{const el=t&&t.closest&&t.closest(PVSEL);return el&&el._pv?el:null};
+// v1.12.5 모바일: 손가락이 닿는 순간(pointerdown) preview 만 표시한다. 선택/등장/공격 같은 행동은 기존 tap(click) 그대로.
+//  · 효과/선택 중(targetMode)·팝업 안 카드는 시트를 열면 조작을 가리므로 "누르는 동안만" 보이는 클릭 통과 미리보기(#pvf)를 쓴다.
+//  · preventDefault 를 쓰지 않고 passive 리스너라 스크롤/드래그는 그대로.
+function pvFloat(f,c,x){let b=$('pvf');if(!b){b=document.createElement('div');b.id='pvf';document.body.appendChild(b)}
+ b.innerHTML=(f.img?`<img src="${esc(f.img)}" alt="">`:`<div class="pfn">${esc(f.n||'?')}</div>`)+`<div class="pft"><b>${esc(f.n||'')}</b><span>${esc(cardId(f,c)||'')}</span></div>`;b.className='on '+(x>innerWidth/2?'l':'r')}
+function pvFloatOff(){const b=$('pvf');if(b)b.className=''}
+function pvTouch(el,x){const[f,c]=el._pv;if(!M)return;if(el.closest('#sheet,#fsv'))return;
+ if(targetMode()||el.closest(MODAL)){pv(f,c);pvFloat(f,c,x)}else{pvOpen(f,c,el)}}
+document.addEventListener('pointerdown',e=>{lpFired=false;if(!M)return;const el=pvEl(e.target);pd={x:e.clientX,y:e.clientY,el,moved:false};clearTimeout(lpT);
+ if(el&&e.pointerType!=='mouse'){pvTouch(el,e.clientX);lpT=setTimeout(()=>{if(pd&&!pd.moved){lpFired=true;pvFloatOff();openFs(el._pv[0],el._pv[1])}},480)}},{passive:true});
 document.addEventListener('pointermove',e=>{if(pd&&Math.hypot(e.clientX-pd.x,e.clientY-pd.y)>10){pd.moved=true;clearTimeout(lpT)}},{passive:true});
-document.addEventListener('pointerup',e=>{clearTimeout(lpT);const p=pd;pd=null;if(!M||!p||p.moved||lpFired)return;const el=p.el;
- if(el&&el._pv&&!el.closest('#sheet,#fsv,#effp,#etray,#remp,#pk,#db'))onCardTap(el)},{passive:true});
-document.addEventListener('pointercancel',()=>{clearTimeout(lpT);pd=null},{passive:true});
+document.addEventListener('pointerup',()=>{clearTimeout(lpT);pd=null;pvFloatOff()},{passive:true});
+document.addEventListener('pointercancel',()=>{clearTimeout(lpT);pd=null;pvFloatOff()},{passive:true});
+// PC: 팝업(효과 확인/공개/카드 선택) 안 카드에서 마우스가 벗어나면 hover 전의 preview 로 복귀
+document.addEventListener('mouseover',e=>{if(M)return;const el=pvEl(e.target);if(el&&el.closest(MODAL)&&!pvPrev&&PVNOW&&PVNOW!==el._pv)pvPrev=PVNOW},true);
+document.addEventListener('mouseout',e=>{if(M)return;const el=pvEl(e.target);if(!el||!el.closest(MODAL))return;const to=pvEl(e.relatedTarget);if(to&&to.closest(MODAL))return;if(pvPrev){const[f,c]=pvPrev;pvPrev=null;pv(f,c)}},true);
 document.addEventListener('click',e=>{if(lpFired){lpFired=false;e.stopPropagation();e.preventDefault()}},true);
 document.addEventListener('contextmenu',e=>{if(M&&e.target.closest&&e.target.closest('.card,.cc,.dg')){e.preventDefault();e.stopPropagation()}},true);
 document.addEventListener('gesturestart',e=>{if(M&&document.body.classList.contains('ing'))e.preventDefault()});
@@ -738,13 +751,10 @@ const VPW=1280,VPH=720;
 function fitVp(){if(!TOUCH)return;const L=matchMedia('(orientation:landscape)').matches,a=Math.max(screen.width,screen.height),b=Math.min(screen.width,screen.height),dw=L?a:b,dh=L?b:a,W=Math.max(VPW,Math.ceil(dw*VPH/dh));
  const c='width='+W+',minimum-scale=0.1,maximum-scale=5,user-scalable=no,viewport-fit=cover',m=$('vp');if(m&&m.content!==c)m.content=c}
 if(TOUCH){document.documentElement.classList.add('touch');fitVp();addEventListener('orientationchange',()=>{setTimeout(()=>{fitVp();onRz()},200)});addEventListener('resize',fitVp)
- let tp=null,tT=0,tFired=false;
- const tgt=e=>e.target.closest&&e.target.closest('.card,.cc,.dg');
+ const tgt=e=>e.target.closest&&e.target.closest('.card,.cc,.dg,.fxi');
  const show=el=>{if(el._pv)pv(el._pv[0],el._pv[1]);else if(el.dataset&&el.dataset.id&&typeof bPv==='function')bPv(el.dataset.id)};
- document.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse')return;tFired=false;const el=tgt(e);tp={x:e.clientX,y:e.clientY,el,m:false};clearTimeout(tT);if(el)tT=setTimeout(()=>{if(tp&&!tp.m){tFired=true;show(el)}},450)},{passive:true});
- document.addEventListener('pointermove',e=>{if(tp&&Math.hypot(e.clientX-tp.x,e.clientY-tp.y)>12){tp.m=true;clearTimeout(tT)}},{passive:true});
- for(const k of['pointerup','pointercancel'])document.addEventListener(k,()=>{clearTimeout(tT);tp=null},{passive:true});
- document.addEventListener('click',e=>{if(tFired){tFired=false;e.stopPropagation();e.preventDefault()}},true);
+ // v1.12.5: 터치 기기에서도 닿는 즉시 preview (예전: 450ms 길게 누르기). 행동 확정은 click 그대로 — 여기서는 click 을 막지 않는다.
+ document.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse')return;const el=tgt(e);if(el)show(el)},{passive:true});
  document.addEventListener('contextmenu',e=>{if(tgt(e)||e.target.closest('img')){e.preventDefault();e.stopPropagation()}},true);
  for(const k of['gesturestart','gesturechange'])document.addEventListener(k,e=>e.preventDefault());
  let lt=0;document.addEventListener('touchend',e=>{const n=Date.now();if(n-lt<300&&!e.target.closest('input,textarea'))e.preventDefault();lt=n},{passive:false});
@@ -785,7 +795,8 @@ function effPick(id){const E=V.eff;if(!E||E.kind!=='pick')return;if(E.max===1){A
 function effUI(b,B){const E=V.eff;if(E.wait)return E.msg;
  const box=document.createElement('div');box.className='box';{let sf=DEFS[E.srcD]||{};if(!sf.n&&E.src){const k=Object.keys(DEFS).find(k=>DEFS[k]&&DEFS[k].n===E.src);if(k)sf=DEFS[k]}
   const cid0=E.srcD?cardId(sf,{d:E.srcD}):'',img=sf.img||(DB.cards[cid0]||{}).img||'',im=img?`<img class="fxi" src="${esc(img)}" alt="${esc(sf.n||E.src||'')}">`:`<div class="fxi noimg">${esc(sf.n||E.src||'')}</div>`,cid=cid0;
-  box.innerHTML=`<div class="fxh">${im}<div class="fxm"><b>효과 · ${esc(sf.n||E.src||'효과')}</b>${cid?`<span class="fxid">${esc(cid)}</span>`:''}<div class="fxq">${esc(E.msg||'')}</div>${effText(E)}</div></div>`}
+  box.innerHTML=`<div class="fxh">${im}<div class="fxm"><b>효과 · ${esc(sf.n||E.src||'효과')}</b>${cid?`<span class="fxid">${esc(cid)}</span>`:''}<div class="fxq">${esc(E.msg||'')}</div>${effText(E)}</div></div>`;
+  { const fi=box.querySelector('.fxi'),pc={d:E.srcD}; if(fi&&(sf.n||sf.img)){ const ff=sf.img?sf:{...sf,img:(DB.cards[cid0]||{}).img}; fi._pv=[ff,pc]; fi.onmouseenter=()=>pv(ff,pc); } } }   // v1.12.5: 효과 팝업 카드 이미지도 일반 카드와 같은 preview 경로(_pv)
  $('effp').appendChild(box);
  const tray=$('etray');tray.innerHTML='';const TH=t=>{const h=document.createElement('div');h.className='th';h.textContent=t;tray.appendChild(h)};
  const side=id=>{for(const i of[0,1]){const P=V.P[i];if([...P.field,...(P.pa||[]),...(Array.isArray(P.hand)?P.hand:[]),...P.rem,P.partner,P.kase].filter(Boolean).some(c=>c.id===id))return i}return -1};
