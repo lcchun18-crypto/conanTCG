@@ -68,7 +68,7 @@ module.exports = function (K, def) {
   defCost('revealVar', () => ({}), () => '', function* (R, s, src, k, ctx) { const P = R.P[s], co = ctx.cost = ctx.cost || {}, cand = P.hand.filter(x => fOk(R, s, x, k.filter, src, true));
     const ids = cand.length ? (yield pickReq(s, '코스트: 공개할 손패를 원하는 만큼 선택 (0장도 가능)', cand, 0, cand.length)).filter(x => cand.includes(x)) : [];
     co.rev = (co.rev || []).concat(ids); co.nRev = ids.length; if (!ids.length) { say(R, '코스트: 손패를 공개하지 않음'); return; }
-    yield { who: 1 - s, kind: 'ack', msg: `${nm(s)}이(가) 손패를 공개: ${ids.map(x => D(R, x).n).join(', ')}`, ids, reveal: 1 }; say(R, `코스트: 손패 ${ids.length}장 공개`); ids.forEach(x => bus(R, 'hrev', { s, ent: x, by: 'cost' })); });
+    yield { who: 1 - s, kind: 'ack', msg: `${nm(s)}이(가) 손패를 공개: ${ids.map(x => D(R, x).n).join(', ')}`, ids, reveal: 1, hby: 'cost' }; say(R, `코스트: 손패 ${ids.length}장 공개`); });
 
   // lvBudgetRm: (이 능력의 코스트로 공개한 손패 수 + 내 현장의 hf 캐릭터 수) 이하 레벨의 캐릭터를 1장까지 선택하여 리무브
   def('lvBudgetRm', o => ({ op: 'lvBudgetRm', hf: cleanFilter(o.hf), rev: o.rev !== false }), function* (R, s, src, o, ctx, it) {

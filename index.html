@@ -177,7 +177,7 @@ body.m #effp{width:54%;max-height:46%;top:4px;right:4px}body.m #effp .fxh .fxi{w
 #pv .chipm{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:1px 9px;border-radius:999px;background:#0b131b;border:1px solid #ffffff22;color:#d3deea}
 #pv .chipm.cid{cursor:pointer;user-select:all;-webkit-user-select:all;font-family:ui-monospace,Consolas,monospace;color:#9fd0ff;border-color:#4a8fe855}#pv .chipm.ty{background:#f2bd4b22;border-color:#f2bd4b77;color:var(--gold)}
 #pv .dot{width:9px;height:9px;border-radius:50%;display:inline-block;border:1px solid #fff6}
-#pv .nm{font-size:11px;color:var(--mut)}
+#pv .nm{font-size:14px;line-height:1.35;color:var(--mut);overflow-wrap:anywhere;word-break:break-word;min-width:0}#pv .nm b{color:#fff;font-size:15px}#pv .nm .nml{font-size:11px;font-weight:700;margin-right:2px}
 #pv .fx,#pv .meta,#pv .nm,#pv .nofx{flex:none}#pv .fx{white-space:pre-wrap;font-size:13px;line-height:1.6;color:#e6edf5;background:#0d151dcc;border:1px solid #ffffff14;border-radius:9px;padding:9px 11px}
 #pv .fx em{font-style:normal;color:var(--gold);font-weight:700}
 #pv .nofx{color:var(--mut);font-size:12px;font-style:italic}
@@ -218,6 +218,7 @@ body.m #effp{width:54%;max-height:46%;top:4px;right:4px}body.m #effp .fxh .fxi{w
 .dbr{display:flex;gap:6px;margin-bottom:6px}.dbr:last-child{margin-bottom:0}.dbr>input,.dbr>select{flex:1;min-width:0}.dbr>button{white-space:nowrap;padding:6px 10px;font-size:12px}
 #dbPv{flex:1;min-height:0;display:flex;flex-direction:column;gap:6px;overflow:hidden}
 #dbPvImg{flex:none;width:100%;max-height:52vh;aspect-ratio:.714;margin:0 auto;border-radius:10px;background:#0e161f center/contain no-repeat;display:flex;align-items:center;justify-content:center;color:var(--mut);font-size:12px;text-align:center;max-width:calc(52vh*.714)}
+#dbCardName{font-size:14px;line-height:1.35;color:var(--mut);overflow-wrap:anywhere;word-break:break-word;min-width:0}#dbCardName:empty{display:none}#dbCardName b{color:#fff;font-size:15px}#dbCardName .nml{font-size:11px;font-weight:700;margin-right:2px}
 #dbChips{display:flex;gap:5px;flex-wrap:wrap;min-height:20px}#dbChips span:last-child{font-family:ui-monospace,Consolas,monospace;color:#9fd0ff;user-select:all}#dbChips span{font-size:11px;font-weight:700;padding:1px 8px;border-radius:999px;background:#0b131b;border:1px solid #ffffff26}
 #dbTx{flex:1;min-height:0;overflow:auto;font-size:13px;line-height:1.5;padding:8px 10px;background:#0e161f;border-radius:8px;white-space:pre-wrap}
 #dbTx .nofx{color:var(--mut)}
@@ -485,7 +486,7 @@ body.m #dbErr>div{max-width:94vw}
   <div class="dbr"><select id="dbSel"></select><button id="dbLoad" onclick="bLoad()">불러오기</button></div>
   <div class="dbr"><button onclick="bNew()">새 덱</button><button id="dbExp" onclick="bExport()">덱 파일 내보내기</button><button onclick="$('dbImp').click()">덱 파일 가져오기</button><input type="file" id="dbImp" accept=".json,application/json" style="display:none" onchange="bImport(this.files[0]);this.value=''"></div>
   <div class="dbr"><button class="ghost" onclick="bDel()">덱 삭제</button><button onclick="bClose()">닫기</button></div></div>
- <div id="dbPv" class="dbbox"><div id="dbPvImg"><span>카드에 마우스를 올리면<br>크게 표시됩니다</span></div><div id="dbChips"></div><div id="dbTx"></div></div></div>
+ <div id="dbPv" class="dbbox"><div id="dbPvImg"><span>카드에 마우스를 올리면<br>크게 표시됩니다</span></div><div id="dbCardName"></div><div id="dbChips"></div><div id="dbTx"></div></div></div>
  <div id="dbR"><div id="dbDeck" class="dbbox"><div id="dbStat"></div><div id="dbToast"></div><div id="dbSlots"><div class="dbslot" id="dbCase"></div><div class="dbslot" id="dbPart"></div></div><div id="dbMain"></div></div>
   <div id="dbFil" class="dbbox"><div id="dbCols"></div><input id="dbQ" type="search" placeholder="검색: ap2000 · lp2 · event · 5 (등장 FILE 코스트)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search"><span id="dbCnt"></span></div>
   <div id="dbGrid"></div></div>
@@ -576,7 +577,7 @@ function pv(f,c){PVNOW=[f,c];const cols=String(f.color||'').split(/[\/,&]/).map(
  String(f.trait||'').split(',').map(x=>x.trim()).filter(Boolean).forEach(t=>ch.push(`<span class="chipm tr" title="특징">${esc(t)}</span>`));   // v1.12.4: 특징 badge (카드 ID 앞)
  {const cid=cardId(f,c);if(cid)ch.push(`<span class="chipm cid" title="눌러서 복사" data-cid="${esc(cid)}">카드 ID: ${esc(cid)}</span>`)}
  const kr=String(f.extra||'').trim();
- $('pv').innerHTML=(f.img?`<img src="${f.img}" alt="">`:`<div class="noimg">${esc(f.n)}</div>`)+`<div class="meta">${ch.join('')}</div>`+(f.img?`<div class="nm">${esc(f.n)}</div>`:'')
+ $('pv').innerHTML=(f.img?`<img src="${f.img}" alt="">`:`<div class="noimg">${esc(f.n)}</div>`)+`<div class="nm" title="카드명"><span class="nml">카드명:</span> <b>${esc(f.n||'?')}</b></div><div class="meta">${ch.join('')}</div>`   // v1.12.7: 카드명 텍스트(이미지 바로 아래, 칩 위)
   +(kr?`<div class="fx">${fxHtml(kr)}</div>`:(f.fx?'<div class="nofx">한국어 효과 텍스트가 등록되지 않은 카드입니다.</div>':''))
   +(M&&c&&c.sl&&c.sl.length?'<div class="sets">세트 카드 '+c.sl.length+'장 (터치해서 보기):'+c.sl.map((x,i)=>{const g=x.d&&DEFS[x.d];return g&&g.img?`<button data-i="${i}" style="background-image:url('${g.img}')"></button>`:`<button data-i="${i}" style="background-image:url(assets/cardback.png)">${g?esc(g.n).slice(0,4):'뒷면'}</button>`}).join('')+'</div>':'')}
 function mk(c,o={}){const f=DEFS[c.d]||{n:'?'},bk=o.back||c.hidden,d=document.createElement('div');d.className='card'+(bk?' back':'')+(o.land?' land':'')+(o.kase?' kase':'');
@@ -1050,6 +1051,7 @@ function bMore(){const g=$('dbGrid');let guard=0;while(bShown<bList.length&&guar
 function bCellsOf(id){return document.querySelectorAll(`#dbGrid .cc[data-id="${CSS.escape(id)}"]`)}
 function bPv(id){const c=DB.cards[id];if(!c)return;const im=$('dbPvImg');im.innerHTML='';im.style.backgroundImage=c.img?`url("${c.img}")`:'';if(!c.img)im.textContent=c.n;
  const ch=[B_TYPE[c.type]||c.type,...bCols(c).map(k=>(B_COL.find(x=>x[0]===k)||[0,k])[1]+'색'),c.lv!==''&&c.lv!=null?(c.type==='case'?'사건 Lv '+c.lv+(c.lv2?' / '+c.lv2:''):'Lv '+c.lv):'',c.ap?'AP '+c.ap:'',c.lp!==''&&c.lp!=null?'LP '+c.lp:'',...String(c.trait||'').split(',').map(x=>x.trim()).filter(Boolean),'카드 ID: '+(c.id||id)].filter(Boolean);   // v1.12.4: 특징 badge (카드 ID 앞)
+ $('dbCardName').innerHTML=`<span class="nml">카드명:</span> <b>${esc(c.n||'?')}</b>`;   // v1.12.7
  $('dbChips').innerHTML=ch.map(x=>`<span>${esc(x)}</span>`).join('');
  const kr=String(c.extra||'').trim();$('dbTx').innerHTML=kr?(typeof fxHtml==='function'?fxHtml(kr):esc(kr)):(c.fx?'<div class="nofx">한국어 효과 텍스트가 등록되지 않은 카드입니다.</div>':'<div class="nofx">효과가 없는 카드입니다.</div>')}
 // ── 덱 편집 (클릭=추가 / 덱의 카드 클릭=1장 빼기). 규칙: 메인 40장 · 같은 카드 3장 · 사건 1 · 파트너 1 (사건/파트너는 교체)

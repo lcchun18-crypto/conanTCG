@@ -1,10 +1,10 @@
 {
   "name": "conan-sim",
-  "version": "1.12.6",
+  "version": "1.12.7",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node test/unit.js && node test/run_cards.js && node test/spec_examples.js && node test/patterns.js && node test/patterns100.js && node test/patterns_v11.js && node test/patterns_v12.js && node test/acts_test.js && node test/fuzz.js 200 && node test/ui_test.js && node test/deck_test.js && node test/e2e_ui.js && node test/deploy_test.js && node test/autoload_test.js && node test/bot_units.js && node test/bot_regress.js && node test/bot_room_test.js && node test/specialist_deck_test.js && node test/specialist_cli_test.js && node test/specialist_test.js && node test/specialist_regress.js && node test/expert_test.js && node test/expert_regress.js && node test/ws_reconnect_test.js && node test/tactics_test.js --quiet && node test/evidence_pick_test.js && node test/ui_v17_test.js && node test/cost_has_test.js && node test/evid_hand_test.js && node test/leave_room_test.js && node test/ownership_contexts_test.js && node test/own_default_test.js && node test/id0886_test.js && node test/training_test.js && node test/dynlv_pick_mr_test.js && node test/restart_btn_test.js && node test/trait_chip_test.js && node test/preview_touch_test.js && node test/preview_sweep_test.js",
+    "test": "node test/unit.js && node test/run_cards.js && node test/spec_examples.js && node test/patterns.js && node test/patterns100.js && node test/patterns_v11.js && node test/patterns_v12.js && node test/acts_test.js && node test/fuzz.js 200 && node test/ui_test.js && node test/deck_test.js && node test/e2e_ui.js && node test/deploy_test.js && node test/autoload_test.js && node test/bot_units.js && node test/bot_regress.js && node test/bot_room_test.js && node test/specialist_deck_test.js && node test/specialist_cli_test.js && node test/specialist_test.js && node test/specialist_regress.js && node test/expert_test.js && node test/expert_regress.js && node test/ws_reconnect_test.js && node test/tactics_test.js --quiet && node test/evidence_pick_test.js && node test/ui_v17_test.js && node test/cost_has_test.js && node test/evid_hand_test.js && node test/leave_room_test.js && node test/ownership_contexts_test.js && node test/own_default_test.js && node test/id0886_test.js && node test/training_test.js && node test/dynlv_pick_mr_test.js && node test/restart_btn_test.js && node test/trait_chip_test.js && node test/preview_touch_test.js && node test/preview_sweep_test.js && node test/reveal_trigger_test.js && node test/card_name_test.js",
     "test:preview": "node test/preview_touch_test.js",
     "test:trait": "node test/trait_chip_test.js",
     "test:restart": "node test/restart_btn_test.js",
@@ -56,7 +56,9 @@
     "test:v17": "node test/evidence_pick_test.js && node test/cost_has_test.js && node test/evid_hand_test.js && node test/leave_room_test.js && node test/ui_v17_test.js",
     "test:ownership": "node test/ownership_contexts_test.js && python3 test/ownership_xlsx_test.py",
     "audit:own": "node tools/ownership_audit.js",
-    "test:sweep": "node test/preview_sweep_test.js"
+    "test:sweep": "node test/preview_sweep_test.js",
+    "test:reveal": "node test/reveal_trigger_test.js",
+    "test:cardname": "node test/card_name_test.js"
   },
   "engines": {
     "node": ">=18"
