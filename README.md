@@ -667,3 +667,10 @@ AI(Expert)와 "어시스트를 적극 쓰며 고코스트 캐릭터가 빠르게
 - **강제 제거**: 상대 현장에서 코스트 높은 순(AP/LP/상태 무관, 동률 임의)으로 최대 N장을 `rmChar`(시스템 처리)로 리무브합니다. 제거된 카드 자신의 반응 능력(예: MR 능력)은 평소대로 처리됩니다. 현장이 N장보다 적으면 있는 만큼만 제거.
 - 해당 코스트 캐릭터가 덱에 없거나 사용 조건을 못 맞추면 그 단계는 로그를 남기고 건너뜁니다.
 - 테스트: `node test/training_test.js` (`npm run test:training`).
+
+## v1.13.0 — CT-P11 유니크 ID 88장 추가 (실제 플레이 가능, 수동 처리 0)
+- 입력 이미지 90장(2026-10-06 기준 공개분) 중 DB 에 이미 있는 P001·P004 는 ID 충돌로 건너뛰고(중복 생성 없음), P089/P090/P092 포함 88장을 신규 추가했습니다. 기존 1,251장은 한 글자도 바뀌지 않았고 최종 1,339장입니다(캐릭터 73 / 이벤트 9 / 사건 3 / 파트너 3).
+- 새 카드는 기존 파이프라인(`add_new_cards.py --from-json`, `ext_ct11.py`, `ownership_migrate`, xlsx 동기화)으로 들어갔고 이미지는 모든 화면에서 기존 카드처럼 보입니다. 미공개 ID 는 만들지 않았고 패러렐은 별도 카드로 넣지 않았습니다.
+- 엔진 공통 확장: 이벤트 증거 합계 조건(evTotMin/Max), 상대 AP 차 트리거(tApLow), 필터 apLowSelf/notMr/costAp, 코스트 슬립 캐릭터 레지스터(costSlept), `pcolor` OR('a|b'), 다색 선택 maxCol, 코스트 stunAny, 오퍼레이션 swapRem/ptnActive/setEvToPa/playMix/ifIdDiff/winGame, trigTgt(deckBottom/hand/opt).
+- 버그 수정: 「アクション中のキャラ」(`acting`) 필터가 캐릭터 액션/컨택트 중에도 동작하도록 정리.
+- 테스트: `npm run test:ct11` (88장 데이터/이미지/색/KO 텍스트 전수 + 85장 실플레이 스모크 + 위험 카드 개별 시나리오). `test/all_cards_auto.js` 로 전체 효과 카드 manual 0 확인.

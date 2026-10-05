@@ -37,7 +37,7 @@ module.exports = function (A) {
     const refS = x => typeof x === 'string' && (x === 'self' || /^reg:[a-z]+:(sum|max|first|count)$/.test(x));
     const lv = k => (f[k] === 'file' || f[k] === 'used' || f[k] === 'costLv' || refS(f[k])) ? f[k] : (f[k] == null || f[k] === '' ? null : num(f[k]));
     for (const k of ['lvMax', 'lvMin']) o[k] = lv(k);
-    for (const k of ['apMax', 'apMin', 'apEq', 'lpMax', 'lpMin', 'lvEq']) o[k] = f[k] === 'self' && k.startsWith('ap') ? 'self' : (f[k] == null || f[k] === '' ? null : num(f[k]));
+    for (const k of ['apMax', 'apMin', 'apEq', 'lpMax', 'lpMin', 'lvEq']) o[k] = f[k] === 'self' && k.startsWith('ap') ? 'self' : f[k] === 'costAp' && k.startsWith('ap') ? 'costAp' : (f[k] == null || f[k] === '' ? null : num(f[k]));
     o.lpBase = f.lpBase == null || f.lpBase === '' ? null : num(f.lpBase); o.sameName = !!f.sameName; o.hayFired = !!f.hayFired; o.hasHay = !!f.hasHay; o.acted = opt(f.acted, ['any', 'char', 'case'], '');
     o.sets = opt(f.sets, ['any', 'none', 'fdAny', 'fdNone'], ''); o.underMin = f.underMin == null ? null : num(f.underMin); o.sameTrait = !!f.sameTrait; o.colorsMin = f.colorsMin == null ? null : num(f.colorsMin);
     o.color = str(f.color, 12).toLowerCase(); o.colorNot = str(f.colorNot, 12).toLowerCase(); o.trait = str(f.trait, 30); o.name = str(f.name, 40); o.nameNot = str(f.nameNot, 40);
@@ -46,6 +46,7 @@ module.exports = function (A) {
     o.hasIc = opt(f.hasIc, IC, ''); o.hasKw = str(f.hasKw, 20).toLowerCase(); o.acting = !!f.acting; o.contacting = !!f.contacting;
     o.plain = !!f.plain; o.bang = !!f.bang; o.nameCtx = !!f.nameCtx; o.lvIn = opt(f.lvIn, ['disc'], ''); o.traitOf = opt(f.traitOf, ['ent'], '');
     o.apGt = f.apGt === 'self' ? 'self' : '';
+    o.apLowSelf = f.apLowSelf == null || f.apLowSelf === '' ? null : num(f.apLowSelf); o.notMr = !!f.notMr;   // apLowSelf: 이 카드(src)보다 AP 가 N 이상 낮다 / notMr: MR 이외
     o.any = depth < 1 ? (Array.isArray(f.any) ? f.any : []).slice(0, 4).map(x => cleanFilter(x, depth + 1, ctx)) : [];
     return o; };
   const WHO_ = ['self', 'opp'];
@@ -56,7 +57,8 @@ module.exports = function (A) {
     fieldMin: num(c.fieldMin), selfSt: opt(c.selfSt, ['a', 's', 'sx']), trace: opt(c.trace, ['found', 'unfound']), selfApMin: num(c.selfApMin), killed: !!c.killed,
     handMax: c.handMax == null || c.handMax === '' ? null : num(c.handMax), ohandMax: c.ohandMax == null || c.ohandMax === '' ? null : num(c.ohandMax), swapName: str(c.swapName, 40), fhN: Math.max(0, Math.min(num(c.fhN, 1), 10)), fhDist: !!c.fhDist, noEnter: !!c.noEnter, hayAny: !!c.hayAny, cnot: str(c.cnot, 12).toLowerCase(),
     via: (Array.isArray(c.via) ? c.via : []).slice(0, 4).map(v => v && ({ type: opt(v.type, ['char', 'event'], ''), lvMin: num(v.lvMin), color: str(v.color, 12).toLowerCase() })).filter(Boolean),
-    lpSumMax: c.lpSumMax == null || c.lpSumMax === '' ? null : num(c.lpSumMax), cname: str(c.cname, 40) };
+    lpSumMax: c.lpSumMax == null || c.lpSumMax === '' ? null : num(c.lpSumMax), cname: str(c.cname, 40),
+    evTotMin: c.evTotMin == null || c.evTotMin === '' ? null : num(c.evTotMin), evTotMax: c.evTotMax == null || c.evTotMax === '' ? null : num(c.evTotMax) };   // お互いの証拠が合わせて N つ以上/以下(양쪽 증거 합계)
     r.cnt = (Array.isArray(c.cnt) ? c.cnt : []).slice(0, 4).map(x => x && ({ src: opt(x.src, SRC, 'hand'), op: opt(x.op, ['le', 'ge', 'lt', 'gt', 'eq'], 'ge'), n: num(x.n), ref: opt(x.ref, SRC, ''), plus: num(x.plus), f: x.f && typeof x.f === 'object' ? cleanFilter(x.f) : null })).filter(Boolean);
     r.viaHint = !!c.viaHint; r.dstName = str(c.dstName, 40); r.noMrSel = !!c.noMrSel; r.guarded = !!c.guarded; r.viaEffect = !!c.viaEffect; r.cutinPlayed = !!c.cutinPlayed; r.swapLpMin = c.swapLpMin == null ? null : num(c.swapLpMin); r.swapColor = str(c.swapColor, 12).toLowerCase(); r.nth = Math.max(0, Math.min(num(c.nth), 5)); r.conly = str(c.conly, 12).toLowerCase();
     for (const k of ['fh', 'fa', 'paHas', 'cin', 'fnone']) if (c[k] && typeof c[k] === 'object') r[k] = cleanFilter(c[k]);
@@ -66,7 +68,7 @@ module.exports = function (A) {
   const WHO = ['self', 'opp'], DO = ['sleep', 'stun', 'active', 'remove', 'hand', 'deckBottom', 'deckTop', 'deckTopOrBottom', 'ap', 'lp', 'kw', 'lv', 'gab', 'mark', 'setDeck', 'lpBase', 'apBase', 'kwLose', 'evid', 'evidUp', 'pa', 'hold'];
   const UNTIL = ['turn', 'contact', 'oppEnd'];
   const IFC = ['done', 'notdone', 'played', 'win', 'lose', 'remHas', 'costHas', 'picked', 'found', 'reg'];
-  const REGS = ['self', 'sel', 'played', 'seen', 'hit', 'chosen', 'chosen2', 'rest', 'revealed', 'removed', 'drawn', 'moved', 'cost', 'costRev', 'last', 'ent', 'cin'];
+  const REGS = ['self', 'sel', 'played', 'seen', 'hit', 'chosen', 'chosen2', 'rest', 'revealed', 'removed', 'drawn', 'moved', 'cost', 'costRev', 'costSlept', 'last', 'ent', 'cin'];
   const MVTO = ['hand', 'deckTop', 'deckBottom', 'deckTopOrBottom', 'rem', 'field', 'fieldSleep', 'pa', 'evidUp', 'evidDown', 'under', 'fileBottomUp', 'fileTop'];
   const PFROM = REGS.concat(['hand', 'rem', 'pa', 'evid', 'evidUp', 'evidDown', 'file']);
   const regN = x => opt(x, REGS, '');
@@ -108,7 +110,7 @@ module.exports = function (A) {
         pc: o.pc && typeof o.pc === 'object' ? { src: opt(o.pc.src, SRC, 'field'), f: o.pc.f && typeof o.pc.f === 'object' ? cleanFilter(o.pc.f, 0, 'condition') : null } : null };
       case 'play': return { ...p, distinct: !!o.distinct, dlv: !!o.dlv, n: n(), from: opt(o.from, ['hand', 'rem', 'handrem', 'picked', 'rempa'], 'hand'), filter: cleanFilter(o.filter), asleep: !!o.asleep };
       case 'choose': return { ...p, opts: (Array.isArray(o.opts) ? o.opts : []).slice(0, 4).map(x => ({ lab: str(x && x.lab, 60), ops: cleanOps(x && x.ops, depth + 1) })) };
-      case 'chooseMulti': return { ...p, max: Math.max(1, Math.min(num(o.max, 1), 6)), opts: (Array.isArray(o.opts) ? o.opts : []).slice(0, 6).map(x => ({ lab: str(x && x.lab, 80), ops: cleanOps(x && x.ops, depth + 1) })) };
+      case 'chooseMulti': return { ...p, maxCol: !!o.maxCol, max: Math.max(1, Math.min(num(o.max, 1), 6)), opts: (Array.isArray(o.opts) ? o.opts : []).slice(0, 6).map(x => ({ lab: str(x && x.lab, 80), ops: cleanOps(x && x.ops, depth + 1) })) };
       case 'if': return { ...p, c: opt(o.c, IFC, 'done'), name: str(o.name, 40), n: num(o.n), filter: cleanFilter(o.filter), ops: cleanOps(o.ops, depth + 1), else: cleanOps(o.else, depth + 1),
         ref: regN(o.ref) || 'last', filters: (Array.isArray(o.filters) ? o.filters : []).slice(0, 4).map(x => cleanFilter(x)), cmp: opt(o.cmp, ['ge', 'le', 'eq'], 'ge'), distinct: opt(o.distinct, ['', 'color', 'name'], ''), all: !!o.all };
       case 'ifc': return { ...p, cond: cleanCond(o.cond), ops: cleanOps(o.ops, depth + 1), else: cleanOps(o.else, depth + 1) };
@@ -154,7 +156,7 @@ module.exports = function (A) {
     if (ic === 'cutin' && a.per && typeof a.per === 'object') r.per = { src: opt(a.per.src, SRC, 'field'), f: a.per.f && typeof a.per.f === 'object' ? cleanFilter(a.per.f, 0, 'condition') : null };
     if (ic === 'ontrig') { r.evs = (Array.isArray(a.evs) ? a.evs : []).map(x => opt(x, EVS, '')).filter(Boolean).slice(0, 4); if (!r.evs.length) { r.ic = 'manual'; r.ops = [{ op: 'manual', txt: r.txt }]; }
       r.who = opt(a.who, ['self', 'opp'], ''); r.sub = opt(a.sub, ['self', 'notSelf', 'orSelf'], ''); r.sf = a.sf && typeof a.sf === 'object' ? cleanFilter(a.sf, 0, 'triggerSubject') : null; r.tf = a.tf && typeof a.tf === 'object' ? cleanFilter(a.tf, 0, 'triggerSubject') : null;
-      r.tself = !!a.tself; r.dself = !!a.dself; r.hw = opt(a.hw, ['self', 'opp'], ''); r.hself = !!a.hself; r.k = opt(a.k, ['char', 'case'], ''); r.by = opt(a.by, ['contact', 'effect', 'reason', 'action', 'hint', 'hand', 'mis', 'cost'], ''); r.cz = opt(a.cz, ['self', 'opp'], ''); r.turnEnd = !!a.turnEnd; r.sw = !!a.sw; r.incl = !!a.incl; }
+      r.tself = !!a.tself; r.dself = !!a.dself; r.hw = opt(a.hw, ['self', 'opp'], ''); r.hself = !!a.hself; r.k = opt(a.k, ['char', 'case'], ''); r.by = opt(a.by, ['contact', 'effect', 'reason', 'action', 'hint', 'hand', 'mis', 'cost'], ''); r.cz = opt(a.cz, ['self', 'opp'], ''); r.turnEnd = !!a.turnEnd; r.sw = !!a.sw; r.incl = !!a.incl; r.tApLow = a.tApLow == null ? null : Math.max(1, Math.min(num(a.tApLow), 99999)); }   // tApLow: 트리거 주체보다 AP 가 N 이상 낮은 대상(ctx.tid)을 지정한 경우만
     if (ic === 'hand') { r.lv = Math.max(0, Math.min(num(a.lv), 20)); r.lvd = a.lvd == null ? null : Math.max(-9, Math.min(num(a.lvd), 9)); if (a.per && typeof a.per === 'object') r.per = { src: opt(a.per.src, SRC, 'field'), f: a.per.f && typeof a.per.f === 'object' ? cleanFilter(a.per.f, 0, 'condition') : null }; }
     if (ic === 'replace') { r.rep = { to: opt(a.rep && a.rep.to, ['hand', 'deckBottom', 'deckTop', 'rem', 'stay'], 'hand'), unsetSelf: !!(a.rep && a.rep.unsetSelf) }; r.forced = !!a.forced; r.msg = str(a.msg, 80); }
     if (ic === 'grant') { const g = a.g && a.g.ic !== 'grant' ? cleanAb([a.g]) : []; r.g = g[0] || null; if (!r.g) r.ic = 'manual', r.ops = [{ op: 'manual', txt: r.txt }]; }
@@ -202,7 +204,7 @@ module.exports = function (A) {
   let _inNm = 0;
   const aliasHit = (R, id, f) => { if (_inNm || R.phase === 'setup' || !(f.name || (f.names && f.names.length))) return false; if (R._nmD === undefined) R._nmD = Object.values(R.defs || {}).some(d => (d.ab || []).some(a => a.nm)); if (!R._nmD) return false;
     _inNm = 1; try { let g = (stat(R, id).nm || '').split('\n').map(x => x.trim()).filter(Boolean);
-      { const c0 = R.cards[id]; if (c0 && !onField(R, id) && (R.P[c0.o].deck.includes(id) || R.P[c0.o].rem.includes(id))) g = g.concat((D(R, id).ab || []).filter(a => a.ic === 'static' && a.az && a.nm).map(a => a.nm)); }   // static az: 덱/리무브 에리어에서만 해당 카드명으로도 취급
+      { const c0 = R.cards[id]; if (c0 && !onField(R, id) && ['deck', 'rem', 'hand', 'evid', 'file', 'pa'].some(z => R.P[c0.o][z].includes(id))) g = g.concat((D(R, id).ab || []).filter(a => a.ic === 'static' && a.az && a.nm).map(a => a.nm)); }   // static az: 덱/리무브 에리어에서만 해당 카드명으로도 취급
       return g.some(n => (!f.name || n.includes(f.name)) && (!f.names || !f.names.length || f.names.some(x => n.includes(x)))); } finally { _inNm = 0; } };
   const effN = (R, id) => (R.fl && R.fl.nmx && R.fl.nmx[id] != null && onField(R, id)) ? R.fl.nmx[id] : D(R, id).n;   // 「ターン終了時までカード名を書き換える」効果を反映した現在のカード名
   // v1.12.2: 카드 DB 에 영문으로 인쇄된 이름(id_0438 'SHUICHI AKAI' 등)도 일본어 카드명 조건(「赤井秀一」 등)에 해당한다
@@ -227,8 +229,9 @@ module.exports = function (A) {
     if (c.via && c.via.length) { if (x.by !== 'effect' || !c.via.some(v => (!v.type || x.stype === v.type) && (x.slv || 0) >= v.lvMin && (!v.color || (x.scol || []).includes(v.color)))) return false; }
     if (c.lpSumMax != null && P.field.reduce((t, y) => t + A.lpOf(R, y), 0) > c.lpSumMax) return false;
     if (c.cname && !D(R, P.kase).n.includes(c.cname)) return false;
+    if (c.evTotMin != null || c.evTotMax != null) { const tot = R.P[0].evid.length + R.P[1].evid.length; if (c.evTotMin != null && tot < c.evTotMin) return false; if (c.evTotMax != null && tot > c.evTotMax) return false; }
     if (c.turn === 'self' && R.turn !== s) return false; if (c.turn === 'opp' && R.turn === s) return false;
-    if (c.pcolor && !cols(D(R, P.partner)).includes(c.pcolor) && !pk(R, s, 'pcolorAll')) return false;
+    if (c.pcolor && !c.pcolor.split('|').some(k => cols(D(R, P.partner)).includes(k)) && !pk(R, s, 'pcolorAll')) return false;   // 'blue|white' = 【青】か【白】
     if (c.ccolor) { const cc = cols(D(R, P.kase)); if (!c.ccolor.split(/[&,]/).filter(Boolean).every(k => cc.includes(k))) return false; }
     if (c.ctrait && !traitsOf(D(R, P.kase)).includes(c.ctrait)) return false;
     if (c.cnot && !cols(D(R, P.kase)).some(k => k !== c.cnot)) return false;
@@ -271,6 +274,8 @@ module.exports = function (A) {
       if (f.lvEq != null && lv !== f.lvEq) return false; if (f.lvSet && !f.lvSet.includes(lv)) return false; }
     if (f.apMax != null || f.apMin != null || f.apEq != null) { const a = apv(), mx = sv('apMax'), mn = sv('apMin'), eq = sv('apEq'); if (mx != null && a > mx) return false; if (mn != null && a < mn) return false; if (eq != null && a !== eq) return false; }
     if (f.apGt === 'self' && R.cards[src] && !(apv() > A.ap(R, src))) return false;
+    if (f.apLowSelf != null && !(R.cards[src] && apv() <= A.ap(R, src) - f.apLowSelf)) return false;
+    if (f.notMr && isMR(R, id)) return false;
     if (f.lpBase != null && (c.bLp != null ? c.bLp : (+d.lp || 0)) !== f.lpBase) return false;
     if (f.sameName && !(R.cards[src] && effN(R, src) === effN(R, id))) return false;
     if (f.hayFired && !(R.fl.hayFired && R.fl.hayFired[id])) return false; if (f.hasHay && !(d.ab || []).some(a => a.hay)) return false;
@@ -289,7 +294,7 @@ module.exports = function (A) {
     if (f.hasKw && !cardKw(R, id).includes(f.hasKw)) return false;
     if (f.bang && !(d.ab || []).some(a => a.ic === 'flash' && a.bang)) return false;
     if (f.plain && !((d.ab || []).every(a => a.ic === 'cutin' || a.ic === 'flash') && !/[a-z]/.test(cardKw(R, id).replace(/cutin[:=]?\d*/g, '')))) return false;
-    if (f.acting && R.actor !== id) return false; if (f.contacting && !(R.sub && (R.sub.atk === id || R.sub.def === id))) return false;
+    if (f.acting && R.actor !== id && !(R.sub && (R.sub.type === 'contact' || R.sub.type === 'guard') && R.sub.atk === id)) return false; if (f.contacting && !(R.sub && (R.sub.atk === id || R.sub.def === id))) return false;
     if (f.st) { const st = (!R.P[c.o].field.includes(id) && c.pst) ? c.pst : (c.st || 'a'); if (f.st === 'sx' ? !(st === 's' || st === 'x') : st !== f.st) return false; }
     if (f.any && f.any.length && !f.any.some(a => fOk(R, s, id, a, src, noStat))) return false;
     return true; }
@@ -298,9 +303,10 @@ module.exports = function (A) {
   function regNum(R, ctx, spec) { const [, ref, agg] = spec.split(':'); const ids = regIds(R, ctx, ref); const lvs = ids.map(x => +D(R, x).lv || 0);
     return agg === 'count' ? ids.length : agg === 'sum' ? lvs.reduce((a, b) => a + b, 0) : agg === 'max' ? Math.max(0, ...lvs) : (lvs[0] || 0); }
   function rf(R, f, ctx) { if (!f) return f; const t = ctx.t || {};
-    if (f.lvMax !== 'used' && f.lvMin !== 'used' && f.lvMax !== 'costLv' && f.lvMin !== 'costLv' && !isRegS(f.lvMax) && !isRegS(f.lvMin) && !f.lvIn && !f.traitOf && !f.nameCtx && !(f.any && f.any.length)) return f;
+    if (f.lvMax !== 'used' && f.lvMin !== 'used' && f.lvMax !== 'costLv' && f.lvMin !== 'costLv' && f.apMax !== 'costAp' && f.apMin !== 'costAp' && !isRegS(f.lvMax) && !isRegS(f.lvMin) && !f.lvIn && !f.traitOf && !f.nameCtx && !(f.any && f.any.length)) return f;
     const g = { ...f };
     for (const k of ['lvMax', 'lvMin']) { if (g[k] === 'used') g[k] = t.lv || 0; else if (g[k] === 'costLv') g[k] = (ctx.cost && ctx.cost.lv) || 0; else if (isRegS(g[k])) g[k] = regNum(R, ctx, g[k]); }
+    for (const k of ['apMax', 'apMin']) if (g[k] === 'costAp') g[k] = (ctx.cost && ctx.cost.ap) || 0;   // 코스트로 스턴/슬립시킨 캐릭터의 AP 이하
     if (g.nameCtx) { g.name = ctx.named || '\u0000'; g.nameCtx = false; }
     if (g.lvIn === 'disc') { g.lvSet = (ctx.disc || []).map(x => +D(R, x).lv || 0); g.lvIn = ''; }
     if (g.traitOf === 'ent') { g.traitAny = t.ent != null && R.cards[t.ent] ? traitsId(R, t.ent) : []; g.traitOf = ''; }
@@ -353,6 +359,7 @@ module.exports = function (A) {
         if (ab.sub === 'orSelf' && !ab.sf && ctx.ent !== h) return;
         if (ab.es && !(ab._from != null && ctx.ent === ab._from)) return;
         if (ab.tself && ctx.tid !== h) return; if (ab.dself && ctx.dst !== h) return; if (ab.hself && ctx.holder !== h) return; if (ab.hw && (ctx.holder == null || !R.cards[ctx.holder] || (R.cards[ctx.holder].o === s) !== (ab.hw === 'self'))) return; if (ab.tf && !(ctx.tid != null && R.cards[ctx.tid] && fOk(R, s, ctx.tid, ab.tf, h, true))) return;
+        if (ab.tApLow != null && !(ctx.tid != null && ctx.ent != null && R.cards[ctx.tid] && R.cards[ctx.ent] && onField(R, ctx.tid) && A.ap(R, ctx.ent) - A.ap(R, ctx.tid) >= ab.tApLow)) return;
         if (ab.k && ctx.k !== ab.k) return; if (ab.by && ctx.by !== ab.by) return; if (ab.cz && (ctx.cz == null || (ctx.cz === s) !== (ab.cz === 'self'))) return;
         if (!condOk(R, s, h, ab, ctx)) return;
         if (ab.lim) { c.u = c.u || {}; if ((c.u[i] || 0) >= ab.lim) return; c.u[i] = (c.u[i] || 0) + 1; }
@@ -482,6 +489,7 @@ module.exports = function (A) {
   function regIds(R, ctx, ref) { const g = ctx.reg || {}; if (ref === 'last') ref = ctx.last || 'sel';
     if (ref === 'cost') { const co = ctx.cost || {}; return [...(co.rem || []), ...(co.disc || [])].filter((x, i, a) => a.indexOf(x) === i); }
     if (ref === 'costRev') return ((ctx.cost && ctx.cost.rev) || []).slice();
+    if (ref === 'costSlept') return ((ctx.cost && ctx.cost.slept) || []).slice();
     if (ref === 'self') return ctx.src != null ? [ctx.src] : [];
     if (ref === 'ent') { const e = ctx.t && ctx.t.ent; return e != null ? [e] : []; }
     if (ref === 'cin') { const e = ctx.t && ctx.t.cin; return e != null ? [e] : []; }
@@ -525,7 +533,7 @@ module.exports = function (A) {
     if (o.sd && isDeck) { const owners = new Set(list.map(byOwn)); owners.forEach(w => shuf(R.P[w].deck)); }
     return moved; }
   const yn = (who, msg) => ({ who, kind: 'yn', msg });
-  const REGS_RT = ['sel', 'played', 'seen', 'hit', 'chosen', 'chosen2', 'rest', 'revealed', 'removed', 'drawn', 'moved', 'cost', 'costRev', 'last', 'ent', 'cin'];
+  const REGS_RT = ['sel', 'played', 'seen', 'hit', 'chosen', 'chosen2', 'rest', 'revealed', 'removed', 'drawn', 'moved', 'cost', 'costRev', 'costSlept', 'last', 'ent', 'cin'];
 
   // 「相手の能力や効果によって選ばれたとき」(onchosen): 선택된 카드(또는 그 아군)의 능력이 먼저 해결되고, 무효가 되면 그 카드는 대상에서 빠진다
   function* chosenCheck(R, s, src, ids, it) { if (src == null || !R.cards[src]) return ids; const so = R.cards[src].o, out = [];
@@ -604,7 +612,9 @@ module.exports = function (A) {
       case 'choose': { const os = o.opts.filter(x => x.ops.length); if (!os.length) return; const i = os.length === 1 ? 0 : yield { who: s, kind: 'opt', msg: '효과를 선택하세요', labels: os.map(x => x.lab || '선택') };
         yield* runOps(R, s, src, os[i].ops, ctx, it); return; }
       case 'chooseMulti': { const os = o.opts.filter(x => x.ops.length); if (!os.length) return;
-        const idx = yield { who: s, kind: 'optm', msg: `이 중에서 ${o.max}개까지 골라 위에서부터 순서대로 실행합니다`, labels: os.map(x => x.lab || '선택'), min: 0, max: Math.min(o.max, os.length) };
+        const mxN = o.maxCol ? new Set(R.P[s].field.flatMap(x => cols(D(R, x)))).size : o.max;   // maxCol: 자신의 현장에 있는 캐릭터가 가진 색의 수까지
+        if (mxN <= 0) return;
+        const idx = yield { who: s, kind: 'optm', msg: `이 중에서 ${mxN}개까지 골라 위에서부터 순서대로 실행합니다`, labels: os.map(x => x.lab || '선택'), min: 0, max: Math.min(mxN, os.length) };
         for (const i of idx.slice().sort((a, b) => a - b)) yield* runOps(R, s, src, os[i].ops, ctx, it); return; }
       case 'if': { let hit;
         if (o.c === 'played') hit = (ctx.played || []).some(y => !o.name || D(R, y).n.includes(o.name));
@@ -697,7 +707,7 @@ module.exports = function (A) {
         const r = ids.length === 1 ? ids : yield pickReq(who, '코스트로 리무브된 카드 중 1장을 선택하세요', ids, 1, 1, { reveal: 1 }); ctx.picked = r[0]; say(R, `[효과] ${nm(who)}이(가) 「${D(R, ctx.picked).n}」을(를) 선택`); return; }
       case 'set': { const f = rf(R, o.filter, ctx); const cand = P.field.filter(x => x !== src && fOk(R, s, x, f, src, true)); if (!cand.length || it.kind !== 'event' || R.cards[src].setOn != null || ['evid', 'rem', 'pa', 'hand', 'deck', 'file'].some(z => P[z].includes(src))) { ctx.done = false; return; } // 이벤트 효과 해결 중에만 세트 가능
         const ids = cand.length === 1 ? cand : yield pickReq(s, '이 이벤트를 세트할 내 캐릭터를 1장 선택', cand, 1, 1); const tid = ids[0], t = R.cards[tid], e = R.cards[src];
-        if (t && R.P[s].field.includes(tid)) { (t.sets = t.sets || []).push(src); e.setOn = tid; say(R, `[효과] ${D(R, src).n}을(를) ${D(R, tid).n}에 세트`); ctx.done = true; bus(R, 'setOn', { s: t.o, ent: src, holder: tid }); } return; }
+        if (t && R.P[s].field.includes(tid)) { (t.sets = t.sets || []).push(src); e.setOn = tid; setReg(ctx, 'sel', [tid]); say(R, `[효과] ${D(R, src).n}을(를) ${D(R, tid).n}에 세트`); ctx.done = true; bus(R, 'setOn', { s: t.o, ent: src, holder: tid }); } return; }
       case 'ref': { const ids = regIds(R, ctx, o.ref).filter(x => onField(R, x)); if (!ids.length) { ctx.done = false; return; }
         if (o.opt && !(yield yn(s, '이 효과를 처리할까요?'))) { ctx.done = false; return; }
         let oo = o; if (o.mul) { const m = regNumBy(R, regIds(R, ctx, o.mul.ref), o.mul.by); oo = { ...o, acts: o.acts.map(a => ['ap', 'lp', 'lv'].includes(a.do) ? { ...a, v: String((+a.v || 0) * m) } : a) }; }

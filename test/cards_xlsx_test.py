@@ -54,21 +54,21 @@ def card_diff(a, b):
 keys = {}; 
 for c in BASE["cards"].values():
     for k in c: keys[k] = keys.get(k, 0) + 1
-ok(len(BASE["cards"]) == 1251 and all(n == 1251 for n in keys.values()), f"현재 DB: 카드 {len(BASE['cards'])}장, 필드 {sorted(keys)} (전부 1251장에 존재)")
+ok(len(BASE["cards"]) >= 1251 and all(n == len(BASE["cards"]) for n in keys.values()), f"현재 DB: 카드 {len(BASE['cards'])}장, 필드 {sorted(keys)} (전 카드에 존재)")
 
 # ───── 1. round-trip (1,251장) ─────
 d = fresh("rt"); info = quiet(X.read_workbook, d / "cards.xlsx")[0]
 (cards, meta, probs) = info
-ok(not probs and len(cards) == 1251, f"xlsx 읽기: 카드 {len(cards)}장, 문제 {len(probs)}건")
+ok(not probs and len(cards) == len(BASE["cards"]), f"xlsx 읽기: 카드 {len(cards)}장, 문제 {len(probs)}건")
 code, o = build(d); ok(code == 0 and "변경 없음" in o and not (d / "out.json").exists(), "수정 없이 빌드 → '변경 없음' (파일을 쓰지 않음)")
 code, o = qb(d / "cards.xlsx", d / "cards.json", d / "out.json", check=True); ok(code == 0, "--check: Excel 과 JSON 이 같음")
 new = X.merge_with_base(cards, meta, BASE)
 ok(new == BASE and X.dumps(new) == BASE_TEXT, "round-trip: cards.json → xlsx → cards.json 이 의미적으로 동일하고 바이트까지 동일")
 a, b = set(BASE["cards"]), set(new["cards"]); lost = [(cid, k) for cid in a for k in BASE["cards"][cid] if new["cards"][cid].get(k, "<X>") != BASE["cards"][cid][k]]
-ok(len(a) == len(b) == 1251 and a == b and not lost, f"카드 수 {len(a)}→{len(b)}, ID 차이 0, 필드 손실/값 변경 {len(lost)}건")
+ok(len(a) == len(b) == len(BASE["cards"]) and a == b and not lost, f"카드 수 {len(a)}→{len(b)}, ID 차이 0, 필드 손실/값 변경 {len(lost)}건")
 ok(all(new["cards"][i]["img"] == c["img"] and c["img"].startswith("data:image/") for i, c in BASE["cards"].items()), "이미지 1,251장 전부 보존 (Excel 에는 base64 없음)")
 ok((d / "cards.xlsx").stat().st_size < 3_000_000, f"cards.xlsx 크기 {(d / 'cards.xlsx').stat().st_size // 1024}KB (이미지 미포함)")
-ok(sum(len(c["ab"]) for c in new["cards"].values()) == 2099, "능력(ab) 2,099개 / 효과(op) 2,128개 보존")
+ok(sum(len(c["ab"]) for c in new["cards"].values()) == sum(len(c["ab"]) for c in BASE["cards"].values()), "능력(ab) 개수 보존")
 
 # ───── 2. 단일 값 수정 ─────
 d = fresh("one"); edit(d, setcell("Cards", "id_0123", "color", "red")); code, o = build(d)
@@ -172,14 +172,14 @@ def delid2(wb):
         ws = wb[name]
         for r in range(ws.max_row, 1, -1):
             if ws.cell(r, 1).value == "id_0020": ws.delete_rows(r)
-edit(d, delid2); code, o = build(d, allow_delete=["id_0020"]); ok(code == 0 and "id_0020" not in out(d)["cards"] and len(out(d)["cards"]) == 1250, "--allow-delete 로 명시한 삭제는 허용")
+edit(d, delid2); code, o = build(d, allow_delete=["id_0020"]); ok(code == 0 and "id_0020" not in out(d)["cards"] and len(out(d)["cards"]) == len(BASE["cards"]) - 1, "--allow-delete 로 명시한 삭제는 허용")
 # ───── 8. 수정 내용이 다른 카드에는 영향 없음 + 새 카드 행(이미지 없음 경고) ─────
 d = fresh("newrow")
 def addrow(wb):
     ws = wb["Cards"]; r = ws.max_row + 1
     for k, v in {"id": "id_9001", "type": "char", "color": "blue", "lv": 3, "ap": 4000, "lp": 1, "n": "새 카드", "fx": "", "extra": ""}.items(): ws.cell(r, hcol(ws, k)).value = v
 edit(d, addrow); code, o = build(d); O = out(d)["cards"]
-ok(code == 0 and len(O) == 1252 and O["id_9001"]["img"] == "" and "이미지" in o and set(card_diff(BASE, out(d))) == {"id_9001"}, "Excel 에서 새 카드 행 추가 → 추가됨(이미지 없음 경고), 기존 카드 영향 없음")
+ok(code == 0 and len(O) == len(BASE["cards"]) + 1 and O["id_9001"]["img"] == "" and "이미지" in o and set(card_diff(BASE, out(d))) == {"id_9001"}, "Excel 에서 새 카드 행 추가 → 추가됨(이미지 없음 경고), 기존 카드 영향 없음")
 # ───── 9. base 없이 빌드 → 이미지 경고 ─────
 d = fresh("nobase"); code, o = qb(d / "cards.xlsx", d / "none.json", d / "o.json"); ok(code == 0 and "이미지" in o, "기존 cards.json 이 없으면 이미지 없음 경고 (이미지는 JSON 에만 있음)")
 # ───── 10. JSON → Excel 병합 export ─────
@@ -208,7 +208,7 @@ else: ok(True, "enc/dec: 모호한 문자열('5','true','null','[1]', 앞뒤 공
 # ───── 13. 서버가 변환 결과를 그대로 읽음 ─────
 d = fresh("srv"); edit(d, setcell("Cards", "id_0123", "color", "red")); build(d)
 r = subprocess.run(["node", "-e", "process.env.CARDS_JSON=process.argv[1];const S=require('./server.js');const j=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'));console.log(S.validateCards(j), j.cards.id_0123.color)", str(d / "out.json")], capture_output=True, text=True, cwd=str(ROOT))
-ok(r.stdout.split() == ["1251", "red"], f"서버 validateCards 가 변환된 cards.json 을 그대로 받아들임 ({r.stdout.strip()} {r.stderr[-100:]})")
+ok(r.stdout.split() == [str(len(BASE["cards"])), "red"], f"서버 validateCards 가 변환된 cards.json 을 그대로 받아들임 ({r.stdout.strip()} {r.stderr[-100:]})")
 # ───── 14. 신탄 추가(add_new_cards.py) 연동 ─────
 try:
     sys.path.insert(0, str(ROOT)); import add_new_cards as ANC
@@ -218,7 +218,7 @@ try:
     quiet(ANC.sync_excel_after_import, d / "cards.json", ["id_9200"], [])
     j = json.loads((d / "cards.json").read_text("utf-8")); cs, ms, pr = X.read_workbook(d / "cards.xlsx")
     ok("id_9200" in cs and cs["id_9200"]["n"] == "신탄A" and not pr, "신탄 추가 후 cards.xlsx 에 새 카드 행 자동 추가")
-    ok(j["cards"]["id_0100"]["color"] == "black" and j["cards"]["id_9200"]["img"] == BASE["cards"]["id_0001"]["img"] and len(j["cards"]) == 1252, "Excel 수정분(color) 보존 + 새 카드 이미지 유지 + cards.json 과 Excel 이 일치")
+    ok(j["cards"]["id_0100"]["color"] == "black" and j["cards"]["id_9200"]["img"] == BASE["cards"]["id_0001"]["img"] and len(j["cards"]) == len(BASE["cards"]) + 1, "Excel 수정분(color) 보존 + 새 카드 이미지 유지 + cards.json 과 Excel 이 일치")
 except ImportError as e:
     print("SKIP 신탄 연동(필요 모듈 없음):", e)
 shutil.rmtree(TMP, ignore_errors=True)

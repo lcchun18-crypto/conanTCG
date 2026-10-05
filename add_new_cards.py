@@ -4,6 +4,7 @@
     python add_new_cards.py "E:\\conanTCG\\newset"
     python add_new_cards.py ./newset --replace-existing      # 같은 ID 가 이미 있어도 새 결과로 교체
     python add_new_cards.py ./newset --dry-run               # API 호출/파일 변경 없이 계획만 출력
+    python add_new_cards.py ./imgs --from-json cards.json     # (v1.13.0) 이미 읽어 둔 카드 데이터(JSON)로 추가 — 이미지는 썸네일/색 검증에만 쓰고 API 는 부르지 않는다
 
 동작
   · 기존 카드(이미 data/cards.json 에 있는 ID)는 이미지 인식(OCR/API)을 다시 호출하지 않는다. 새 ID 의 이미지만 처리한다.
@@ -81,12 +82,99 @@ def sync_excel_after_import(db_path, added, replaced):
     else: print(f"[Excel] {xlsx.name} 에 새 카드 {len(added)}장이 추가되었습니다. Excel 에서 확인/수정한 뒤 GitHub 에 올리세요.")
 
 
+def _kw_conditional_fix(card):
+    """v1.13.0: 조건이 붙은 突撃/迅速/バレット(예: 【パートナー】【青】突撃, 【事件】【緑&赤】突撃)는 상시 능력(static kw + cond)이 조건을 지키므로
+    카드 `kw` 필드에는 남기지 않는다(엔진은 d.kw 를 조건 없이 적용하기 때문). 조건 없는 키워드와 変装/ミスリード 는 그대로 둔다."""
+    kws = [w for w in str(card.get("kw") or "").split() if w]
+    if not kws: return []
+    dropped = []
+    for w in list(kws):
+        base = re.split(r"[:=\d]", w)[0]
+        if base not in ("assault", "assault-char", "assault-case", "rapid", "bullet"): continue
+        uncond = any(a.get("ic") == "static" and base in str(a.get("kw") or "") and not any((a.get("cond") or {}).values()) for a in card.get("ab", []))
+        if not uncond: kws.remove(w); dropped.append(w)
+    card["kw"] = " ".join(kws); return dropped
+
+
+def from_transcription(a, folder, old):
+    """카드 데이터(JSON, 이미지를 읽어 옮겨 적은 값)에서 새 카드 엔트리를 만든다. API 호출 없음.
+    JSON 항목: id, n, type, color, lv, lv2, ap, lp, trait, kw, fx(일본어 원문), extra(한국어), src(이미지 파일명, 없으면 ID_<id>_* 로 찾음)
+    이미지는 썸네일(img)과 색 검증(card_color: FILE 원/프레임 우선, 일러스트 색 안 씀)에만 쓴다."""
+    recs = json.loads(Path(a.from_json).read_text("utf-8"))
+    todo, dup_exist, dup_in, seen = [], [], [], set()
+    for r in recs:
+        raw = str(r["id"]).strip(); cid = raw if raw.startswith("id_") else "id_" + (raw.zfill(4) if raw.isdigit() else raw)
+        if cid in seen: dup_in.append(cid); continue
+        seen.add(cid)
+        if cid in old and not a.replace_existing: dup_exist.append(cid); continue
+        todo.append((cid, r))
+    new, rows, fails, kwdrop = {}, [], [], {}
+    for cid, r in todo:
+        try:
+            src = r.get("src") or ""
+            p = folder / src if src else next(iter(sorted(folder.glob(f"[Ii][Dd]_{str(r['id']).strip().replace('id_', '')}_*"))), None)
+            if p is None or not Path(p).exists(): raise FileNotFoundError(f"이미지를 찾을 수 없음: {src or cid}")
+            _full, _box, thumb, im = ic.prep(p, a.send_px, a.crop_px, a.thumb_px)
+            d = {"name": r["n"], "type": r["type"], "color": r.get("color", ""), "lv": str(r.get("lv", "") or ""), "lv2": str(r.get("lv2", "") or ""), "ap": str(r.get("ap", "") or ""),
+                 "lp": str(r.get("lp", "") or ""), "kw": r.get("kw", "") or "", "trait": r.get("trait", "") or "", "fx_ja": r.get("fx", "") or "", "fx_ko": r.get("extra", "") or "",
+                 "img": thumb, "file": Path(p).name, "flags": []}
+            if r["type"] in ("char", "event", "case"):
+                before = d["color"]; ic.check_color(d, im)
+                if d["color"] != before and not r.get("color_locked"): d["color"] = before; d["flags"].append(f"색 검사 제안 무시(원문 색 유지): {before}")
+            st = {"kw": d["kw"], "abilities": []}
+            if r["type"] != "partner" and d["fx_ja"].strip(): st, _ = ic.apply_rules(st, d["fx_ja"], r["type"], cid)
+            card, fl = ic.card_entry(cid, d, st)
+            dropped = _kw_conditional_fix(card)
+            if dropped: kwdrop[cid] = dropped
+            new[cid] = card
+            if fl: rows.append([cid, d["name"], d["file"], " / ".join(fl)])
+        except Exception as e:
+            fails.append((cid, f"{type(e).__name__}: {e}"))
+    return todo, dup_exist, dup_in, new, rows, fails, kwdrop
+
+
+def commit(a, db_path, data, old, new, rows, fails, stats, n_old, stamp, rep_dir):
+    """백업 → 임시 파일 → 검증 → 교체 → 리포트 → Excel 동기화 (이미지 인식 방식·JSON 방식 공통)"""
+    # ── 백업 → 임시 파일 → 검증 → 교체
+    added = [c for c in new if c not in old]; repl = [c for c in new if c in old]
+    # v1.11.0: 새 카드의 효과 대상(select 등)·트리거 주체 필터의 own(소유자)을 원문 근거로 명시한다 (확실한 것만 — 나머지는 확인용 CSV 로 남김)
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent / "tools")); import ownership_migrate as _om
+        _ap, _rv, _ = _om.run({"cards": new}, apply=True)
+        _om.write_csv(rep_dir / f"add-{stamp}.ownership_review.csv", _rv)
+        print(f"own(소유자) 자동 명시 {len(_ap)}건 / 사람이 확인할 항목 {len(_rv)}건 → {rep_dir / f'add-{stamp}.ownership_review.csv'}")
+    except Exception as e:
+        print(f"[경고] own(소유자) 자동 명시를 건너뜀: {e}")
+    merged = {**old, **new}; out = {**data, "cards": {k: merged[k] for k in sorted(merged)}}
+    keep = {k: v for k, v in old.items() if k not in repl}
+    bk = None
+    if db_path.exists():
+        bk_dir = db_path.parent / "backup"; bk_dir.mkdir(exist_ok=True); bk = bk_dir / f"cards-{stamp}.json"; k = 1
+        while bk.exists(): k += 1; bk = bk_dir / f"cards-{stamp}-{k}.json"  # 같은 초에 다시 실행해도 기존 백업을 덮어쓰지 않는다
+        shutil.copy2(db_path, bk)
+    try: final = atomic_write(db_path, out, merged.keys(), keep)
+    except Exception as e:
+        print(f"저장 실패 — 기존 cards.json 은 그대로입니다: {e}"); stats(0, len(fails) + len(new), n_old); return 1
+    # 새 카드만 확인용 파일 생성
+    with open(rep_dir / f"add-{stamp}.review.csv", "w", newline="", encoding="utf-8-sig") as fh:
+        w = csv.writer(fh); w.writerow(["ID", "이름", "파일", "확인 필요 사유"]); w.writerows(sorted(rows))
+    man = [(cid, c) for cid, c in sorted(new.items()) if c["type"] != "partner" and c["fx"] and "manual" in json.dumps(c["ab"])]
+    lines = [f"[이번에 추가한 카드 중 manual 이 남은 카드 {len(man)}장]"] + [f"{cid}\t{c['n']}\t" + " | ".join(ic.effect_rules.manual_texts(c["ab"]) if ic.effect_rules else ["(?)"]) for cid, c in man]
+    (rep_dir / f"add-{stamp}.manual.txt").write_text("\n".join(lines), "utf-8")
+    if bk: print(f"백업: {bk}")
+    print(f"확인 필요 목록(새 카드만): {rep_dir / f'add-{stamp}.review.csv'} ({len(rows)}장) / manual 목록: {rep_dir / f'add-{stamp}.manual.txt'}")
+    sync_excel_after_import(db_path, added, repl)
+    print("서버는 재시작하지 않아도 다음 접속부터 새 카드가 보입니다(파일 변경을 자동 감지). Render 에서는 cards.xlsx 와 cards.json 을 함께 커밋/배포하세요.")
+    stats(len(added), len(fails), final, len(repl)); return 0
+
+
 def main():
     ap = argparse.ArgumentParser(description="새 카드 세트를 기존 data/cards.json 에 추가")
     ap.add_argument("folder", help="새 카드 이미지 폴더 (하위 폴더 포함)")
     ap.add_argument("--db", default=str(HERE / "data" / "cards.json"), help="대상 카드 DB (기본: 프로젝트의 data/cards.json)")
     ap.add_argument("--replace-existing", action="store_true", help="이미 있는 ID 도 새 결과로 교체(기본: 건너뜀)")
     ap.add_argument("--init", action="store_true", help="cards.json 이 없을 때 새로 만든다")
+    ap.add_argument("--from-json", default="", help="이미 읽어 둔 카드 데이터(JSON 목록)로 추가한다(API 없음). folder 는 이미지 폴더")
     ap.add_argument("--dry-run", action="store_true", help="API 호출/파일 변경 없이 무엇을 처리할지만 출력")
     ap.add_argument("--id-regex", default=r"(.+)", help="파일 이름(확장자 제외)에서 카드 ID 를 뽑는 정규식(import_cards.py 와 동일)")
     ap.add_argument("--model", default="claude-sonnet-5-5"); ap.add_argument("--struct-model", default="claude-sonnet-5-5")
@@ -101,6 +189,21 @@ def main():
     old = data["cards"]; n_old = len(old)
     try: rx = re.compile(a.id_regex)
     except re.error as e: print(f"--id-regex 오류: {e}"); return 2
+
+    if a.from_json:   # v1.13.0: 이미 읽어 둔 카드 데이터(JSON)로 추가 (API 없음)
+        todo, dup_exist, dup_in, new, rows, fails, kwdrop = from_transcription(a, folder, old)
+        n_dup = len(dup_exist) + len(dup_in); replaced = [c for c, _ in todo if c in old]
+        def stats(added, failed, final, repl=0):
+            print(f"\n기존 카드 수: {n_old}\n입력 카드 데이터 수: {len(todo) + n_dup}\n신규 추가: {added}" + (f"\n교체: {repl}" if a.replace_existing else "")
+                  + f"\n중복(ID 충돌, 건너뜀): {n_dup}" + (f" → {', '.join(dup_exist + dup_in)}" if n_dup else "") + f"\n실패: {failed}\n최종 카드 수: {final}")
+        for n, e in fails: print(f"실패: {n}\n   {e}")
+        if kwdrop: print(f"[kw] 조건부 키워드는 상시 능력(cond)으로만 두고 kw 필드에서 제외: " + ", ".join(f"{k}:{'/'.join(v)}" for k, v in sorted(kwdrop.items())))
+        if a.dry_run: print(f"[dry-run] 새 카드 {len(new)}장 — 파일 변경 없음"); stats(len(new) - len(replaced), len(fails), n_old + len(new) - len(replaced), len(replaced)); return 0
+        if not new: print("추가된 카드가 없어 cards.json 은 변경하지 않았습니다."); stats(0, len(fails), n_old); return 1
+        stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S"); rep_dir = db_path.parent / "reports"
+        try: rep_dir.mkdir(parents=True, exist_ok=True)
+        except Exception as e: print(f"출력 폴더를 만들 수 없습니다: {e}"); return 2
+        return commit(a, db_path, data, old, new, rows, fails, stats, n_old, stamp, rep_dir)
 
     files = sorted(p for p in folder.rglob("*") if p.suffix.lower() in IMG_EXT)
     if a.limit: files = files[:a.limit]
@@ -157,37 +260,7 @@ def main():
     if not new:
         print("추가된 카드가 없어 cards.json 은 변경하지 않았습니다."); stats(0, len(fails), n_old); return 1
 
-    # ── 백업 → 임시 파일 → 검증 → 교체
-    added = [c for c in new if c not in old]; repl = [c for c in new if c in old]
-    # v1.11.0: 새 카드의 효과 대상(select 등)·트리거 주체 필터의 own(소유자)을 원문 근거로 명시한다 (확실한 것만 — 나머지는 확인용 CSV 로 남김)
-    try:
-        sys.path.insert(0, str(Path(__file__).resolve().parent / "tools")); import ownership_migrate as _om
-        _ap, _rv, _ = _om.run({"cards": new}, apply=True)
-        _om.write_csv(rep_dir / f"add-{stamp}.ownership_review.csv", _rv)
-        print(f"own(소유자) 자동 명시 {len(_ap)}건 / 사람이 확인할 항목 {len(_rv)}건 → {rep_dir / f'add-{stamp}.ownership_review.csv'}")
-    except Exception as e:
-        print(f"[경고] own(소유자) 자동 명시를 건너뜀: {e}")
-    merged = {**old, **new}; out = {**data, "cards": {k: merged[k] for k in sorted(merged)}}
-    keep = {k: v for k, v in old.items() if k not in repl}
-    bk = None
-    if db_path.exists():
-        bk_dir = db_path.parent / "backup"; bk_dir.mkdir(exist_ok=True); bk = bk_dir / f"cards-{stamp}.json"; k = 1
-        while bk.exists(): k += 1; bk = bk_dir / f"cards-{stamp}-{k}.json"  # 같은 초에 다시 실행해도 기존 백업을 덮어쓰지 않는다
-        shutil.copy2(db_path, bk)
-    try: final = atomic_write(db_path, out, merged.keys(), keep)
-    except Exception as e:
-        print(f"저장 실패 — 기존 cards.json 은 그대로입니다: {e}"); stats(0, len(fails) + len(new), n_old); return 1
-    # 새 카드만 확인용 파일 생성
-    with open(rep_dir / f"add-{stamp}.review.csv", "w", newline="", encoding="utf-8-sig") as fh:
-        w = csv.writer(fh); w.writerow(["ID", "이름", "파일", "확인 필요 사유"]); w.writerows(sorted(rows))
-    man = [(cid, c) for cid, c in sorted(new.items()) if c["type"] != "partner" and c["fx"] and "manual" in json.dumps(c["ab"])]
-    lines = [f"[이번에 추가한 카드 중 manual 이 남은 카드 {len(man)}장]"] + [f"{cid}\t{c['n']}\t" + " | ".join(ic.effect_rules.manual_texts(c["ab"]) if ic.effect_rules else ["(?)"]) for cid, c in man]
-    (rep_dir / f"add-{stamp}.manual.txt").write_text("\n".join(lines), "utf-8")
-    if bk: print(f"백업: {bk}")
-    print(f"확인 필요 목록(새 카드만): {rep_dir / f'add-{stamp}.review.csv'} ({len(rows)}장) / manual 목록: {rep_dir / f'add-{stamp}.manual.txt'}")
-    sync_excel_after_import(db_path, added, repl)
-    print("서버는 재시작하지 않아도 다음 접속부터 새 카드가 보입니다(파일 변경을 자동 감지). Render 에서는 cards.xlsx 와 cards.json 을 함께 커밋/배포하세요.")
-    stats(len(added), len(fails), final, len(repl)); return 0
+    return commit(a, db_path, data, old, new, rows, fails, stats, n_old, stamp, rep_dir)
 
 
 if __name__ == "__main__":
