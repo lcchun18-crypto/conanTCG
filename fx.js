@@ -361,8 +361,8 @@ module.exports = function (A) {
         if (ab.tself && ctx.tid !== h) return; if (ab.dself && ctx.dst !== h) return; if (ab.hself && ctx.holder !== h) return; if (ab.hw && (ctx.holder == null || !R.cards[ctx.holder] || (R.cards[ctx.holder].o === s) !== (ab.hw === 'self'))) return; if (ab.tf && !(ctx.tid != null && R.cards[ctx.tid] && fOk(R, s, ctx.tid, ab.tf, h, true))) return;
         if (ab.tApLow != null && !(ctx.tid != null && ctx.ent != null && R.cards[ctx.tid] && R.cards[ctx.ent] && onField(R, ctx.tid) && A.ap(R, ctx.ent) - A.ap(R, ctx.tid) >= ab.tApLow)) return;
         if (ab.k && ctx.k !== ab.k) return; if (ab.by && ctx.by !== ab.by) return; if (ab.cz && (ctx.cz == null || (ctx.cz === s) !== (ab.cz === 'self'))) return;
-        if (!condOk(R, s, h, ab, ctx)) return;
-        if (ab.lim) { c.u = c.u || {}; if ((c.u[i] || 0) >= ab.lim) return; c.u[i] = (c.u[i] || 0) + 1; }
+        if (!condOk(R, s, h, ab, ctx)) { if (ev === 'hrev') { const c0 = ab.cond || {}, why = []; if (c0.turn && (R.turn === s) !== (c0.turn === 'self')) why.push(c0.turn === 'self' ? '내 턴이 아님' : '상대 턴이 아님'); if (c0.ccolor) why.push('사건 색 ' + c0.ccolor.replace('&', '+') + ' 필요'); if (c0.fileMin) why.push(`FILE ${c0.fileMin}장 이상 필요 (현재 ${fcount(R, s)}장)`); say(R, `[공개 트리거] ${D(R, h).n}: 조건 미충족 — ${why.join(', ') || '조건 확인'}`); } return; }
+        if (ab.lim) { if (ev === 'hrev' && ((c.u || {})[i] || 0) >= ab.lim) say(R, `[공개 트리거] ${D(R, h).n}: 이번 턴 사용 횟수(${ab.lim}회) 소진`); c.u = c.u || {}; if ((c.u[i] || 0) >= ab.lim) return; c.u[i] = (c.u[i] || 0) + 1; }
         R.q.push({ kind: 'ab', s, src: h, ab, ctx, first: !!ab.first }); }); } }
   const nameBanned = (R, s, id) => !!(R.fl.noName && R.fl.noName[s] && R.fl.noName[s].some(n => D(R, id).n.includes(n)));
   const fieldMax = (R, s) => pk(R, s, 'field4') ? 4 : 5;

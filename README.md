@@ -674,3 +674,7 @@ AI(Expert)와 "어시스트를 적극 쓰며 고코스트 캐릭터가 빠르게
 - 엔진 공통 확장: 이벤트 증거 합계 조건(evTotMin/Max), 상대 AP 차 트리거(tApLow), 필터 apLowSelf/notMr/costAp, 코스트 슬립 캐릭터 레지스터(costSlept), `pcolor` OR('a|b'), 다색 선택 maxCol, 코스트 stunAny, 오퍼레이션 swapRem/ptnActive/setEvToPa/playMix/ifIdDiff/winGame, trigTgt(deckBottom/hand/opt).
 - 버그 수정: 「アクション中のキャラ」(`acting`) 필터가 캐릭터 액션/컨택트 중에도 동작하도록 정리.
 - 테스트: `npm run test:ct11` (88장 데이터/이미지/색/KO 텍스트 전수 + 85장 실플레이 스모크 + 위험 카드 개별 시나리오). `test/all_cards_auto.js` 로 전체 효과 카드 manual 0 확인.
+
+## v1.13.1 — 선택지 라벨 한국어화 + 공개 트리거 진단 로그
+- id_0947 등 `choose`/선언 버튼의 선택지 문구(lab)가 일본어로 나오던 문제: 37장 83개 라벨을 한국어로 정리했습니다(cards.json·cards.xlsx 동기화). 테스트(`mz_ct11.js` lab-ko)가 전체 DB 의 lab 에 가나가 남지 않았는지 검사합니다.
+- id_1068 공개 트리거: 실카드 id_0408 선언(코스트 공개) → 사용 여부 팝업 → 액티브+AP+1000 흐름을 회귀 테스트로 고정했습니다. 조건(내 턴 / 사건 【青&黒】 / FILE 5장 이상 / 턴 2회)이 맞지 않아 발동하지 않으면 게임 로그에 `[공개 트리거] 毛利蘭: 조건 미충족 — …` 로 이유를 남깁니다.
