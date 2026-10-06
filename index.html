@@ -73,7 +73,9 @@ body.m #firstb,body.m #turnb{white-space:nowrap}body.m #firstb{font-size:11px;pa
 .z-file{width:calc(var(--ch)*2 + 24px);height:calc(var(--cw) + 22px)}
 .z-plate{justify-self:end;display:flex;flex-direction:column;gap:5px;align-items:flex-end;padding-right:8px}
 #hand{height:calc(var(--ch) + 8px);padding-top:8px}
-.oh{height:calc(var(--ch)*.58);overflow:hidden}
+.oh{height:calc(var(--ch)*.58);overflow:hidden}.oh.sp{height:calc(var(--ch)*.95);overflow:visible}
+.nsl{display:inline-block;margin:8px 0 2px;font-size:13px;color:#9fb0c8;cursor:pointer}.nsl small{opacity:.7}.specrow{margin-top:10px}.specpill{background:#4b2d7a!important;color:#fff!important;font-weight:700}
+body.spec #restartBtn,body.spec #rtBtn,body.spec #topmenu,body.spec #botover,body.spec #act,body.spec #btns{display:none!important}
 #hand,.oh{display:flex;justify-content:flex-start;align-items:flex-end;min-width:0;width:100%}
 #hand .card,.oh .card{margin:0;flex:none}#hand .card+.card,.oh .card+.card{margin-left:var(--ov,4px)}@media(hover:hover){#hand .card:hover{transform:translateY(-16px) scale(1.06);z-index:8;box-shadow:0 12px 24px #000a}}
 #hand .card.sel{transform:translateY(-22px)}
@@ -458,8 +460,10 @@ body.m #dbErr>div{max-width:94vw}
 </style></head><body>
 <div id="net" role="status" aria-live="polite"></div>
 <div id="lobby"><h1>명탐정 코난 TCG</h1><div class="sub">카드게임 시뮬레이터</div>
-<button class="pri" onclick="S({t:'create'})">방 만들기 (호스트)</button> <button class="bot" id="botBtn" onclick="botOpen()">🤖 봇과 대전</button><br>
+<button class="pri" onclick="S({t:'create',noSpec:$('nospec').checked})">방 만들기 (호스트)</button> <button class="bot" id="botBtn" onclick="botOpen()">🤖 봇과 대전</button><br>
 <input id="code" placeholder="방 코드" maxlength="4" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="go" onkeydown="if(event.key==='Enter'){S({t:'join',code:this.value});this.blur()}" style="text-transform:uppercase;width:130px;text-align:center"><button onclick="S({t:'join',code:code.value})">입장 (게스트)</button>
+<br><label class="nsl" title="체크하고 방을 만들면 관전자가 들어올 수 없습니다"><input type="checkbox" id="nospec"> 관전 불가 <small>(체크 후 방 생성 시 적용)</small></label>
+<div class="specrow"><input id="scode" placeholder="관전할 방 코드" maxlength="4" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="go" onkeydown="if(event.key==='Enter'){specGo();this.blur()}" style="text-transform:uppercase;width:130px;text-align:center"><button id="specBtn" onclick="specGo()">👁 관전</button></div>
 <div id="cdbErrL" class="dberr"><b class="dbm"></b><br><small>서버의 data/cards.json 을 읽지 못했습니다. 서버 관리자에게 알려 주세요.</small><br><button onclick="retryDb()">다시 시도</button></div><br><button class="ghost" onclick="openDB()">카드 / 덱 관리</button><p id="lerr"></p></div>
 <div id="ldg" role="status" aria-live="polite"><div class="ldb"><div class="spin"></div><div class="ldt">봇 대전을 준비하는 중…</div><small>덱과 AI를 불러오고 있습니다. 잠시만 기다려 주세요.</small></div></div>
 <div id="botm"><div><b>🤖 봇과 대전</b>
@@ -469,7 +473,7 @@ body.m #dbErr>div{max-width:94vw}
 <div class="rowb" id="botTrainRow" title="AI가 어시스트·넥스트 힌트로 고코스트 캐릭터를 빠르게 전개하고 내 캐릭터를 제거하는 연습용 스크립트 (일반 Expert AI 아님)"><label><input type="checkbox" id="botTrain"> 연습 모드 (강제 전개 스크립트)</label></div>
 <div id="botErr"></div><div class="rowb"><button class="pri" onclick="botStart()">대전 시작</button><button class="ghost" onclick="$('botm').style.display='none'">취소</button></div>
 <small>봇은 내 손패와 뒷면 세트 카드까지 볼 수 있지만, 앞으로의 덱 순서는 모릅니다. 난이도는 EXPERT 하나입니다(전문 봇은 같은 Expert 탐색 + 덱 전용 전략). 전문 봇은 정해진 덱을 씁니다. 저장한 덱(40장 + 사건 + 파트너)만 고를 수 있습니다.</small></div></div>
-<div id="game"><div id="top"><span class="brand">명탐정 코난 TCG</span><span id="turnb">-</span><span id="firstb" class="order" style="display:none" aria-live="polite"></span><span class="pill">방 코드 <b id="rc"></b></span><span class="pill" id="info"></span><span class="sp"></span><button id="restartBtn" class="ghost" type="button" title="현재 게임을 초기화하고 처음부터 다시 시작">🔄 다시하기</button><button id="rtBtn" class="ghost" type="button" style="display:none" title="이번 턴의 모든 행동을 취소하고 턴 시작 상태로 되돌립니다">이번 턴 다시시작</button><button id="leaveBtn" class="ghost" type="button" title="로비로 나가기">🚪 로비로</button><button class="mbtn" id="mLog">📜 로그</button><button class="mbtn" id="mMenu">☰ 메뉴</button><span id="botpill" class="pill" style="display:none">🤖 BOT / EXPERT</span><span id="botover" class="grp" style="display:none"><button class="pri" onclick="botRestart()">다시 대전</button><button onclick="botLog()">AI 기록 다운로드</button></span>
+<div id="game"><div id="top"><span class="brand">명탐정 코난 TCG</span><span id="turnb">-</span><span id="firstb" class="order" style="display:none" aria-live="polite"></span><span class="pill">방 코드 <b id="rc"></b></span><span class="pill" id="info"></span><span class="pill specpill" id="specpill" style="display:none">👁 관전 중</span><span class="sp"></span><button id="restartBtn" class="ghost" type="button" title="현재 게임을 초기화하고 처음부터 다시 시작">🔄 다시하기</button><button id="rtBtn" class="ghost" type="button" style="display:none" title="이번 턴의 모든 행동을 취소하고 턴 시작 상태로 되돌립니다">이번 턴 다시시작</button><button id="leaveBtn" class="ghost" type="button" title="로비로 나가기">🚪 로비로</button><button class="mbtn" id="mLog">📜 로그</button><button class="mbtn" id="mMenu">☰ 메뉴</button><span id="botpill" class="pill" style="display:none">🤖 BOT / EXPERT</span><span id="botover" class="grp" style="display:none"><button class="pri" onclick="botRestart()">다시 대전</button><button onclick="botLog()">AI 기록 다운로드</button></span>
 <span class="grp" id="topmenu"><select id="dsel"></select><button class="pri" onclick="loadDeck()">덱 등록</button><button onclick="openDB()">카드 / 덱 관리</button><button class="danger" onclick="confirm('항복할까요?')&&A('resign')">항복</button></span></div>
 <div id="main"><div id="logc"><div class="lh"><span>플레이 로그</span><button class="ghost" id="logt" onclick="toggleLog()">접기</button></div><div id="log"></div></div>
 <div id="board"><div id="oppl" class="half opp"></div>
@@ -506,6 +510,7 @@ function netUI(kind,msg){const e=document.getElementById('net');if(!e)return;cle
  if(kind==='up'||kind==='warn')NET.hide=setTimeout(()=>{e.className='';document.body.classList.remove('netdown')},kind==='up'?2500:6000)}
 const wsOpen=()=>!!NET.ws&&NET.ws.readyState===OPEN;
 function S(o){ // 연결이 열려 있을 때만 전송. 닫혀 있으면 예외 없이 false (화면은 그대로, 상태 표시만)
+ if(V&&V.spec&&o.t!=='leaveRoom'&&o.t!=='spectate')return false;   // 관전자는 조작 메시지를 보내지 않는다 (서버도 거부)
  const w=NET.ws;if(w&&w.readyState===OPEN){try{w.send(JSON.stringify(o));return true}catch{}}
  netUI(NET.hadOpen?'down':'conn',NET.hadOpen?'연결이 끊어졌습니다. 재연결 중... 연결되면 다시 시도해 주세요.':'서버 연결 중...');netKick(false);return false}
 function netDown(w){ // 이 소켓이 죽었다: 정리하고 재연결 예약 (현재 소켓이 아니면 무시)
@@ -522,7 +527,8 @@ function netConnect(){
  NET.ws=w;
  NET.conT=setTimeout(()=>{if(NET.ws===w&&w.readyState!==OPEN)netDown(w)},9000); // 깨어나는 중이라 응답이 없으면 포기하고 다시 시도
  w.onopen=()=>{if(NET.ws!==w)return;clearTimeout(NET.conT);const re=NET.hadOpen;NET.hadOpen=true;NET.tries=0;NET.downAt=0;
-  if(NET.sess){S({t:'resume',code:NET.sess.code,seat:NET.sess.seat,token:NET.sess.token});if(re)netUI('up','서버에 다시 연결되었습니다. 게임을 복구하는 중...')}
+  if(NET.spec){NET.specRe=true;S({t:'spectate',code:NET.spec});if(re)netUI('up','서버에 다시 연결되었습니다. 관전을 복구하는 중...')}
+  else if(NET.sess){S({t:'resume',code:NET.sess.code,seat:NET.sess.seat,token:NET.sess.token});if(re)netUI('up','서버에 다시 연결되었습니다. 게임을 복구하는 중...')}
   else if(re)netUI('up','서버에 다시 연결되었습니다.');else{const e=document.getElementById('net');if(e&&/conn/.test(e.className)){e.className='';document.body.classList.remove('netdown')}}};
  w.onmessage=e=>{if(NET.ws===w)onMsg(e)};
  w.onclose=()=>netDown(w);w.onerror=()=>netDown(w);}
@@ -531,7 +537,7 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)netKick(tr
 addEventListener('pageshow',e=>{if(e.persisted)netKick(true)});
 NET.sess=sessGet();
 let hsel=null,remShow=null,V=null,DEFS={},DB={cards:{},decks:{}},cur=null,curDeck=null,pimg=null,mode=null,selm=[],pend=null;
-const A=(a,o={})=>{if(M)closeSheet();S({t:'act',a,...o})};
+const A=(a,o={})=>{if(V&&V.spec)return;if(M)closeSheet();S({t:'act',a,...o})};
 
 // v1.9.0: 확인 대화상자 / 공개 팝업 / 다시하기
 let ynCb=null;function askYN(msg,cb){$('yn').querySelector('.ym').textContent=msg;ynCb=cb;$('yn').classList.add('on')}
@@ -546,20 +552,23 @@ function uiReset(kind){rvQ=[];rvCur=null;$('rvl').classList.remove('on');$('yn')
 $('restartBtn').onclick=()=>V&&V.bot?askYN('현재 봇 대전을 끝내고 같은 설정으로 새 게임을 시작하시겠습니까?',()=>botRestart()):askYN('정말 현재 게임을 초기화하고 다시 시작하시겠습니까?',()=>S({t:'restartGame'}));
 $('rtBtn').onclick=askTurnRestart;
 function askTurnRestart(){askYN('이번 턴의 모든 행동을 취소하고 턴 시작 상태로 돌아가시겠습니까?',()=>S({t:'restartTurn'}))}
+function specGo(){const c=($('scode').value||'').trim().toUpperCase();if(!c){$('lerr').textContent='관전할 방 코드를 입력하세요.';return}$('lerr').textContent='';NET.specTry=c;S({t:'spectate',code:c})}
 function onMsg(e){let m;try{m=JSON.parse(e.data)}catch{return}
- if(m.t==='joined')sessPut({code:m.code,seat:m.seat,token:m.token});
+ if(m.t==='spectating'){NET.spec=m.code;NET.specRe=false;NET.specTry=null}
+ else if(m.t==='joined')sessPut({code:m.code,seat:m.seat,token:m.token});
  else if(m.t==='resumeFail'){sessPut(null);toLobby();netUI('warn',m.msg||'방을 복구하지 못했습니다.')}
+ else if(m.t==='err'&&NET.specRe){NET.specRe=false;NET.spec=null;toLobby();netUI('warn',m.msg||'관전을 복구하지 못했습니다.')}
  else if(m.t==='err'){loading(false);if(V){$('lerr').textContent='';$('err').textContent=m.msg;setTimeout(()=>{if($('err').textContent===m.msg)$('err').textContent=''},4000)}else{$('lerr').textContent=m.msg}}   // 게임 중 오류는 게임 화면에만, 로비 오류는 로비에만
  else if(m.t==='defs'){DEFS=m.defs;V&&render()}
- else if(m.t==='reveal'){if(V&&(m.to||[]).includes(V.me)){rvQ.push(m);rvNext()}}
+ else if(m.t==='reveal'){if(V&&!V.spec&&(m.to||[]).includes(V.me)){rvQ.push(m);rvNext()}}
  else if(m.t==='reset'){uiReset(m.kind)}
- else if(m.t==='left'){sessPut(null);toLobby();if(botAuto==='restart'&&botCfg)botStart(botCfg);else botAuto=false}
+ else if(m.t==='left'){sessPut(null);const sm=NET.spec&&m.msg;NET.spec=null;NET.specRe=false;toLobby();if(sm)$('lerr').textContent=sm;if(botAuto==='restart'&&botCfg)botStart(botCfg);else botAuto=false}
  else if(m.t==='botlog'){if(m.err)return alert(m.err);const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(m.log,null,1)],{type:'application/json'}));a.download='conan-bot-log.json';a.click()}
  else if(m.t==='v'){loading(false);V=m;$('lerr').textContent='';if(m.phase==='over'&&NET.sess)sessPut(null);if(V.bot&&botAuto===true&&V.phase==='setup'&&!V.P[0].ready){botAuto=false;loadDeck()}$('lobby').style.display='none';$('game').style.display='flex';document.body.classList.add('ing');sizes();if(!V.sub||V.sub.who!==V.me)selm=selm;render()}}
-function toLobby(){V=null;$('lerr').textContent='';$('err').textContent='';prevSolved=null;document.body.classList.remove('ing','topopen','logopen');try{closeSheet()}catch{}$('game').style.display='none';$('lobby').style.display=''}
+function toLobby(){V=null;$('lerr').textContent='';$('err').textContent='';prevSolved=null;document.body.classList.remove('ing','topopen','logopen','spec');try{closeSheet()}catch{}$('game').style.display='none';$('lobby').style.display=''}
 netUI('conn','서버 연결 중...');netConnect();
 const kw=f=>String(f.kw||'').toLowerCase();
-const canSel=()=>V&&V.phase==='play'&&V.turn===V.me&&!V.sub&&!V.eff&&!V.fl.hw;
+const canSel=()=>V&&!V.spec&&V.phase==='play'&&V.turn===V.me&&!V.sub&&!V.eff&&!V.fl.hw;
 const TYPE_KO={char:'캐릭터',event:'이벤트',partner:'파트너',case:'사건'};
 const COL={red:['빨강','#e5544b'],blue:['파랑','#4a8fe8'],green:['초록','#3fb56b'],yellow:['노랑','#e8c93c'],white:['하양','#f1f1f1'],black:['검정','#3a3a3a'],purple:['보라','#9b6be0']};
 const fxHtml=t=>esc(t).replace(/(【[^】]*】)/g,'<em>$1</em>');
@@ -614,8 +623,8 @@ function fClick(c,mine){const s=V.sub,me=V.me;if(V.eff)return;
  if(canSel())selectCard(c.id)}
 // 손패 카드는 클릭해도 즉시 실행되지 않는다: 선택 → 오른쪽 아래 행동 버튼(등장 / 이벤트 사용 / 컷인 / 변장)을 눌러야 실행
 const canHand=()=>V&&V.phase==='play'&&V.turn===V.me&&!V.sub&&!V.eff;
-const handTurn=()=>V&&!V.eff&&((V.sub&&V.sub.type==='contact'&&V.sub.who===V.me)||canHand());
-function hClick(c){if(V.eff)return;
+const handTurn=()=>V&&!V.spec&&!V.eff&&((V.sub&&V.sub.type==='contact'&&V.sub.who===V.me)||canHand());
+function hClick(c){if(V.eff||V.spec)return;
  if(V.phase==='mull')return tog(c.id);
  if(handTurn()){mode=null;pend=null;hsel=hsel===c.id?null:c.id;render()}}
 // 눕힌(가로) 카드 더미: 증거 / FILE (카드 자체를 90° 눕혀 살짝씩 어긋나게 쌓는다). 덱은 세로 카드 더미. 카드 수는 별도 badge.
@@ -681,9 +690,9 @@ function pl(id,P,mine){const el=$(id);el.innerHTML='';const me=V.me,tgt=actTg()|
  rm.onmouseenter=()=>{const t=P.rem[P.rem.length-1],f=t&&DEFS[t.d];if(f)pv(f,t)};rm.onclick=e=>{e.stopPropagation();remShow=remShow===(mine?me:1-me)?null:(mine?me:1-me);render()};
  const zi=mine?div('z-info',dk,rm):div('z-info',rm,dk);
  // 아래(상대는 위) 줄: 손패(왼쪽) | FILE(중앙) | 이름표(오른쪽)
- let hd;if(mine){hd=div('');hd.id='hand'}else{hd=div('oh');for(let i=0;i<Math.min(P.hand,16);i++){const c=document.createElement('div');c.className='card back';hd.appendChild(c)}hd.id='opp-hand'}
+ let hd;if(mine){hd=div('');hd.id='hand'}else if(V.spec&&Array.isArray(P.hand)){hd=div('oh sp');P.hand.forEach(c=>hd.appendChild(mk(c,{})));hd.id='opp-hand'}else{hd=div('oh');for(let i=0;i<Math.min(P.hand,16);i++){const c=document.createElement('div');c.className='card back';hd.appendChild(c)}hd.id='opp-hand'}
  const seatP=mine?me:1-me,ordOn=V.phase!=='setup'&&(V.first===0||V.first===1),ord=ordOn?(V.first===seatP?'<span class="ord f">선공</span>':'<span class="ord s">후공</span>'):'';
- const pn=div('pn');pn.innerHTML=ord+`<span class="nm">${mine?'나':'상대'}${isT?'<span class="tb">TURN</span>':''}</span>${P.tr?'<span class="tr">흔적 발견됨</span>':''}${mine?'':`<span class="hc">✋ ${P.hand}</span>`}`;
+ const pn=div('pn');pn.innerHTML=ord+`<span class="nm">${V.spec?'플레이어 '+(seatP+1):(mine?'나':'상대')}${isT?'<span class="tb">TURN</span>':''}</span>${P.tr?'<span class="tr">흔적 발견됨</span>':''}${mine?'':`<span class="hc">✋ ${Array.isArray(P.hand)?P.hand.length:P.hand}</span>`}`;
  el.append(zc,zf,Z('z-evid','',ev),zp,zi,div('z-bot',div('z-hand',hd),Z('z-file','FILE',fl),div('z-plate',pn)))}
 function fitHand(){for(const h of [$('hand'),$('opp-hand')]){if(!h)continue;const n=h.children.length;if(n<2){h.style.removeProperty('--ov');continue}const cw=h.children[0].offsetWidth||CW,av=h.clientWidth-8,gap=Math.round(cw*.06),need=n*cw+(n-1)*gap;let ov=need>av?-Math.ceil((need-av)/(n-1)):gap;if(M&&h.id==='hand'&&need>av)ov=Math.min(ov,0)<-(cw*.5)?-Math.round(cw*.5):ov;h.style.setProperty('--ov',ov+'px')}}
 // ══════ 모바일 / 태블릿 ══════
@@ -874,7 +883,16 @@ function actUI(){const a=$('act');a.innerHTML='';const H=t=>{const d=document.cr
  Bt('선택 해제',()=>{mode=null;render()},'ghost')}
 let endShown=null;
 function endBanner(){const b=$('endb');if(V.winner!==0&&V.winner!==1)return;const key=V.code+':'+V.winner+':'+V.n;if(endShown===key)return;endShown=key;const w=V.winner===V.me;b.className='on'+(w?'':' lose');b.querySelector('.et').textContent=w?'🏆 승리!':'😢 패배';b.querySelector('.es').textContent=w?'축하합니다! 이겼습니다':'아쉽게도 졌습니다';b.querySelector('.eclose').onclick=()=>{b.className=''}}
-function ui(){const me=V.me,T=V.turn===me,s=V.sub,b=$('btns');b.innerHTML='';let m='';if(V.phase!=='over'){endShown=null;$('endb').className=''}
+function uiSpec(){const b=$('btns');b.innerHTML='';$('effp').innerHTML='';$('etray').innerHTML='';$('act').innerHTML='';const s=V.sub;let m='';const pn=i=>'플레이어 '+(i+1);
+ if(V.phase==='over'){const w=V.winner;m=(w===0||w===1)?'🏁 게임 종료 — '+pn(w)+' 승리':'🏁 게임 종료';const bn=$('endb');if(w===0||w===1){const key='S'+V.code+':'+w+':'+V.n;if(endShown!==key){endShown=key;bn.className='on';bn.querySelector('.et').textContent='🏆 '+pn(w)+' 승리';bn.querySelector('.es').textContent='게임이 끝났습니다 (관전 중)';bn.querySelector('.eclose').onclick=()=>{bn.className=''}}}}
+ else{endShown=null;$('endb').className='';
+  if(V.phase==='setup')m='덱 준비 중 — '+[0,1].map(i=>pn(i)+(V.P[i].ready?' ✔':' …')).join(' / ');
+  else if(V.phase==='mull')m=pn(V.mull)+'이(가) 손패 교체를 결정 중…';
+  else if(V.eff)m='플레이어가 효과를 처리하는 중입니다…';
+  else if(s)m=pn(s.who)+'의 응답 대기 중 ('+({guard:'가드 선택',contact:'컨택트',mis:'미스리드'}[s.type]||s.type)+')';
+  else m=pn(V.turn)+'의 턴'+(V.fl&&V.fl.hw?' — 넥스트 힌트 진행 중':'')}
+ $('msg').textContent=Tm(m)}
+function ui(){if(V.spec)return uiSpec();const me=V.me,T=V.turn===me,s=V.sub,b=$('btns');b.innerHTML='';let m='';if(V.phase!=='over'){endShown=null;$('endb').className=''}
  const B=(t,f,cls)=>{const x=document.createElement('button');x.textContent=t;if(cls)x.className=cls;x.onclick=f;b.appendChild(x)};
  $('effp').innerHTML='';$('etray').innerHTML='';(M?$('dock'):$('mid')).appendChild(b);
  if(V.phase==='over'){m=V.winner===me?'🏆 승리했습니다!':'😢 패배했습니다';endBanner()}
@@ -893,9 +911,9 @@ function ui(){const me=V.me,T=V.turn===me,s=V.sub,b=$('btns');b.innerHTML='';let
  $('msg').textContent=Tm(m);actUI()}
 $('leaveBtn').onclick=leaveGame;
 let prevSolved=null;const solvedFx=[0,0];
-function render(){if(!V)return;const me=V.me;effSync();$('botpill').style.display=V.bot?'':'none';$('restartBtn').style.display='';$('rtBtn').style.display=V.rt&&V.phase==='play'?'':'none';if(V.bot)$('botpill').textContent='🤖 '+(V.botName||'BOT / EXPERT');$('botover').style.display=V.bot&&V.phase==='over'?'':'none';document.body.classList.toggle('botmode',!!V.bot);if(mode&&!canSel())mode=null;if(hsel&&!(handTurn()&&V.P[me].hand.some(x=>x.id===hsel)))hsel=null;$('rc').textContent=V.code;const PH={setup:'덱 준비',mull:'멀리건',over:'게임 종료'};$('info').textContent=V.phase==='play'?`${V.n}번째 턴`:(PH[V.phase]||V.phase);document.body.classList.toggle('playing',V.phase!=='setup');{const fb=$('firstb');if(V.phase!=='setup'&&(V.first===0||V.first===1)){fb.style.display='';const f=V.first===me;fb.className='order '+(f?'f':'s');fb.textContent=f?'선공':'후공';fb.title=f?'내가 선공입니다':'내가 후공입니다'}else fb.style.display='none'}
+function render(){if(!V)return;const me=V.me;document.body.classList.toggle('spec',!!V.spec);$('specpill').style.display=V.spec?'':'none';if(V.spec){$('specpill').textContent='👁 관전 중'+(V.nspec>1?' ('+V.nspec+'명)':'');mode=null;hsel=null;pend=null;selm=[]}effSync();$('botpill').style.display=V.bot?'':'none';$('restartBtn').style.display=V.spec?'none':'';$('rtBtn').style.display=!V.spec&&V.rt&&V.phase==='play'?'':'none';if(V.bot)$('botpill').textContent='🤖 '+(V.botName||'BOT / EXPERT');$('botover').style.display=V.bot&&V.phase==='over'?'':'none';document.body.classList.toggle('botmode',!!V.bot);if(mode&&!canSel())mode=null;if(hsel&&!(handTurn()&&V.P[me].hand.some(x=>x.id===hsel)))hsel=null;$('rc').textContent=V.code;const PH={setup:'덱 준비',mull:'멀리건',over:'게임 종료'};$('info').textContent=V.phase==='play'?`${V.n}번째 턴`:(PH[V.phase]||V.phase);document.body.classList.toggle('playing',V.phase!=='setup');{const fb=$('firstb');if(!V.spec&&V.phase!=='setup'&&(V.first===0||V.first===1)){fb.style.display='';const f=V.first===me;fb.className='order '+(f?'f':'s');fb.textContent=f?'선공':'후공';fb.title=f?'내가 선공입니다':'내가 후공입니다'}else fb.style.display='none'}
  {const sv=[0,1].map(i=>!!(V.P[i].kase&&V.P[i].kase.solved));if(prevSolved)sv.forEach((x,i)=>{if(x&&!prevSolved[i])solvedFx[i]=Date.now()+1400});prevSolved=sv}
- document.body.classList.toggle('mullph',V.phase!=='play');const tb=$('turnb');if(V.phase==='play'){tb.className=V.turn===me?'me':'opp';tb.textContent=V.turn===me?'▶ 내 턴':'상대 턴'}else{tb.className='';tb.textContent=PH[V.phase]||V.phase}
+ document.body.classList.toggle('mullph',V.phase!=='play');const tb=$('turnb');if(V.phase==='play'){tb.className=V.turn===me?'me':'opp';tb.textContent=V.spec?'▶ 플레이어 '+(V.turn+1)+' 턴':(V.turn===me?'▶ 내 턴':'상대 턴')}else{tb.className='';tb.textContent=PH[V.phase]||V.phase}
  pl('oppl',V.P[1-me],false);pl('mel',V.P[me],true);
  const h=$('hand');V.P[me].hand.forEach(c=>h.appendChild(mk(c,{click:()=>hClick(c),sel:selm.includes(c.id)||hsel===c.id})));fitHand();
  drawLog();
@@ -925,7 +943,7 @@ function battleUI(){const B=$('battle'),s=V.sub;
  const sig=JSON.stringify([bt.a,bt.b,bt.aFrom,bt.aNow,bt.bFrom,bt.bNow,bt.case,bt.mine]);if(sig===btSig)return;btSig=sig;
  const num=(f,n)=>n==null?'<span>-</span>':(f!=null&&n!==f?`<s>${f}</s><span class="ar">→</span><em>${n}</em>`:`<span>${n}</span>`);
  const mine=bt.mine,badge=(id,cls,lab,f,n)=>`<div class="apb ${cls}" data-for="${id}"><small>${lab}</small><div class="num">${num(f,n)}</div></div>`;
- B.innerHTML=badge(bt.a,mine?'mine':'theirs',mine?'내 공격':'상대 공격',bt.aFrom,bt.aNow)+(!bt.case&&bt.b!=null?badge(bt.b,mine?'theirs':'mine',mine?'상대 방어':'내 방어',bt.bFrom,bt.bNow):'');
+ B.innerHTML=badge(bt.a,mine?'mine':'theirs',V.spec?'공격':(mine?'내 공격':'상대 공격'),bt.aFrom,bt.aNow)+(!bt.case&&bt.b!=null?badge(bt.b,mine?'theirs':'mine',V.spec?'방어':(mine?'상대 방어':'내 방어'),bt.bFrom,bt.bNow):'');
  B.className='on'}
 // AP 표시를 해당 카드의 윗부분에 겹쳐 붙인다 (상태 메시지 줄을 가리지 않음)
 function placeApb(){const B=$('battle');if(!B.firstChild)return;const Bd=$('board').getBoundingClientRect();
@@ -1015,7 +1033,7 @@ function botStart(cfg){if(!cfg){const my=$('botMy').value,dk=$('botDk').value,sp
  const spec=cfg.bot&&cfg.bot!=='expert',b=DB.decks[cfg.dk],m=DB.decks[cfg.my];if(!m||(!spec&&!b)){$('botErr').textContent='선택한 덱을 찾을 수 없습니다.';return}botCfg=cfg;botAuto=true;curDeck=cfg.my;$('dsel').value=cfg.my;$('botm').style.display='none';loading(true);
  if(!S(spec?{t:'createBot',first:cfg.first,bot:cfg.bot}:{t:'createBot',first:cfg.first,training:cfg.training===true,bot:'expert',botDeck:{cards:b.cards,partner:b.partner,kase:b.kase}}))loading(false)}
 function botRestart(){if(S({t:'leaveBot'})){botAuto='restart';loading(true)}}
-function leaveGame(){if(!V){toLobby();return}if(V.bot){botLobby();return}if((V.phase==='play'||V.phase==='mull')&&!confirm('게임 중에 나가면 패배 처리됩니다. 로비로 나갈까요?'))return;if(!S({t:'leaveRoom'})){sessPut(null);toLobby()}}
+function leaveGame(){if(!V){toLobby();return}if(V.spec){NET.spec=null;NET.specRe=false;if(!S({t:'leaveRoom'}))toLobby();return}if(V.bot){botLobby();return}if((V.phase==='play'||V.phase==='mull')&&!confirm('게임 중에 나가면 패배 처리됩니다. 로비로 나갈까요?'))return;if(!S({t:'leaveRoom'})){sessPut(null);toLobby()}}
 function botLobby(){botAuto=false;if(S({t:'leaveBot'}))botAuto='lobby'}
 function botLog(){S({t:'botlog'})}
 

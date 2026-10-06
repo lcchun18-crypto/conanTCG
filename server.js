@@ -43,7 +43,7 @@ function startTurn(R) { const s = R.turn, P = R.P[s]; R.n++; R.fl = {}; R.actor 
   say(R, `── ${nm(s)}의 턴 (#${R.n}) ──`); FX.fireMain(R, s); if (R.rng != null) snapTake(R); }
 
 // ── v1.9.0 이번 턴 다시시작: 턴 시작 처리(오토/드로우/FILE) 직후의 정규(canonical) 상태를 서버가 보관하고, 복원은 그 스냅샷 자체를 되돌린다(드로우 재실행 아님). 난수 상태(R.rng)도 함께 저장.
-const SNAP_SKIP = new Set(['ws', 'tok', 'gt', 'bot', 'defs', 'code', 'log', 'rv', 'rvSeq', 'rvLog', 'snap', 'curS', '_dp']);
+const SNAP_SKIP = new Set(['ws', 'tok', 'gt', 'bot', 'defs', 'code', 'log', 'rv', 'rvSeq', 'rvLog', 'snap', 'curS', '_dp', 'spec', 'noSpec']);
 const _prot = new WeakMap();
 const protSet = R => { const n = Object.keys(R.defs).length, c = _prot.get(R.defs); if (c && c.n === n) return c.set; const set = new WeakSet(), st = [R.defs]; while (st.length) { const v = st.pop(); if (!v || typeof v !== 'object' || set.has(v)) continue; set.add(v); Object.values(v).forEach(x => st.push(x)); } _prot.set(R.defs, { n, set }); return set; };
 const dclone = (v, prot) => { if (!v || typeof v !== 'object') return v; if (prot.has(v)) return v; if (Array.isArray(v)) return v.map(x => dclone(x, prot));
@@ -60,8 +60,8 @@ function turnRestart(R, seat) {
   R.rv = []; say(R, `↩ ${nm(seat)}이(가) 이번 턴을 다시 시작했습니다 (턴 시작 상태로 복원)`);
   withCur(R, () => { FX.pump(R); settle(R); if (R.ending && !R.eff && !R.q.length && !R.sub && R.phase === 'play') doEnd(R); }); return null; }
 // ── v1.9.0 다시하기: 같은 방 코드·연결을 유지한 채 게임 상태 전체를 처음(덱 등록 전)으로 되돌린다. 이전 덱은 재사용하지 않는다.
-function resetRoom(R, seat) { const keep = { code: R.code, ws: R.ws, tok: R.tok, gt: R.gt }; for (const k of Object.keys(R)) delete R[k];
-  Object.assign(R, mkR(keep.code)); R.ws = keep.ws; if (keep.tok) R.tok = keep.tok; if (keep.gt) R.gt = keep.gt; R.rng = (Math.random() * 4294967296) >>> 0;
+function resetRoom(R, seat) { const keep = { code: R.code, ws: R.ws, tok: R.tok, gt: R.gt, spec: R.spec, noSpec: R.noSpec }; for (const k of Object.keys(R)) delete R[k];
+  Object.assign(R, mkR(keep.code)); R.ws = keep.ws; if (keep.tok) R.tok = keep.tok; if (keep.gt) R.gt = keep.gt; if (keep.spec) R.spec = keep.spec; if (keep.noSpec) R.noSpec = true; R.rng = (Math.random() * 4294967296) >>> 0;
   R.log = [seat === 0 || seat === 1 ? `${nm(seat)}이(가) 게임을 초기화했습니다. 두 플레이어 모두 덱을 다시 등록하세요.` : '게임이 초기화되었습니다.']; return R; }
 
 function start(R) { R.phase = 'mull'; R.first = R.firstPref === 0 || R.firstPref === 1 ? R.firstPref : Math.random() < .5 ? 0 : 1; R.mullSeat = R.first;
@@ -243,14 +243,21 @@ function view(R, s) { const V = { t: 'v', me: s, code: R.code, phase: R.phase, t
       partner: P.partner ? (show ? { ...co(R, P.partner), inFile: P.pIn } : { hidden: 1 }) : null,
       kase: P.kase ? (show ? { ...co(R, P.kase), solved: !!R.cards[P.kase].solved } : { hidden: 1 }) : null }); }
   return V; }
+// v1.15.0 관전자용 state: 플레이어용 view() 와 별도로 만든다. 일반 플레이어의 view 는 상대 손패를 개수만 담고, 양쪽 손패 전체는 이 함수의 결과에만 들어간다.
+// view(R,'spec') 은 어느 자리도 '본인'이 아니므로 뒷면 세트 카드·준비 전 파트너/사건은 비공개로 남고, acts 는 비어 있다(조작 불가).
+const SPEC_WAIT = '플레이어가 효과를 처리하는 중입니다…';
+function viewSpec(R) { const V = view(R, 'spec'); V.me = 0; V.spec = 1; V.acts = {}; V.rt = 0; V.eff = R.eff ? { wait: 1, msg: SPEC_WAIT } : null; V.nspec = (R.spec || []).length;
+  for (const i of [0, 1]) V.P[i].hand = R.P[i].hand.map(x => co(R, x));
+  return V; }
+const sendSpec = (R, o) => { if (R.spec) for (const w of R.spec) send(w, o); };
 // v1.9.0 공개 시스템: 효과가 '공개'를 명시한 경우(fx.js 의 ack + by)에만 reveal 이벤트를 만든다. 공개한 쪽의 상대(to)에게 실제 카드 앞면을 팝업으로 보여준다.
 const flushReveal = R => { const ev = R.rv; if (!ev || !ev.length) return; R.rv = [];
   for (const e of ev) { const msg = { t: 'reveal', id: (R.rvSeq = (R.rvSeq || 0) + 1), by: e.by, to: [1 - e.by], ack: e.ack, msg: e.msg, src: e.src != null && R.cards[e.src] ? D(R, e.src).n : '', srcD: e.src != null && R.cards[e.src] ? R.cards[e.src].d : '', cards: e.ids.filter(x => R.cards[x]).map(x => co(R, x)) };
-    if (!msg.cards.length) continue; (R.rvLog = R.rvLog || []).push({ id: msg.id, by: msg.by, ids: e.ids.slice() }); R.ws.forEach(w => send(w, msg)); } };
-const bc = R => { flushReveal(R); R.ws.forEach((w, i) => send(w, view(R, i))); if (R.bot) R.bot.tick(); };
+    if (!msg.cards.length) continue; (R.rvLog = R.rvLog || []).push({ id: msg.id, by: msg.by, ids: e.ids.slice() }); R.ws.forEach(w => send(w, msg)); } };   // reveal 팝업은 플레이어에게만 (관전자는 이미 양쪽 손패를 봄)
+const bc = R => { flushReveal(R); R.ws.forEach((w, i) => send(w, view(R, i))); if (R.spec && R.spec.length) sendSpec(R, viewSpec(R)); if (R.bot) R.bot.tick(); };
 // 사람(WebSocket)과 봇이 같은 검증/실행 경로를 쓴다: 모든 행동은 dispatch → ready/act 를 거친다 (봇 전용 우회 경로 없음)
 function dispatch(R, seat, m) {
-  if (m.t === 'ready') { const e = withCur(R, () => ready(R, seat, m)); if (!e) R.ws.forEach(w => send(w, { t: 'defs', defs: R.defs })); return e; }
+  if (m.t === 'ready') { const e = withCur(R, () => ready(R, seat, m)); if (!e) { R.ws.forEach(w => send(w, { t: 'defs', defs: R.defs })); sendSpec(R, { t: 'defs', defs: R.defs }); } return e; }
   if (m.t === 'act') return R.bot ? R.bot.apply(seat, m, act) : act(R, seat, m);
   return null; }
 
@@ -327,10 +334,14 @@ function main() {
   // ── 연결 끊김 처리 (v1.5.1) ── 끊기면 바로 패배 처리하지 않고 GRACE 동안 같은 자리로 재접속(resume)을 기다린다. (RECONNECT_GRACE_MS=0 이면 예전처럼 즉시 종료)
   const GRACE = process.env.RECONNECT_GRACE_MS != null ? +process.env.RECONNECT_GRACE_MS : 60000;
   const seatTok = (R, seat, ws) => { R.tok = R.tok || [null, null]; R.tok[seat] = require('crypto').randomBytes(12).toString('hex'); send(ws, { t: 'joined', code: R.code, seat, token: R.tok[seat] }); };
+  // v1.15.0 관전자: R.spec = 관전 소켓 배열 (플레이어 슬롯 R.ws[0..1] 과 완전히 분리). 관전 소켓은 ws.spec=true, ws.seat 없음.
+  const MAX_SPEC = 30;
+  const closeSpec = (R, msg) => { const L = R.spec || []; R.spec = []; for (const w of L) { w.R = null; w.spec = false; send(w, { t: 'left', msg }); } };
+  const dropSpec = (R, ws) => { if (R.spec) R.spec = R.spec.filter(w => w !== ws); ws.R = null; ws.spec = false; };
   const endSeat = (R, seat) => { if (R.gt && R.gt[seat]) { clearTimeout(R.gt[seat]); R.gt[seat] = null; } if (R.ws[seat]) return;   // 그 사이 돌아왔으면 종료하지 않음
     R.ws[seat] = null; if (R.bot) { R.bot.stop(); R.ws[1 - seat] = null; }
     if (R.phase === 'play' || R.phase === 'mull') { R.phase = 'over'; R.winner = 1 - seat; say(R, '상대가 나가서 게임이 종료되었습니다.'); }
-    bc(R); if (!R.ws[0] && !R.ws[1]) delete rooms[R.code]; };
+    bc(R); if (!R.ws[0] && !R.ws[1]) { delete rooms[R.code]; closeSpec(R, '방이 종료되었습니다.'); } };
   const resume = (ws, m) => { const R = rooms[cl(m.code, 8).toUpperCase().trim()], seat = +m.seat;
     if (!R || (seat !== 0 && seat !== 1) || !R.tok || !m.token || R.tok[seat] !== m.token) return send(ws, { t: 'resumeFail', msg: '이전 방을 찾을 수 없습니다 (서버가 재시작되었거나 재접속 시간이 지났습니다). 로비로 돌아갑니다.' });
     if (R.bot && seat !== 0) return send(ws, { t: 'resumeFail', msg: '잘못된 재접속 요청입니다.' });
@@ -338,8 +349,20 @@ function main() {
     if (R.gt && R.gt[seat]) { clearTimeout(R.gt[seat]); R.gt[seat] = null; }
     R.ws[seat] = ws; ws.R = R; ws.seat = seat; say(R, R.phase === 'over' ? '재접속했습니다.' : '상대가 재접속했습니다.'); send(ws, { t: 'joined', code: R.code, seat, token: R.tok[seat] }); send(ws, { t: 'defs', defs: R.defs }); bc(R); };
   wss.on('connection', ws => ws.on('message', raw => { let m; try { m = JSON.parse(raw); } catch { return; }
+    if (!m || typeof m !== 'object') return;
+    // 관전자 소켓은 완전한 읽기 전용: 나가기(leaveRoom) 외의 모든 메시지(act·ready·restartGame·restartTurn·leaveBot·botlog·create·join·resume…)를 서버가 거부한다.
+    if (ws.spec) { if (m.t === 'leaveRoom') { if (ws.R) dropSpec(ws.R, ws); return send(ws, { t: 'left' }); } return send(ws, { t: 'err', msg: '관전자는 조작할 수 없습니다.' }); }
+    if (m.t === 'spectate') { if (ws.R) return send(ws, { t: 'err', msg: '이미 방에 들어가 있습니다.' });
+      const R = rooms[cl(m.code, 8).toUpperCase().trim()];
+      if (!R) return send(ws, { t: 'err', msg: '없는 방 코드입니다.' });
+      if (R.noSpec) return send(ws, { t: 'err', msg: '이 방은 관전이 허용되지 않습니다.' });   // 서버 검증: 클라이언트 UI 와 무관
+      if (R.bot) return send(ws, { t: 'err', msg: '봇 대전·연습 방은 관전할 수 없습니다.' });
+      R.spec = R.spec || []; if (R.spec.length >= MAX_SPEC) return send(ws, { t: 'err', msg: '관전 인원이 가득 찼습니다.' });
+      R.spec.push(ws); ws.R = R; ws.spec = true; ws.seat = null;
+      send(ws, { t: 'spectating', code: R.code }); send(ws, { t: 'defs', defs: R.defs }); send(ws, viewSpec(R));
+      return bc(R); }   // 관전자 수(nspec) 갱신용 — 게임 상태는 바뀌지 않음
     if (m.t === 'create') { let c; do { c = Math.random().toString(36).slice(2, 6).toUpperCase(); } while (rooms[c]);
-      const R = rooms[c] = mkR(c); R.rng = (Math.random() * 4294967296) >>> 0; R.ws[0] = ws; ws.R = R; ws.seat = 0; seatTok(R, 0, ws); return bc(R); }
+      const R = rooms[c] = mkR(c); if (m.noSpec === true) R.noSpec = true; R.rng = (Math.random() * 4294967296) >>> 0; R.ws[0] = ws; ws.R = R; ws.seat = 0; seatTok(R, 0, ws); return bc(R); }
     if (m.t === 'resume') return resume(ws, m);
     if (m.t === 'join') { const R = rooms[cl(m.code, 8).toUpperCase().trim()];
       if (!R) return send(ws, { t: 'err', msg: '없는 방 코드입니다.' }); if (R.ws[1]) return send(ws, { t: 'err', msg: '방이 가득 찼습니다.' });
@@ -347,13 +370,14 @@ function main() {
     if (m.t === 'createBot') { if (ws.R) return; try { const R = require('./bot/controller').createRoom({ rooms, mkR, ready, dispatch, loadCards: () => ({ cards: cardsObj() }), say, cl, ws, m, send, bc }); ws.R = R; ws.seat = 0; seatTok(R, 0, ws); return bc(R); } catch (err) { return send(ws, { t: 'err', msg: '봇 대전을 시작할 수 없습니다: ' + (err && err.message || err) }); } }
     if (m.t === 'leaveRoom') { const R0 = ws.R; if (R0 && !R0.bot) { const seat = ws.seat; if (R0.ws[seat] === ws) R0.ws[seat] = null; endSeat(R0, seat); ws.R = null; ws.seat = null; send(ws, { t: 'left' }); } else send(ws, { t: 'left' }); return; }
     if (m.t === 'restartGame') { const R0 = ws.R; if (!R0 || R0.bot) return send(ws, { t: 'err', msg: '사람 대 사람 게임에서만 사용할 수 있습니다.' }); resetRoom(R0, ws.seat);
-      R0.ws.forEach((w, i) => { if (!w) return; send(w, { t: 'reset', kind: 'game', by: ws.seat }); if (R0.tok && R0.tok[i]) send(w, { t: 'joined', code: R0.code, seat: i, token: R0.tok[i] }); send(w, { t: 'defs', defs: {} }); }); return bc(R0); }
-    if (m.t === 'restartTurn') { const R0 = ws.R; if (!R0) return; const e0 = turnRestart(R0, ws.seat); if (e0) return send(ws, { t: 'err', msg: e0 }); R0.ws.forEach(w => send(w, { t: 'reset', kind: 'turn', by: ws.seat })); return bc(R0); }
+      R0.ws.forEach((w, i) => { if (!w) return; send(w, { t: 'reset', kind: 'game', by: ws.seat }); if (R0.tok && R0.tok[i]) send(w, { t: 'joined', code: R0.code, seat: i, token: R0.tok[i] }); send(w, { t: 'defs', defs: {} }); }); sendSpec(R0, { t: 'reset', kind: 'game', by: -1 }); sendSpec(R0, { t: 'defs', defs: {} }); return bc(R0); }
+    if (m.t === 'restartTurn') { const R0 = ws.R; if (!R0) return; const e0 = turnRestart(R0, ws.seat); if (e0) return send(ws, { t: 'err', msg: e0 }); R0.ws.forEach(w => send(w, { t: 'reset', kind: 'turn', by: ws.seat })); sendSpec(R0, { t: 'reset', kind: 'turn', by: ws.seat }); return bc(R0); }
     if (m.t === 'leaveBot') { const R0 = ws.R; if (R0 && R0.bot) { R0.bot.stop(); delete rooms[R0.code]; ws.R = null; send(ws, { t: 'left' }); } return; }
     const R = ws.R; if (!R) return; let e;
     if (m.t === 'botlog') return send(ws, R.bot ? R.bot.logMsg() : { t: 'botlog', err: '봇 대전이 아닙니다' });
     e = dispatch(R, ws.seat, m);
-    if (e) send(ws, { t: 'err', msg: e }); bc(R); }).on('close', () => { const R = ws.R; if (!R || R.ws[ws.seat] !== ws) return;   // 이미 새 소켓으로 교체된(resume) 자리의 옛 소켓 close 는 무시
+    if (e) send(ws, { t: 'err', msg: e }); bc(R); }).on('close', () => { const R = ws.R; if (ws.spec) { if (R) { dropSpec(R, ws); bc(R); } return; }   // 관전자 이탈: 게임·플레이어 연결·방 수명에 영향 없음 (관전자 수만 갱신)
+      if (!R || R.ws[ws.seat] !== ws) return;   // 이미 새 소켓으로 교체된(resume) 자리의 옛 소켓 close 는 무시
       const seat = ws.seat; R.ws[seat] = null;
       if (GRACE <= 0 || R.phase === 'over' || !R.ws[1 - seat]) return endSeat(R, seat);   // 유예 없음 / 이미 끝난 방 / 상대도 없는 방
       R.gt = R.gt || []; clearTimeout(R.gt[seat]); R.gt[seat] = setTimeout(() => endSeat(R, seat), GRACE); R.gt[seat].unref && R.gt[seat].unref();
@@ -367,5 +391,5 @@ function main() {
   server.listen(PORT, () => console.log(`listening on port ${PORT}`));
 }
 const sysRun = (R, f) => withCur(R, () => { const r = f(); FX.pump(R); settle(R); return r; });   // v1.12.0: 연습 모드(Training AI) 전용 시스템 처리 — 난수 컨텍스트 + 효과 큐 처리
-module.exports = { sysRun, turnRestart, resetRoom, snapTake, flushReveal, bc, actsFor, playCheck, mkR, ready, act, view, FX, ap, lpOf, tk, loadCards, validateCards, dispatch, D, tok, fcount, okc, mustGuard, mustDesig, cols };
+module.exports = { viewSpec, sysRun, turnRestart, resetRoom, snapTake, flushReveal, bc, actsFor, playCheck, mkR, ready, act, view, FX, ap, lpOf, tk, loadCards, validateCards, dispatch, D, tok, fcount, okc, mustGuard, mustDesig, cols };
 if (require.main === module) main();
