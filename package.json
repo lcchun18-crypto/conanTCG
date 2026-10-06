@@ -1,11 +1,12 @@
 {
   "name": "conan-sim",
-  "version": "1.16.0",
+  "version": "1.16.2",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "test": "node test/unit.js && node test/run_cards.js && node test/spec_examples.js && node test/patterns.js && node test/patterns100.js && node test/patterns_v11.js && node test/patterns_v12.js && node test/acts_test.js && node test/fuzz.js 200 && node test/ui_test.js && node test/deck_test.js && node test/e2e_ui.js && node test/deploy_test.js && node test/autoload_test.js && node test/bot_units.js && node test/bot_regress.js && node test/bot_room_test.js && node test/specialist_deck_test.js && node test/specialist_cli_test.js && node test/specialist_test.js && node test/specialist_regress.js && node test/expert_test.js && node test/expert_regress.js && node test/ws_reconnect_test.js && node test/tactics_test.js --quiet && node test/evidence_pick_test.js && node test/ui_v17_test.js && node test/cost_has_test.js && node test/evid_hand_test.js && node test/leave_room_test.js && node test/ownership_contexts_test.js && node test/own_default_test.js && node test/id0886_test.js && node test/training_test.js && node test/dynlv_pick_mr_test.js && node test/restart_btn_test.js && node test/trait_chip_test.js && node test/preview_touch_test.js && node test/preview_sweep_test.js && node test/reveal_trigger_test.js && node test/card_name_test.js && node test/ct11_ui_test.js && node test/series_ui_test.js && python3 test/image_files_test.py && node test/image_ui_test.js && node test/spectator_test.js && node test/spectator_ui_test.js && python3 test/web_image_test.py && node test/web_image_ui_test.js",
     "test:spectator": "node test/spectator_test.js && node test/spectator_ui_test.js",
+    "test:actguard": "node test/act_before_guard_test.js",
     "test:webimg": "python3 test/web_image_test.py && node test/web_image_ui_test.js",
     "webimg": "python3 tools/make_web_images.py",
     "test:images": "python3 test/image_files_test.py && node test/image_ui_test.js",

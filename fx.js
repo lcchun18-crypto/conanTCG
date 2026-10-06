@@ -842,7 +842,7 @@ module.exports = function (A) {
     const q = r.value; if (q && q.kind === 'ack' && q.reveal && q.ids && q.ids.length) revealHrev(R, it, q);
     if (q && q.kind === 'ack' && q.reveal && q.by != null && q.ids && q.ids.length) (R.rv = R.rv || []).push({ by: q.by, ids: q.ids.slice(), msg: q.msg, src: it.src != null ? it.src : null, ack: q.who }); }  // v1.9.0: 명시적으로 '공개'하는 효과만 공개 이벤트를 만든다
   function pump(R) { let g = 0;
-    while (!R.eff && (!R.sub || R.sub.type === 'contact') && R.phase === 'play' && R.q.length && g++ < 500) {
+    while (!R.eff && (!R.sub || R.sub.type === 'contact' || R.sub.type === 'guard') && R.phase === 'play' && R.q.length && g++ < 500) {   // v1.16.2: 액션 선언(act)으로 생긴 효과는 상대가 가드(블록)를 고르기 전에 바로 처리한다 (이전: 가드 대기 중에는 큐가 멈춰 있다가 가드 후에야 발동)
       let i = R.q.findIndex(x => x.first); if (i < 0) i = R.q.findIndex(x => x.s === R.turn && !x.last); if (i < 0) i = R.q.findIndex(x => !x.last); if (i < 0) i = 0; const it = R.q.splice(i, 1)[0]; it.g = gen(R, it); step(R, it); } }
   function answer(R, s, m) { const E = R.eff; if (!E || E.req.who !== s) return '지금 응답할 차례가 아닙니다'; const q = E.req; let v = m.v;
     if (q.kind === 'yn') v = !!v; else if (q.kind === 'ack') v = null;

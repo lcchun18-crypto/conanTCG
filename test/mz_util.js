@@ -9,7 +9,9 @@ const real = (id, over = {}) => { const c = DB()[id]; if (!c) throw new Error('n
 const dummy = (n, extra = {}) => ({ n, type: 'char', color: 'blue', lv: '0', ap: '1000', lp: '1', ...extra });
 const G = (defs, l0 = [], l1 = l0, base = B) => { const R = game({ ...base, ...defs }, l0, l1); R.P.forEach(P => P.deck.unshift(...P.file.splice(0))); return R; };
 const req = R => R.eff && R.eff.req;
-const ans = (R, v) => { ok(R.eff, '질의가 와야 함'); const e = act(R, R.eff.req.who, { a: 'ans', v }); if (e) throw new Error('ans: ' + e); };
+// v1.16.2: 액션 선언으로 생기는 효과(act 트리거)는 상대 가드 전에 바로 질의된다. attack() 이 가드를 미뤄 두었으면(R._ng) 그 질의를 다 처리한 직후 '가드 안 함'을 넣어 예전과 같은 흐름으로 이어 준다.
+const lateGuard = R => { if (R._ng && R.sub && R.sub.type === 'guard' && !R.eff) { R._ng = false; const e = act(R, R.sub.who, { a: 'guard', id: null }); if (e) throw new Error('guard: ' + e); } };
+const ans = (R, v) => { ok(R.eff, '질의가 와야 함'); const e = act(R, R.eff.req.who, { a: 'ans', v }); if (e) throw new Error('ans: ' + e); lateGuard(R); };
 // 자동 응답: yn → yn 값, pick → pref 우선 선택(없으면 min 만큼 앞에서), opt → optIdx
 const auto = (R, o = {}) => { const yn = o.yn !== false, pref = o.pref || [], oi = o.opt || 0; let g = 0, log = [];
   while (R.eff && g++ < 40) { const q = req(R); log.push(q.kind);
@@ -33,9 +35,9 @@ function toContact(R, s, a, tid) { ready(R, a); const e = act(R, s, { a: 'action
 const endContact = R => { let g = 0; while (R.sub && g++ < 8) { if (R.eff) auto(R); act(R, R.sub.who, { a: 'pass' }); } pump(R); };
 // ai(공격 캐릭터)가 di(상대 캐릭터)에 액션 → 가드 없음 → 컨택트. 공격 쪽이 턴 플레이어가 된다.
 function attack(R, ai, di, noGuard = true) { const a = R.cards[ai].o; R.turn = a; R.fl = {}; R.cards[ai].sum = 0; R.cards[ai].st = 'a'; if (R.cards[di].st === 'a') R.cards[di].st = 's';
-  const e = act(R, a, { a: 'action', id: ai, k: 'char', tid: di }); if (e) throw new Error('action: ' + e); if (noGuard) { const e2 = act(R, 1 - a, { a: 'guard', id: null }); if (e2) throw new Error('guard: ' + e2); } }
+  const e = act(R, a, { a: 'action', id: ai, k: 'char', tid: di }); if (e) throw new Error('action: ' + e); if (noGuard) { if (R.eff) { R._ng = true; return; } const e2 = act(R, 1 - a, { a: 'guard', id: null }); if (e2) throw new Error('guard: ' + e2); } }
 // 컨택트 진행: script=[{s, m:{a:'cin'|'dis', id}}...] 의 행동을 해당 좌석 차례에 하고, 나머지는 패스. 효과 질의는 auto 로 처리.
-function finishContact(R, script = [], ao = {}) { let g = 0; while ((R.sub || R.eff) && g++ < 30) { if (R.eff) { auto(R, ao); continue; } const w = R.sub.who; const i = script.findIndex(x => x.s === w);
+function finishContact(R, script = [], ao = {}) { let g = 0; while ((R.sub || R.eff) && g++ < 30) { if (R.eff) { auto(R, ao); continue; } const w = R.sub.who; if (R.sub.type === 'guard') { const e = act(R, w, { a: 'guard', id: null }); if (e) throw new Error('guard: ' + e); continue; } const i = script.findIndex(x => x.s === w);
     if (i >= 0) { const m = script.splice(i, 1)[0]; const e = act(R, w, m.m); if (e) throw new Error('contact act: ' + e); } else { const e = act(R, w, { a: 'pass' }); if (e) throw new Error('pass: ' + e); } } pump(R); }
 const T = []; const t = (id, n, f) => T.push([id, n, f]);
 const runAll = (label) => { let pass = 0, fail = 0; const bad = []; const only = process.env.ONLY;
