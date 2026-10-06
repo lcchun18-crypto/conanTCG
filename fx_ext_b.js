@@ -15,7 +15,7 @@ module.exports = function (K, def) {
   // selfRemAny: 이 카드를 (현장/표향 증거/FILE/손패 어디에 있든) 리무브 에리어로 옮긴다
   defCost('selfRemAny', k => ({}), (R, s, src) => { const P = R.P[s]; return P.field.includes(src) || P.evid.includes(src) || P.file.includes(src) || P.hand.includes(src) ? '' : '이 카드를 리무브 에리어로 옮길 수 없습니다'; }, function* (R, s, src) {
     const P = R.P[s]; if (P.field.includes(src)) { K.rmChar(R, src, 'cost'); return; }
-    const wasEv = P.evid.includes(src); K.takeOut(R, src); R.cards[src].up = false; P.rem.push(src); say(R, `코스트: ${D(R, src).n}을(를) 리무브 에리어로`); if (wasEv) bus(R, 'evrem', { s, by: 'cost', cz: s }); });
+    const wasEv = P.evid.includes(src); K.takeOut(R, src); R.cards[src].up = false; P.rem.push(src); say(R, `코스트: ${D.cn(R, src)}을(를) 리무브 에리어로`); if (wasEv) bus(R, 'evrem', { s, by: 'cost', cz: s }); });
 
   // ── 공개한 카드(레지스터 seen) 중에서 등장 ──
   // playSeen: peek 로 확인/공개한 덱의 카드(아직 덱에 있는 것) 중에서 조건에 맞는 캐릭터를 n장까지 등장시킨다
@@ -43,7 +43,7 @@ module.exports = function (K, def) {
     if (o.from === 'chosen') { nid = regIds(R, ctx, 'chosen')[0]; if (nid == null) return; }
     else { const f = rf(R, o.filter, ctx), cand = R.P[s].field.filter(x => x !== tgt && fOk(R, s, x, f, src, true)); if (!cand.length) return;
       const ids = (yield pickReq(s, '카드명을 가져올 캐릭터를 선택' + (o.opt ? ' (선택, 0장이면 하지 않음)' : ''), cand, o.opt ? 0 : 1, 1)).filter(x => cand.includes(x)); if (!ids.length) return; nid = ids[0]; }
-    const name = effN(R, nid); R.fl.nmx = R.fl.nmx || {}; R.fl.nmx[tgt] = name; say(R, `[효과] ${D(R, tgt).n}의 카드명이 턴 종료 시까지 [${name}](으)로 바뀜`); ctx.done = true; });
+    const name = effN(R, nid); R.fl.nmx = R.fl.nmx || {}; R.fl.nmx[tgt] = name; say(R, `[효과] ${D.cn(R, tgt)}의 카드명이 턴 종료 시까지 [${name}](으)로 바뀜`); ctx.done = true; });
 
   // nameCountAp: 카드명을 1개 지정(내 현장의 캐릭터 1장을 골라 그 카드명을 지정)하고, 내 현장에 있는 그 카드명의 캐릭터 1장당 컨택트 중인 캐릭터(컷인 대상)의 AP+v
   def('nameCountAp', o => ({ op: 'nameCountAp', v: Math.max(0, Math.min(num(o.v, 1000), 100000)) }), function* (R, s, src, o, ctx) {
@@ -58,7 +58,7 @@ module.exports = function (K, def) {
   def('oppFileNamed', o => ({ op: 'oppFileNamed' }), function* (R, s, src, o, ctx) {
     const t = 1 - s, T = R.P[t], named = String(ctx.named || ''); let hit = false;
     if (T.file.length) { const x = T.file.pop(); R.cards[x].up = false; T.rem.push(x); hit = !!named && D(R, x).n.includes(named);
-      say(R, `[효과] 상대 FILE 에리어 위의 「${D(R, x).n}」을(를) 리무브` + (hit ? ' (지정한 카드명)' : '')); setReg(ctx, 'removed', [x]); }
+      say(R, `[효과] 상대 FILE 에리어 위의 「${D.cn(R, x)}」을(를) 리무브` + (hit ? ' (지정한 카드명)' : '')); setReg(ctx, 'removed', [x]); }
     const y = K.pull(R, t); if (y != null) { R.cards[y].up = false; T.file.push(y); say(R, '[효과] 상대가 덱의 카드를 위에서 1장 뒷면으로 FILE 에리어 위에 놓음'); }
     ctx.done = hit; });
 
@@ -67,7 +67,7 @@ module.exports = function (K, def) {
     const T = R.P[1 - s], f = rf(R, o.filter, ctx); ctx.done = false; const cand = T.pa.filter(x => ['char', 'event'].includes(D(R, x).type) && fOk(R, s, x, f, src, true)); if (!cand.length) return;
     let ids = (yield pickReq(s, '상대의 파트너 에리어에서 리무브할 카드를 최대 1장 선택', cand, 0, 1, { reveal: 1 })).filter(x => cand.includes(x)); if (!ids.length) return;
     ids = yield* K.chosenCheck(R, s, src, ids, it); ids = ids.filter(x => T.pa.includes(x)); if (!ids.length) return;
-    T.pa = T.pa.filter(x => !ids.includes(x)); T.rem.push(...ids); setReg(ctx, 'removed', ids); say(R, `[효과] 상대의 파트너 에리어의 「${ids.map(x => D(R, x).n).join(', ')}」을(를) 리무브`); ctx.done = true; });
+    T.pa = T.pa.filter(x => !ids.includes(x)); T.rem.push(...ids); setReg(ctx, 'removed', ids); say(R, `[효과] 상대의 파트너 에리어의 「${ids.map(x => D.cn(R, x)).join(', ')}」을(를) 리무브`); ctx.done = true; });
 
   // ── 증거 ──
   // flipAllEvid: 자신의 증거를 모두 표향으로 한다
@@ -88,7 +88,7 @@ module.exports = function (K, def) {
     const ids = (yield pickReq(s, '【ヒラメキ】 효과를 발동시킬 캐릭터를 최대 1장 선택', cand, 0, 1)).filter(x => cand.includes(x)); if (!ids.length) return; const x = ids[0];
     const abs = (D(R, x).ab || []).filter(a => a.ic === 'flash' && K.condOk(R, s, x, a)); if (!abs.length) return;
     if (!(yield yn(s, `「${D(R, x).n}」의 【ヒラメキ】 효과를 발동시킬까요?`))) return;
-    say(R, `▶ 히라메키 발동: ${D(R, x).n}`); const c2 = { done: true, t: {}, cost: {}, src: x }; for (const ab of abs) yield* K.runOps(R, s, x, ab.ops, c2, it); ctx.done = true; });
+    say(R, `▶ 히라메키 발동: ${D.cn(R, x)}`); const c2 = { done: true, t: {}, cost: {}, src: x }; for (const ab of abs) yield* K.runOps(R, s, x, ab.ops, c2, it); ctx.done = true; });
 
   // ifUse: 이 선언 능력을 이번 턴 중 n번째로 사용한 경우에만 ops 를 처리
   def('ifUse', (o, depth) => ({ op: 'ifUse', n: Math.max(1, Math.min(num(o.n, 1), 9)), ops: K.cleanOps(o.ops, (depth || 0) + 1) }), function* (R, s, src, o, ctx, it) {
@@ -99,5 +99,5 @@ module.exports = function (K, def) {
     const P = R.P[s], f = rf(R, o.filter, ctx); ctx.done = false; if (!P.hand.includes(src)) return; const cand = P.field.filter(x => fOk(R, s, x, f, src, true)); if (!cand.length) return;
     const tid = cand.length === 1 ? cand[0] : (yield pickReq(s, '이 이벤트를 세트할 캐릭터를 선택', cand, 1, 1))[0]; if (tid == null || !onField(R, tid) || !P.hand.includes(src)) return;
     P.hand = P.hand.filter(x => x !== src); const h = R.cards[tid]; (h.sets = h.sets || []).push(src); R.cards[src].setOn = tid; ctx.moved = true;
-    say(R, `[효과] ${D(R, src).n}을(를) 손패에서 ${D(R, tid).n}에 세트`); bus(R, 'setOn', { s, ent: src, holder: tid }); ctx.done = true; });
+    say(R, `[효과] ${D.cn(R, src)}을(를) 손패에서 ${D.cn(R, tid)}에 세트`); bus(R, 'setOn', { s, ent: src, holder: tid }); ctx.done = true; });
 };

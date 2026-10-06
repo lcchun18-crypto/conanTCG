@@ -32,10 +32,10 @@ module.exports = function (K, def) {
   def('nameApply', o => ({ op: 'nameApply', to: opt(o.to, ['self', 'played', 'sel'], 'self') }), function* (R, s, src, o, ctx) {
     ctx.done = false; const name = ctx.named; if (!name || name === '\u0000') return;
     const tgt = o.to === 'self' ? src : regIds(R, ctx, o.to).find(x => onField(R, x)); if (tgt == null || !onField(R, tgt)) return;
-    R.fl.nmx = R.fl.nmx || {}; R.fl.nmx[tgt] = name; say(R, `[효과] ${D(R, tgt).n}의 카드명이 턴 종료 시까지 [${name}](으)로 바뀜`); ctx.done = true; });
+    R.fl.nmx = R.fl.nmx || {}; R.fl.nmx[tgt] = name; say(R, `[효과] ${D.cn(R, tgt)}의 카드명이 턴 종료 시까지 [${name}](으)로 바뀜`); ctx.done = true; });
 
   def('entDo', o => ({ op: 'entDo', do: opt(o.do, ['sleep', 'active', 'remove', 'ap', 'kw'], 'sleep'), v: str(o.v, 40), until: opt(o.until, ['turn', 'contact'], 'turn'), opt: !!o.opt }), function* (R, s, src, o, ctx) {
     ctx.done = false; const e = ctx.t && ctx.t.ent; if (e == null || !onField(R, e)) return; if (o.do === 'sleep' && (R.cards[e].st || 'a') !== 'a') return;
     if (o.opt && !(yield yn(s, `「${D(R, e).n}」을(를) ${o.do === 'sleep' ? '슬립' : o.do === 'active' ? '액티브' : o.do === 'remove' ? '리무브' : o.do}시킬까요?`))) return;
-    yield* K.applyG(R, s, src, e, o.do, o.v, o.until); say(R, `[효과] ${D(R, e).n}: ${o.do}${o.v ? ' ' + o.v : ''}`); ctx.done = true; });
+    yield* K.applyG(R, s, src, e, o.do, o.v, o.until); say(R, `[효과] ${D.cn(R, e)}: ${o.do}${o.v ? ' ' + o.v : ''}`); ctx.done = true; });
 };

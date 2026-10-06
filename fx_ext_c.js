@@ -27,7 +27,7 @@ module.exports = function (K, def) {
       if (hs.length === 1 && !o.upto) h = hs[0];
       else { const r = (yield pickReq(s, `세트된 ${o.fd ? '뒷면 ' : ''}카드를 리무브할 캐릭터를 ${o.upto ? '최대 ' : ''}1장 선택${o.n > 1 ? ` (${i + 1}/${o.n})` : ''}`, hs, o.upto ? 0 : 1, 1)).filter(x => hs.includes(x)); if (!r.length) break; h = r[0]; }
       const card = yield* pickSetCard(R, s, h, cardsOf(h)); if (card == null) break;
-      unsetOne(R, h, card); removed.push(card); say(R, `[효과] ${D(R, h).n}에 세트된 카드를 리무브`); }
+      unsetOne(R, h, card); removed.push(card); say(R, `[효과] ${D.cn(R, h)}에 세트된 카드를 리무브`); }
     if (removed.length) setReg(ctx, 'removed', removed);
     ctx.done = removed.length === o.n; });
 
@@ -43,13 +43,13 @@ module.exports = function (K, def) {
     yield { who: s, kind: 'ack', msg: `${nm(t)}의 손패 ${all.length}장 공개 (확인 후 원래대로)`, ids: all, reveal: 1 }; say(R, `[효과] ${nm(t)} 손패 공개`);
     const cand = all.filter(x => fOk(R, t, x, f, src, true)); if (!cand.length) return;
     const ids = (yield pickReq(s, `공개된 손패에서 상대가 리무브할 카드를 최대 ${o.n}장 선택`, all, 0, Math.min(o.n, cand.length), { sel: cand, reveal: 1 })).filter(x => cand.includes(x)); if (!ids.length) return;
-    T.hand = T.hand.filter(x => !ids.includes(x)); T.rem.push(...ids); setReg(ctx, 'removed', ids); say(R, `[효과] ${nm(t)} 손패 ${ids.length}장 리무브: ${ids.map(x => D(R, x).n).join(', ')}`);
+    T.hand = T.hand.filter(x => !ids.includes(x)); T.rem.push(...ids); setReg(ctx, 'removed', ids); say(R, `[효과] ${nm(t)} 손패 ${ids.length}장 리무브: ${ids.map(x => D.cn(R, x)).join(', ')}`);
     ids.forEach(x => bus(R, 'handRem', { s: t, ent: x, cz: s, by: 'effect' })); ctx.done = true; });
 
   // showReg: 직전에 확인한 카드(레지스터)를 상대에게도 공개한다(상대가 확인). 처리 결과(done)는 바꾸지 않는다
   def('showReg', o => ({ op: 'showReg', ref: opt(o.ref, REGL, 'seen') }), function* (R, s, src, o, ctx) {
     const ids = regIds(R, ctx, o.ref).filter(x => R.cards[x]); if (!ids.length) return;
-    yield { who: 1 - s, kind: 'ack', msg: `${nm(s)}이(가) 카드를 공개: ${ids.map(x => D(R, x).n).join(', ')}`, ids, reveal: 1 }; say(R, `[효과] ${nm(s)} 카드 공개: ${ids.map(x => D(R, x).n).join(', ')}`); });
+    yield { who: 1 - s, kind: 'ack', msg: `${nm(s)}이(가) 카드를 공개: ${ids.map(x => D(R, x).n).join(', ')}`, ids, reveal: 1 }; say(R, `[효과] ${nm(s)} 카드 공개: ${ids.map(x => D.cn(R, x)).join(', ')}`); });
 
   // deckSink: 덱 위에서 확인한 카드(레지스터)를 덱 아래로 보낸다(order=any: 순서 선택). 카드는 덱 안에 있는 채로 이동하므로 리프레시가 일어나지 않는다
   def('deckSink', o => ({ op: 'deckSink', ref: opt(o.ref, REGL, 'rest'), order: opt(o.order, ['asis', 'any'], 'asis') }), function* (R, s, src, o, ctx) {
@@ -62,7 +62,7 @@ module.exports = function (K, def) {
     ctx.done = false; const ids = regIds(R, ctx, o.ref).filter(x => R.cards[x]); if (!ids.length) return;
     const hid = o.to === 'self' ? src : regIds(R, ctx, 'sel').filter(x => onField(R, x)).pop(); if (hid == null || !onField(R, hid)) return; const h = R.cards[hid]; let k = 0;
     for (const x of ids) { if (R.cards[x].o !== h.o || !R.P[h.o].deck.includes(x)) continue; takeOut(R, x); R.cards[x].up = false; (h.fd = h.fd || []).push(x); R.cards[x].fdOn = hid; k++; bus(R, 'setOn', { s: h.o, ent: x, holder: hid, fd: true }); }
-    if (!k) return; chk(R, h.o); say(R, `[효과] 덱에서 확인한 카드 ${k}장을 뒷면으로 ${D(R, hid).n}에 세트`); ctx.done = true; });
+    if (!k) return; chk(R, h.o); say(R, `[효과] 덱에서 확인한 카드 ${k}장을 뒷면으로 ${D.cn(R, hid)}에 세트`); ctx.done = true; });
 
   // moveUnder: 이 캐릭터 아래에 겹쳐진 카드를 최대 n장 골라, 자신의 현장에 있는 다른 캐릭터 1장(조건 tf) 아래로 옮겨 겹친다
   def('moveUnder', o => ({ op: 'moveUnder', n: clampN(o.n, 2, 5), tf: cleanFilter(o.tf) }), function* (R, s, src, o, ctx) {
@@ -71,7 +71,7 @@ module.exports = function (K, def) {
     const tid = (yield pickReq(s, '이 캐릭터 아래의 카드를 옮겨 겹칠 캐릭터를 최대 1장 선택', cand, 0, 1)).filter(x => cand.includes(x)); if (!tid.length) return;
     const under = h.under.slice(), ids = (yield pickReq(s, `이 캐릭터 아래에 겹쳐진 카드를 최대 ${o.n}장 선택`, under, 0, Math.min(o.n, under.length), { reveal: 1 })).filter(x => under.includes(x)); if (!ids.length) return;
     if (!onField(R, tid[0]) || !onField(R, src)) return; h.under = h.under.filter(x => !ids.includes(x)); const tc = R.cards[tid[0]]; (tc.under = tc.under || []).push(...ids);
-    setReg(ctx, 'moved', ids); say(R, `[효과] ${D(R, src).n} 아래의 카드 ${ids.length}장을 ${D(R, tid[0]).n} 아래로 옮김`); ctx.done = true; });
+    setReg(ctx, 'moved', ids); say(R, `[효과] ${D.cn(R, src)} 아래의 카드 ${ids.length}장을 ${D.cn(R, tid[0])} 아래로 옮김`); ctx.done = true; });
 
   // bottomSame (카드 전용: 工藤新一 id_0735): 상대 현장의 캐릭터 1장(조건)과 상대 리무브 에리어의 같은 카드 이름 캐릭터 1장을 골라, 상대가 순서를 정해 덱 아래로 옮긴다
   def('bottomSame', o => ({ op: 'bottomSame', filter: cleanFilter(o.filter) }), function* (R, s, src, o, ctx, it) {
@@ -84,5 +84,5 @@ module.exports = function (K, def) {
     if (list.length > 1) list = yield pickReq(t, `${list.length}장을 덱 아래에 놓을 순서대로 클릭`, list, list.length, list.length, { ordered: true, reveal: 1 });
     const moved = []; for (const x of list) { if (R.P[t].field.includes(x)) { yield* applyG(R, s, src, x, 'deckBottom'); if (!R.P[t].field.includes(x)) moved.push(x); }
       else if (T.rem.includes(x)) { T.rem = T.rem.filter(y => y !== x); T.deck.unshift(x); remLeft(R, t, [x]); moved.push(x); } }
-    if (!moved.length) return; setReg(ctx, 'moved', moved); say(R, `[효과] ${nm(t)}의 카드 ${moved.length}장을 덱 아래로: ${moved.map(x => D(R, x).n).join(', ')}`); ctx.done = true; });
+    if (!moved.length) return; setReg(ctx, 'moved', moved); say(R, `[효과] ${nm(t)}의 카드 ${moved.length}장을 덱 아래로: ${moved.map(x => D.cn(R, x)).join(', ')}`); ctx.done = true; });
 };

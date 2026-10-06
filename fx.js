@@ -361,8 +361,8 @@ module.exports = function (A) {
         if (ab.tself && ctx.tid !== h) return; if (ab.dself && ctx.dst !== h) return; if (ab.hself && ctx.holder !== h) return; if (ab.hw && (ctx.holder == null || !R.cards[ctx.holder] || (R.cards[ctx.holder].o === s) !== (ab.hw === 'self'))) return; if (ab.tf && !(ctx.tid != null && R.cards[ctx.tid] && fOk(R, s, ctx.tid, ab.tf, h, true))) return;
         if (ab.tApLow != null && !(ctx.tid != null && ctx.ent != null && R.cards[ctx.tid] && R.cards[ctx.ent] && onField(R, ctx.tid) && A.ap(R, ctx.ent) - A.ap(R, ctx.tid) >= ab.tApLow)) return;
         if (ab.k && ctx.k !== ab.k) return; if (ab.by && ctx.by !== ab.by) return; if (ab.cz && (ctx.cz == null || (ctx.cz === s) !== (ab.cz === 'self'))) return;
-        if (!condOk(R, s, h, ab, ctx)) { if (ev === 'hrev') { const c0 = ab.cond || {}, why = []; if (c0.turn && (R.turn === s) !== (c0.turn === 'self')) why.push(c0.turn === 'self' ? '내 턴이 아님' : '상대 턴이 아님'); if (c0.ccolor) why.push('사건 색 ' + c0.ccolor.replace('&', '+') + ' 필요'); if (c0.fileMin) why.push(`FILE ${c0.fileMin}장 이상 필요 (현재 ${fcount(R, s)}장)`); say(R, `[공개 트리거] ${D(R, h).n}: 조건 미충족 — ${why.join(', ') || '조건 확인'}`); } return; }
-        if (ab.lim) { if (ev === 'hrev' && ((c.u || {})[i] || 0) >= ab.lim) say(R, `[공개 트리거] ${D(R, h).n}: 이번 턴 사용 횟수(${ab.lim}회) 소진`); c.u = c.u || {}; if ((c.u[i] || 0) >= ab.lim) return; c.u[i] = (c.u[i] || 0) + 1; }
+        if (!condOk(R, s, h, ab, ctx)) { if (ev === 'hrev') { const c0 = ab.cond || {}, why = []; if (c0.turn && (R.turn === s) !== (c0.turn === 'self')) why.push(c0.turn === 'self' ? '내 턴이 아님' : '상대 턴이 아님'); if (c0.ccolor) why.push('사건 색 ' + c0.ccolor.replace('&', '+') + ' 필요'); if (c0.fileMin) why.push(`FILE ${c0.fileMin}장 이상 필요 (현재 ${fcount(R, s)}장)`); say(R, `[공개 트리거] ${D.cn(R, h)}: 조건 미충족 — ${why.join(', ') || '조건 확인'}`); } return; }
+        if (ab.lim) { if (ev === 'hrev' && ((c.u || {})[i] || 0) >= ab.lim) say(R, `[공개 트리거] ${D.cn(R, h)}: 이번 턴 사용 횟수(${ab.lim}회) 소진`); c.u = c.u || {}; if ((c.u[i] || 0) >= ab.lim) return; c.u[i] = (c.u[i] || 0) + 1; }
         R.q.push({ kind: 'ab', s, src: h, ab, ctx, first: !!ab.first }); }); } }
   const nameBanned = (R, s, id) => !!(R.fl.noName && R.fl.noName[s] && R.fl.noName[s].some(n => D(R, id).n.includes(n)));
   const fieldMax = (R, s) => pk(R, s, 'field4') ? 4 : 5;
@@ -380,7 +380,7 @@ module.exports = function (A) {
 
   const release = (R, id) => { const c = R.cards[id]; if (!c) return;
     if (c.sets && c.sets.length) { const ss = c.sets.slice(); c.sets = []; ss.forEach(x => { R.cards[x].setOn = null; R.P[R.cards[x].o].rem.push(x); bus(R, 'setOff', { s: R.cards[x].o, ent: x, holder: id }); }); }
-    if (c.fd && c.fd.length && kwHas(R, id, 'fdhand') && ((R.curS != null && R.curS !== c.o) || R._why === 'contact')) { const hs = c.fd.slice(); c.fd = []; hs.forEach(x => { R.cards[x].fdOn = null; R.P[R.cards[x].o].hand.push(x); }); say(R, `${D(R, id).n}: 뒷면 세트 카드 ${hs.length}장을 리무브하는 대신 손패로`); }
+    if (c.fd && c.fd.length && kwHas(R, id, 'fdhand') && ((R.curS != null && R.curS !== c.o) || R._why === 'contact')) { const hs = c.fd.slice(); c.fd = []; hs.forEach(x => { R.cards[x].fdOn = null; R.P[R.cards[x].o].hand.push(x); }); say(R, `${D.cn(R, id)}: 뒷면 세트 카드 ${hs.length}장을 리무브하는 대신 손패로`); }
     if (c.fd && c.fd.length) { const fs = c.fd.slice(); c.fd.forEach(x => { R.cards[x].fdOn = null; R.P[R.cards[x].o].rem.push(x); }); c.fd = []; fs.forEach(x => bus(R, 'fdOff', { s: R.cards[x].o, ent: x, holder: id })); }
     if (c.under && c.under.length) { c.under.forEach(x => R.P[R.cards[x].o].rem.push(x)); c.under = []; } };
   const leave = (R, id) => { const c = R.cards[id]; const sx = (c.sets || []).slice(); release(R, id); R.P[c.o].field = R.P[c.o].field.filter(x => x !== id); sx.forEach(x => bus(R, 'holdLeft', { s: c.o, ent: x, holder: id })); // 세트된 카드가 있던 캐릭터가 떠남(떠난 뒤의 현장 기준으로 조건 판정)
@@ -388,15 +388,15 @@ module.exports = function (A) {
   // 현장을 떠난 카드를 목적지로: MR 은 상대 턴에 떠나면 (어디로 가든) 파트너 에리어로 이동(룰: 대체 효과가 아님)
   function moveOut(R, id, to) { const c = R.cards[id], o = c.o, P = R.P[o]; const was = P.field.includes(id); leave(R, id);
     let z = to; if (was && isMR(R, id) && R.turn !== o) z = 'pa';
-    if (z === 'pa') { P.pa.push(id); say(R, `${D(R, id).n}: 상대 턴에 현장을 떠나 파트너 에리어로 이동`); }
+    if (z === 'pa') { P.pa.push(id); say(R, `${D.cn(R, id)}: 상대 턴에 현장을 떠나 파트너 에리어로 이동`); }
     else if (z === 'hand') P.hand.push(id); else if (z === 'deckTop') P.deck.push(id); else if (z === 'deckBottom') P.deck.unshift(id); else P.rem.push(id);
     return z; }
   function rmChar(R, id, why, killer) { const c = R.cards[id], o = c.o; c.lkiBlank = c.blank ? 1 : 0; c.pst = c.st || 'a'; c.ptm = c.tmod || null; c.lkiAb = abList(R, id).filter(a => !(D(R, id).ab || []).includes(a)); R._why = why; try { moveOut(R, id, 'rem'); } finally { R._why = null; } if (!(why === 'contact' && R.turn !== o && pk(R, R.turn, 'noremtrig'))) fire(R, 'onremoved', id, { by: why || 'effect' }); c.lkiBlank = 0;
     fieldPa(R, o).forEach(x => x !== id && fire(R, 'onallyremoved', x, { by: why || 'effect', ent: id }));
     bus(R, 'removed', { s: o, ent: id, tid: killer, by: why || 'effect', cz: why === 'contact' || why === 'switch' ? null : (R.curS != null ? R.curS : null) }); }
   function mrEnter(R, s, id) { if (!isMR(R, id)) return; const P = R.P[s];
-    for (const x of P.field.slice()) if (x !== id && isMR(R, x)) { say(R, `MR 능력: 현장의 ${D(R, x).n} 리무브`); rmChar(R, x, 'effect'); }
-    for (const x of P.pa.slice()) if (isMR(R, x)) { P.pa = P.pa.filter(y => y !== x); P.rem.push(x); say(R, `MR 능력: 파트너 에리어의 ${D(R, x).n} 리무브`); } }
+    for (const x of P.field.slice()) if (x !== id && isMR(R, x)) { say(R, `MR 능력: 현장의 ${D.cn(R, x)} 리무브`); rmChar(R, x, 'effect'); }
+    for (const x of P.pa.slice()) if (isMR(R, x)) { P.pa = P.pa.filter(y => y !== x); P.rem.push(x); say(R, `MR 능력: 파트너 에리어의 ${D.cn(R, x)} 리무브`); } }
   const winAlt = (R, s) => { const P = R.P[s]; for (const id of [P.kase, P.partner]) for (const ab of abList(R, id)) if (ab.ic === 'winalt' && condOk(R, s, id, ab)) return ab; return null; };
 
   // 대체 효과(【相手ターン中】…現場から離れる代わりに…)
@@ -412,8 +412,8 @@ module.exports = function (A) {
       if (!ab.forced) { const yes = yield { who: vo, kind: 'yn', msg: ab.msg || `${D(R, id).n}을(를) 리무브하고, ${D(R, victim).n}이(가) 현장을 떠나는 대신 ${ab.rep.to === 'hand' ? '손패로 돌아가게' : '이동시키게'} 할까요?` }; if (!yes) continue; }
       if (ab.lim) { c.u = c.u || {}; c.u[i] = (c.u[i] || 0) + 1; }
       const cx2 = { done: true, t: {}, cost: {} }; for (const k of ab.cost || []) yield* pay(R, vo, id, k, cx2);
-      if (ab.rep.unsetSelf && ab._from != null && (R.cards[id].sets || []).includes(ab._from)) { say(R, `[대체 효과] ${D(R, ab._from).n}을(를) 리무브`); unsetOne(R, id, ab._from); }
-      say(R, `[대체 효과] ${D(R, id).n}: ${D(R, victim).n}은(는) 현장을 떠나는 대신 ${ab.rep.to === 'stay' ? '현장에 남음' : '이동'}`); return ab.rep.to; }
+      if (ab.rep.unsetSelf && ab._from != null && (R.cards[id].sets || []).includes(ab._from)) { say(R, `[대체 효과] ${D.cn(R, ab._from)}을(를) 리무브`); unsetOne(R, id, ab._from); }
+      say(R, `[대체 효과] ${D.cn(R, id)}: ${D.cn(R, victim)}은(는) 현장을 떠나는 대신 ${ab.rep.to === 'stay' ? '현장에 남음' : '이동'}`); return ab.rep.to; }
     return null; }
 
   // ───────────── 실행기(제너레이터: 선택이 필요하면 yield) ─────────────
@@ -426,7 +426,7 @@ module.exports = function (A) {
       rep.forEach(x => { rmChar(R, x, 'switch'); say(R, '스위치!'); }); }
     ids = ids.filter(x => !nameBanned(R, s, x));
     for (const id of ids) { if (P.field.length >= fieldMax(R, s)) break; const c = R.cards[id]; P.field.push(id); c.st = (asleep || enterSt(R, id) === 's') ? 's' : 'a'; c.sum = 1; c.apm = c.cm = c.lpm = c.lvm = 0; c.tkw = ''; c.tab = [];
-      say(R, `${nm(s)} 등장: ${D(R, id).n}` + (c.st === 's' ? ' (슬립)' : '')); if (ctx) { (ctx.played = ctx.played || []).push(id); ctx.reg = ctx.reg || {}; (ctx.reg.played = ctx.reg.played || []).push(id); ctx.last = 'played'; }
+      say(R, `${nm(s)} 등장: ${D.cn(R, id)}` + (c.st === 's' ? ' (슬립)' : '')); if (ctx) { (ctx.played = ctx.played || []).push(id); ctx.reg = ctx.reg || {}; (ctx.reg.played = ctx.reg.played || []).push(id); ctx.last = 'played'; }
       mrEnter(R, s, id); noteEnter(R, s, id);
       const cxt = { by: 'effect', stype: D(R, src).type, slv: lvOf(R, src), scol: cols(D(R, src)) }; fire(R, 'onplay', id, cxt); fireAlly(R, s, id, cxt); bus(R, 'enter', { s, ent: id, by: 'effect' }); } }
   function applyTo(R, s, src, id, d, v, until, g) { const c = R.cards[id]; if (!c) return;
@@ -448,7 +448,7 @@ module.exports = function (A) {
   // 상대의 효과로 현장을 떠나는 경우 대체 효과를 확인한 뒤 적용
   function* applyG(R, s, src, id, d, v, until, g) { const c = R.cards[id]; if (!c) return;
     { const so = R.cards[src] ? R.cards[src].o : s, isEv = R.cards[src] && D(R, src).type === 'event';   // 상대의 능력/이벤트 효과로부터의 보호(정적 키워드)
-      if (c.o !== so && onField(R, id)) { if (d === 'remove' && (kwHas(R, id, 'nrm-ab') || (isEv && kwHas(R, id, 'nrm-ev')))) { say(R, `${D(R, id).n}: 효과로 리무브되지 않음`); return; }
+      if (c.o !== so && onField(R, id)) { if (d === 'remove' && (kwHas(R, id, 'nrm-ab') || (isEv && kwHas(R, id, 'nrm-ev')))) { say(R, `${D.cn(R, id)}: 효과로 리무브되지 않음`); return; }
         if (d === 'sleep' && kwHas(R, id, 'nsl-ab')) return; if (d === 'stun' && kwHas(R, id, 'nst-ab')) return; } }
     if (['remove', 'hand', 'deckBottom', 'deckTop'].includes(d) && onField(R, id)) { const so = R.cards[src] ? R.cards[src].o : s; const rep = yield* replaceCheck(R, id, so, 'effect'); if (rep) d = rep; }
     applyTo(R, s, src, id, d, v, until, g); }
@@ -542,7 +542,7 @@ module.exports = function (A) {
       for (const h of fieldPa(R, c.o)) { const hc = R.cards[h]; abList(R, h).forEach((ab, i) => { if (ab.ic !== 'onchosen') return;
           if (ab.ef ? !fOk(R, c.o, id, ab.ef, h, true) : h !== id) return; if (!condOk(R, c.o, h, ab, { chooser: so })) return;
           if (ab.lim) { hc.u = hc.u || {}; if ((hc.u[i] || 0) >= ab.lim) return; hc.u[i] = (hc.u[i] || 0) + 1; } todo.push({ h, ab }); }); }
-      for (const { h, ab } of todo) { const cc = { done: true, t: { ent: id }, cost: {}, src: h }; say(R, `▶ 효과 발동: ${D(R, h).n} (선택되었을 때)`); yield* runOps(R, c.o, h, ab.ops, cc, it); if (cc.negated) { neg = true; say(R, `${D(R, id).n}: 상대의 효과로 선택되었지만 무효`); break; } }
+      for (const { h, ab } of todo) { const cc = { done: true, t: { ent: id }, cost: {}, src: h }; say(R, `▶ 효과 발동: ${D.cn(R, h)} (선택되었을 때)`); yield* runOps(R, c.o, h, ab.ops, cc, it); if (cc.negated) { neg = true; say(R, `${D.cn(R, id)}: 상대의 효과로 선택되었지만 무효`); break; } }
       if (!neg) out.push(id); }
     return out; }
   function* doOp(R, s, src, o, ctx, it) { const P = R.P[s], tg = w => w === 'opp' ? 1 - s : s;
@@ -559,8 +559,8 @@ module.exports = function (A) {
         if (o.opt) { if (T.deck.length < nn) { ctx.done = false; return; }
           if (!(yield { who: s, kind: 'yn', msg: `${o.who === 'opp' ? '상대 ' : ''}덱 위 ${nn}장을 리무브할까요?` })) { ctx.done = false; return; } }
         let k = 0; const got = []; for (let i = 0; i < nn && T.deck.length; i++) { const x = T.deck.pop(); T.rem.push(x); got.push(x); k++; } ctx.remd = got; setReg(ctx, 'removed', got); chk(R, t); say(R, `[효과] ${nm(t)} 덱 위 ${k}장 리무브`); ctx.done = k > 0; return; }
-      case 'selfEvid': { const c = R.cards[src]; if (inZoneFx(R, src) || R.cards[src].setOn != null) { ctx.done = false; return; } ctx.moved = true; c.up = true; c.setOn = null; R.P[s].evid.push(src); say(R, `[효과] ${D(R, src).n}: 표향 그대로 증거로 획득`); ctx.done = true; return; }
-      case 'selfTo': { const c = R.cards[src]; if (inZoneFx(R, src) || R.cards[src].setOn != null) { ctx.done = false; return; } ctx.moved = true; c.up = false; c.st = 'a'; if (o.to === 'pa') R.P[s].pa.push(src); else R.P[s].hand.push(src); say(R, `[효과] ${D(R, src).n}: ${o.to === 'pa' ? '파트너 에리어' : '손패'}로 이동`); ctx.done = true; return; }
+      case 'selfEvid': { const c = R.cards[src]; if (inZoneFx(R, src) || R.cards[src].setOn != null) { ctx.done = false; return; } ctx.moved = true; c.up = true; c.setOn = null; R.P[s].evid.push(src); say(R, `[효과] ${D.cn(R, src)}: 표향 그대로 증거로 획득`); ctx.done = true; return; }
+      case 'selfTo': { const c = R.cards[src]; if (inZoneFx(R, src) || R.cards[src].setOn != null) { ctx.done = false; return; } ctx.moved = true; c.up = false; c.st = 'a'; if (o.to === 'pa') R.P[s].pa.push(src); else R.P[s].hand.push(src); say(R, `[효과] ${D.cn(R, src)}: ${o.to === 'pa' ? '파트너 에리어' : '손패'}로 이동`); ctx.done = true; return; }
       case 'flipDown': { const ids = (o.who === 'any' ? [0, 1] : [s]).flatMap(t => R.P[t].evid.filter(x => R.cards[x].up)); if (!ids.length) { ctx.done = false; return; }
         const ch = yield pickReq(s, `뒷면으로 되돌릴 표향 증거를 최대 ${o.n}장 선택`, ids, 0, Math.min(o.n, ids.length)); for (const x of ch || []) if (ids.includes(x)) R.cards[x].up = false; say(R, `[효과] 표향 증거 ${(ch || []).length}장을 뒷면으로`); ctx.done = (ch || []).length > 0; return; }
       case 'gain': { const t = tg(o.who); if (o.opt && !(yield { who: s, kind: 'yn', msg: `${o.who === 'opp' ? '상대에게 ' : ''}증거를 ${o.n}장 ${o.who === 'opp' ? '주' : '얻'}시겠습니까?` })) { ctx.done = false; return; } gain(R, t, o.n); say(R, `[효과] ${nm(t)} 증거 ${o.n}장 획득`); ctx.done = true; return; }
@@ -601,7 +601,7 @@ module.exports = function (A) {
       case 'self': { if (!onField(R, src)) { ctx.done = false; return; } if (o.do === 'sleep' && (R.cards[src].st || 'a') !== 'a') { ctx.done = false; return; }
         if (o.opt && !(yield { who: s, kind: 'yn', msg: `${D(R, src).n}: ${o.do}${o.v ? ' ' + o.v : ''} 할까요?` })) { ctx.done = false; return; }
         let vv = o.v; if (o.pc) { const k = countOf(R, s, src, o.pc, ctx.t || {}); if (!k) { ctx.done = false; return; } vv = String((+o.v || 0) * k); } if (o.mul) { const k = regNumBy(R, regIds(R, ctx, o.mul.ref), o.mul.by); if (!k) { ctx.done = false; return; } vv = String((+o.v || 0) * k); }
-        yield* applyG(R, s, src, src, o.do, vv, o.until); setReg(ctx, 'sel', [src]); say(R, `[효과] ${D(R, src).n}: ${o.do}${vv ? ' ' + vv : ''}`); ctx.done = true; return; }
+        yield* applyG(R, s, src, src, o.do, vv, o.until); setReg(ctx, 'sel', [src]); say(R, `[효과] ${D.cn(R, src)}: ${o.do}${vv ? ' ' + vv : ''}`); ctx.done = true; return; }
       case 'play': { ctx.played = []; setReg(ctx, 'played', []); const f = rf(R, o.filter, ctx), okc = x => D(R, x).type === 'char' && fOk(R, s, x, f, src, true);
         const zones = o.from === 'rem' ? [P.rem] : o.from === 'rempa' ? [P.rem, P.pa] : o.from === 'handrem' ? [P.hand, P.rem] : o.from === 'picked' ? [ctx.picked != null && P.rem.includes(ctx.picked) ? [ctx.picked] : []] : [P.hand];
         const cand = [].concat(...zones).filter(okc); if (!cand.length) { ctx.done = false; return; }
@@ -635,21 +635,21 @@ module.exports = function (A) {
         if (!(yield { who: s, kind: 'yn', msg: `${D(R, src).n}: 코스트를 지불하고 효과를 처리할까요?` })) { ctx.done = false; return; }
         for (const k of o.cost) yield* pay(R, s, src, k, ctx); ctx.done = true; return; }
       case 'ent': { const e = ctx.t && ctx.t.ent; if (e == null || !onField(R, e)) { ctx.done = false; return; }
-        yield* applyG(R, s, src, e, o.do, o.v, o.until); say(R, `[효과] ${D(R, e).n}: ${o.do}${o.v ? ' ' + o.v : ''}`); ctx.done = true; return; }
+        yield* applyG(R, s, src, e, o.do, o.v, o.until); say(R, `[효과] ${D.cn(R, e)}: ${o.do}${o.v ? ' ' + o.v : ''}`); ctx.done = true; return; }
       case 'played': { const ids = (ctx.played || []).filter(x => onField(R, x)); if (!ids.length) { ctx.done = false; return; }
-        for (const e of ids) { applyTo(R, s, src, e, o.do, o.v, o.until); say(R, `[효과] ${D(R, e).n}: ${o.do}${o.v ? ' ' + o.v : ''}`); } ctx.done = true; return; }
+        for (const e of ids) { applyTo(R, s, src, e, o.do, o.v, o.until); say(R, `[효과] ${D.cn(R, e)}: ${o.do}${o.v ? ' ' + o.v : ''}`); } ctx.done = true; return; }
       case 'reveal': { const T = P, seen = []; let hit = null;
         while (T.deck.length) { const x = T.deck.pop(); seen.push(x); if (D(R, x).type && (o.name || Object.values(o.filter || {}).some(v => v && (!Array.isArray(v) || v.length))) && fOk(R, s, x, o.filter, src, true) && (!o.name || D(R, x).n.includes(o.name))) { hit = x; break; } }
         yield { who: s, kind: 'ack', msg: hit != null ? `덱 위에서 ${seen.length}장을 공개 — 「${D(R, hit).n}」 발견` : `덱 위 ${seen.length}장을 공개 — 해당하는 카드가 없었습니다`, ids: seen, reveal: 1, by: s };
         const rest = seen.filter(x => x !== hit); if (hit != null) { if (o.then === 'rem') T.rem.push(hit); else T.hand.push(hit); }
         if (o.rest === 'rem') T.rem.push(...rest); else { const r = rest.slice(); if (o.rest === 'shuffleBottom') shuf(r); r.forEach(x => T.deck.unshift(x)); }
-        if (o.shuffle) shuf(T.deck); say(R, `[효과] ${nm(s)} 덱을 ${seen.length}장 공개` + (hit != null ? ` → 「${D(R, hit).n}」을(를) 손패에` : ' (해당 카드 없음)')); ctx.done = hit != null; ctx.found = hit != null ? 1 : 0; chk(R, s); return; }
+        if (o.shuffle) shuf(T.deck); say(R, `[효과] ${nm(s)} 덱을 ${seen.length}장 공개` + (hit != null ? ` → 「${D.cn(R, hit)}」을(를) 손패에` : ' (해당 카드 없음)')); ctx.done = hit != null; ctx.found = hit != null ? 1 : 0; chk(R, s); return; }
       case 'revealTop': { const T = P, n = Math.min(o.n, T.deck.length); if (!n) { ctx.done = false; return; } const seen = []; for (let i = 0; i < n; i++) seen.push(T.deck.pop());
         const f = rf(R, o.filter, ctx), hits = seen.filter(x => fOk(R, s, x, f, src, true)), miss = seen.filter(x => !hits.includes(x));
         yield { who: s, kind: 'ack', msg: `덱 위 ${n}장을 공개 — ` + (hits.length ? `조건에 맞는 「${D(R, hits[0]).n}」 → ${o.hit === 'rem' ? '리무브' : '손패'}` : `조건에 맞는 카드 없음 → ${o.miss === 'bottom' ? '덱 아래' : o.miss === 'top' ? '덱 위' : o.miss === 'rem' ? '리무브' : '손패'}`), ids: seen, reveal: 1, by: s };
         if (o.hit === 'rem') T.rem.push(...hits); else T.hand.push(...hits);
         if (o.miss === 'bottom') miss.forEach(x => T.deck.unshift(x)); else if (o.miss === 'top') miss.slice().reverse().forEach(x => T.deck.push(x)); else if (o.miss === 'rem') T.rem.push(...miss); else T.hand.push(...miss);
-        say(R, `[효과] ${nm(s)} 덱 위 ${n}장 공개` + (hits.length ? ` → 「${D(R, hits[0]).n}」` : ' (해당 없음)')); ctx.done = hits.length > 0; ctx.found = hits.length; chk(R, s); return; }
+        say(R, `[효과] ${nm(s)} 덱 위 ${n}장 공개` + (hits.length ? ` → 「${D.cn(R, hits[0])}」` : ' (해당 없음)')); ctx.done = hits.length > 0; ctx.found = hits.length; chk(R, s); return; }
       case 'revealHand': { const t = tg(o.who), ids = R.P[t].hand.slice(); yield { who: 1 - t, kind: 'ack', msg: `${nm(t)}의 손패 ${ids.length}장 공개 (확인 후 원래대로)`, ids, reveal: 1, by: t }; say(R, `[효과] ${nm(t)} 손패 공개`); return; }
       case 'revealFile': { const t = tg(o.who), T = R.P[t]; const ids = T.file.slice(-o.n).reverse(); if (!ids.length) { ctx.done = false; return; } ids.forEach(x => { R.cards[x].up = true; });
         yield { who: s, kind: 'ack', msg: `${nm(t)}의 FILE 에리어 위 ${ids.length}장을 표향으로`, ids, reveal: 1, by: t }; say(R, `[효과] ${nm(t)} FILE 위 ${ids.length}장 표향`); ctx.done = true; return; }
@@ -677,25 +677,25 @@ module.exports = function (A) {
         if (tid == null || nn <= 0) return;
         const dt = o.deck === 'owner' ? R.cards[tid].o : tg(o.deck), DT = R.P[dt]; if (dt !== R.cards[tid].o) { say(R, '[효과] 세트할 덱과 캐릭터 소유자가 다름 — 처리 불가'); return; } if (!DT.deck.length) return;
         for (let i = 0; i < nn; i++) { const x = pull(R, dt); if (x == null) break; const h = R.cards[tid]; (h.fd = h.fd || []).push(x); R.cards[x].fdOn = tid; ctx.done = true; bus(R, 'setOn', { s: h.o, ent: x, holder: tid, fd: true }); }
-        if (ctx.done) say(R, `[효과] ${nm(dt)}의 덱 위 카드를 뒷면으로 ${D(R, tid).n}에 세트`); return; }
+        if (ctx.done) say(R, `[효과] ${nm(dt)}의 덱 위 카드를 뒷면으로 ${D.cn(R, tid)}에 세트`); return; }
       case 'unset': { const holders = o.scope === 'self' ? (onField(R, src) ? [src] : []) : o.scope === 'opp' ? ally(R, 1 - s).slice() : o.scope === 'mine' ? ally(R, s).slice() : [...ally(R, 0), ...ally(R, 1)]; const f = rf(R, o.filter, ctx);
         const okH = holders.filter(h => setCards(R, h, o.fd).some(x => fOk(R, s, x, f, src, true))); if (!okH.length) { ctx.done = false; return; }
         if (o.opt && !(yield { who: s, kind: 'yn', msg: '세트된 카드를 리무브할까요?' })) { ctx.done = false; return; }
         const h = okH.length === 1 ? okH[0] : (yield pickReq(s, '세트된 카드를 리무브할 캐릭터를 선택', okH, 1, 1))[0];
-        const cs = setCards(R, h, o.fd).filter(x => fOk(R, s, x, f, src, true)); const x = cs[0]; unsetOne(R, h, x); setReg(ctx, 'removed', [x]); say(R, `[효과] ${D(R, h).n}에 세트된 카드를 리무브`); ctx.done = true; return; }
+        const cs = setCards(R, h, o.fd).filter(x => fOk(R, s, x, f, src, true)); const x = cs[0]; unsetOne(R, h, x); setReg(ctx, 'removed', [x]); say(R, `[효과] ${D.cn(R, h)}에 세트된 카드를 리무브`); ctx.done = true; return; }
       case 'moveSet': { const h = R.cards[src], mine = (h && h.fd) || []; const f = rf(R, o.filter, ctx); ctx.done = false; if (!onField(R, src) || !mine.length) return;
         const cand = ally(R, s).filter(x => x !== src && fOk(R, s, x, f, src) && !(o.toEmpty && (R.cards[x].fd || []).length)); if (!cand.length) return;
         const ids = (yield pickReq(s, '裏向きのセットカードを移す先のキャラを最大1枚選択', cand, 0, 1)).filter(x => cand.includes(x)); if (!ids.length) return;
         const card = mine.length === 1 ? mine[0] : (yield pickReq(s, '移す裏向きカードを選択', mine, 1, 1))[0], to = R.cards[ids[0]];
-        h.fd = h.fd.filter(x => x !== card); (to.fd = to.fd || []).push(card); R.cards[card].fdOn = ids[0]; ctx.done = true; say(R, `[효과] 뒷면 세트 카드 1장을 ${D(R, ids[0]).n}에 옮김`); return; }
+        h.fd = h.fd.filter(x => x !== card); (to.fd = to.fd || []).push(card); R.cards[card].fdOn = ids[0]; ctx.done = true; say(R, `[효과] 뒷면 세트 카드 1장을 ${D.cn(R, ids[0])}에 옮김`); return; }
       case 'stack': { const f = rf(R, o.filter, ctx), cand = P.rem.filter(x => D(R, x).type === 'char' && fOk(R, s, x, f, src, true)); if (!cand.length || !onField(R, src)) { ctx.done = false; return; }
         const ids = (yield pickReq(s, `리무브 에리어에서 이 캐릭터 아래에 겹칠 카드를 최대 ${o.n}장 선택` + (o.distinct ? ' (카드 이름이 서로 달라야 함)' : ''), cand, 0, Math.min(o.n, cand.length), { distinct: o.distinct, reveal: 1 })).filter(x => cand.includes(x));
-        if (!ids.length) { ctx.done = false; return; } P.rem = P.rem.filter(x => !ids.includes(x)); const h = R.cards[src]; (h.under = h.under || []).push(...ids); setReg(ctx, 'moved', ids); remLeft(R, s, ids); say(R, `[효과] ${D(R, src).n} 아래에 ${ids.length}장을 겹침`); ctx.done = true; return; }
-      case 'flip': { const t = tg(o.who); if (o.opt && faceDown(R, t).length && !(yield { who: s, kind: 'yn', msg: `뒷면 증거 ${o.n}장을 표향으로 할까요?` })) { ctx.done = false; return; } const ids = yield* flipPick(R, s, t, o.n); ctx.flipped = ids; if (ids.length) say(R, `[효과] ${nm(t)}의 뒷면 증거 ${ids.length}장을 표향으로` + ids.map(x => ` (${D(R, x).n})`).join('')); ctx.done = ids.length > 0; return; }
+        if (!ids.length) { ctx.done = false; return; } P.rem = P.rem.filter(x => !ids.includes(x)); const h = R.cards[src]; (h.under = h.under || []).push(...ids); setReg(ctx, 'moved', ids); remLeft(R, s, ids); say(R, `[효과] ${D.cn(R, src)} 아래에 ${ids.length}장을 겹침`); ctx.done = true; return; }
+      case 'flip': { const t = tg(o.who); if (o.opt && faceDown(R, t).length && !(yield { who: s, kind: 'yn', msg: `뒷면 증거 ${o.n}장을 표향으로 할까요?` })) { ctx.done = false; return; } const ids = yield* flipPick(R, s, t, o.n); ctx.flipped = ids; if (ids.length) say(R, `[효과] ${nm(t)}의 뒷면 증거 ${ids.length}장을 표향으로` + ids.map(x => ` (${D.cn(R, x)})`).join('')); ctx.done = ids.length > 0; return; }
       case 'flashFlipped': { const f = rf(R, o.filter, ctx), ids = [...(ctx.cost && ctx.cost.flip || []), ...(ctx.flipped || [])].filter(x => fOk(R, s, x, f, src, true) && (D(R, x).ab || []).some(a => a.ic === 'flash' && !!a.bang === !!o.bang));
         for (const x of ids) { const abs = (D(R, x).ab || []).filter(a => a.ic === 'flash' && !!a.bang === !!o.bang && condOk(R, s, x, a)); if (!abs.length) continue;
           if (!(yield { who: s, kind: 'yn', msg: `표향이 된 「${D(R, x).n}」의 ${o.bang ? '【!】' : ''}히라메키를 발동할까요?` })) continue;
-          say(R, `▶ 히라메키 발동(표향): ${D(R, x).n}`); const c2 = { done: true, t: {}, cost: {} }; for (const ab of abs) yield* runOps(R, s, x, ab.ops, c2, it); }
+          say(R, `▶ 히라메키 발동(표향): ${D.cn(R, x)}`); const c2 = { done: true, t: {}, cost: {} }; for (const ab of abs) yield* runOps(R, s, x, ab.ops, c2, it); }
         return; }
       case 'rmAll': { const ids = o.scope === 'contact' ? (R.sub ? [R.sub.atk, R.sub.def] : []) : [...ally(R, R.turn), ...ally(R, 1 - R.turn)].filter(x => o.scope !== 'others' || x !== src);
         for (const x of ids.filter(y => onField(R, y))) rmChar(R, x, 'effect'); say(R, `[효과] ${o.scope === 'contact' ? '컨택트 중인 캐릭터' : '모든 캐릭터'} 리무브`); ctx.done = true; return; }
@@ -704,10 +704,10 @@ module.exports = function (A) {
       case 'rps': { for (let g = 0; g < 20; g++) { const a = yield { who: s, kind: 'opt', msg: '가위바위보 — 내 손을 고르세요', labels: ['바위', '가위', '보'] }; const b = yield { who: 1 - s, kind: 'opt', msg: '가위바위보 — 내 손을 고르세요', labels: ['바위', '가위', '보'] };
           if (a === b) { say(R, '가위바위보: 비김 — 다시'); continue; } ctx.rps = ((a - b + 3) % 3) === 2 ? 'win' : 'lose'; say(R, `가위바위보: ${nm(s)} ${ctx.rps === 'win' ? '승' : '패'}`); return; } ctx.rps = 'lose'; return; }
       case 'pickPaid': { const ids = ((ctx.cost && ctx.cost.rem) || []).slice(); ctx.picked = null; if (!ids.length) return; const who = tg(o.who);
-        const r = ids.length === 1 ? ids : yield pickReq(who, '코스트로 리무브된 카드 중 1장을 선택하세요', ids, 1, 1, { reveal: 1 }); ctx.picked = r[0]; say(R, `[효과] ${nm(who)}이(가) 「${D(R, ctx.picked).n}」을(를) 선택`); return; }
+        const r = ids.length === 1 ? ids : yield pickReq(who, '코스트로 리무브된 카드 중 1장을 선택하세요', ids, 1, 1, { reveal: 1 }); ctx.picked = r[0]; say(R, `[효과] ${nm(who)}이(가) 「${D.cn(R, ctx.picked)}」을(를) 선택`); return; }
       case 'set': { const f = rf(R, o.filter, ctx); const cand = P.field.filter(x => x !== src && fOk(R, s, x, f, src, true)); if (!cand.length || it.kind !== 'event' || R.cards[src].setOn != null || ['evid', 'rem', 'pa', 'hand', 'deck', 'file'].some(z => P[z].includes(src))) { ctx.done = false; return; } // 이벤트 효과 해결 중에만 세트 가능
         const ids = cand.length === 1 ? cand : yield pickReq(s, '이 이벤트를 세트할 내 캐릭터를 1장 선택', cand, 1, 1); const tid = ids[0], t = R.cards[tid], e = R.cards[src];
-        if (t && R.P[s].field.includes(tid)) { (t.sets = t.sets || []).push(src); e.setOn = tid; setReg(ctx, 'sel', [tid]); say(R, `[효과] ${D(R, src).n}을(를) ${D(R, tid).n}에 세트`); ctx.done = true; bus(R, 'setOn', { s: t.o, ent: src, holder: tid }); } return; }
+        if (t && R.P[s].field.includes(tid)) { (t.sets = t.sets || []).push(src); e.setOn = tid; setReg(ctx, 'sel', [tid]); say(R, `[효과] ${D.cn(R, src)}을(를) ${D.cn(R, tid)}에 세트`); ctx.done = true; bus(R, 'setOn', { s: t.o, ent: src, holder: tid }); } return; }
       case 'ref': { const ids = regIds(R, ctx, o.ref).filter(x => onField(R, x)); if (!ids.length) { ctx.done = false; return; }
         if (o.opt && !(yield yn(s, '이 효과를 처리할까요?'))) { ctx.done = false; return; }
         let oo = o; if (o.mul) { const m = regNumBy(R, regIds(R, ctx, o.mul.ref), o.mul.by); oo = { ...o, acts: o.acts.map(a => ['ap', 'lp', 'lv'].includes(a.do) ? { ...a, v: String((+a.v || 0) * m) } : a) }; }
@@ -720,7 +720,7 @@ module.exports = function (A) {
           for (let k = 0; k < cap; k++) { const x = o.from === 'bottom' ? T.deck[k] : T.deck[T.deck.length - 1 - k]; seen.push(x); if (fOk(R, s, x, f, src, true)) { hit = x; break; } } }
         else { const n = Math.max(0, Math.min(dynNum(R, s, src, o, ctx), T.deck.length)); seen = n <= 0 ? [] : o.from === 'bottom' ? T.deck.slice(0, n) : T.deck.slice(-n).reverse(); }
         setReg(ctx, 'seen', seen); setReg(ctx, 'hit', hit != null ? [hit] : []); setReg(ctx, 'rest', seen.filter(x => x !== hit)); setReg(ctx, 'revealed', o.reveal ? seen : []); ctx.found = hit != null ? 1 : 0; ctx.done = seen.length > 0;
-        say(R, `[효과] ${nm(dt)} 덱 ${o.from === 'bottom' ? '아래' : '위'} ${seen.length}장 ${o.reveal ? '공개' : '확인'}` + (o.until ? (hit != null ? (o.reveal ? ` → 「${D(R, hit).n}」 발견` : ' → 해당하는 카드를 찾음') : ' (해당 카드 없음)') : ''));
+        say(R, `[효과] ${nm(dt)} 덱 ${o.from === 'bottom' ? '아래' : '위'} ${seen.length}장 ${o.reveal ? '공개' : '확인'}` + (o.until ? (hit != null ? (o.reveal ? ` → 「${D.cn(R, hit)}」 발견` : ' → 해당하는 카드를 찾음') : ' (해당 카드 없음)') : ''));
         if (seen.length) yield { who: viewer, kind: 'ack', msg: `${nm(dt)}의 덱 ${o.from === 'bottom' ? '아래' : '위'} ${seen.length}장${o.reveal ? ' 공개' : ' 확인'}` + (o.until ? (hit != null ? ` — 「${D(R, hit).n}」 발견` : ' — 해당하는 카드 없음') : ''), ids: seen, reveal: o.reveal ? 1 : 0, by: o.reveal ? s : null };
         return; }
       case 'pick': { const who = o.chooser === 'opp' ? 1 - s : s; const isReg = REGS_RT.includes(o.from); let pool;
@@ -783,10 +783,10 @@ module.exports = function (A) {
     else if (k.c === 'deckrem') { const got = []; const kn = k.per ? k.n * countOf(R, s, src, k.per) : k.n; for (let i = 0; i < kn && P.deck.length; i++) { const x = P.deck.pop(); P.rem.push(x); got.push(x); } co.rem = (co.rem || []).concat(got); chk(R, s); }
     else if (k.c === 'selfBottom') { moveOut(R, src, 'deckBottom'); }
     else if (k.c === 'selfRem') { rmChar(R, src, 'cost'); }
-    else if (k.c === 'selfPa') { leave(R, src); P.pa.push(src); say(R, `${D(R, src).n}: 파트너 에리어로 이동`); }
+    else if (k.c === 'selfPa') { leave(R, src); P.pa.push(src); say(R, `${D.cn(R, src)}: 파트너 에리어로 이동`); }
     else if (k.c === 'sleepOther') { const cand = P.field.filter(x => x !== src && (R.cards[x].st || 'a') === 'a'); const ids = cand.length === k.n ? cand : yield pickReq(s, `코스트: 슬립시킬 다른 캐릭터 ${k.n}장`, cand, k.n, k.n); ids.forEach(x => { R.cards[x].st = 's'; bus(R, 'sleepEv', { s, ent: x, by: 'cost' }); }); }
     else if (k.c === 'flipEvid') { let n = k.n; if (k.var) { const mx = faceDown(R, s).length; const i = yield { who: s, kind: 'opt', msg: '표향으로 할 뒷면 증거의 수 (1장당 효과가 커집니다)', labels: Array.from({ length: mx }, (_, j) => `${j + 1}장`) }; n = Math.max(1, +i + 1); }
-      const ids = yield* flipPick(R, s, s, n, '코스트'); co.flip = (co.flip || []).concat(ids); say(R, `코스트: 뒷면 증거 ${ids.length}장을 표향으로` + ids.map(x => ` (${D(R, x).n})`).join('')); }
+      const ids = yield* flipPick(R, s, s, n, '코스트'); co.flip = (co.flip || []).concat(ids); say(R, `코스트: 뒷면 증거 ${ids.length}장을 표향으로` + ids.map(x => ` (${D.cn(R, x)})`).join('')); }
     else if (k.c === 'fieldBottom') { const cand = [...ally(R, 0), ...ally(R, 1)].filter(x => fOk(R, s, x, f, src, true)); const ids = cand.length === k.n ? cand : yield pickReq(s, `코스트: 덱 아래로 보낼 현장의 캐릭터 ${k.n}장`, cand, k.n, k.n);
       ids.forEach(x => moveOut(R, x, 'deckBottom')); }
     else if (k.c === 'unset') { const cs = unsetPool(R, s, src, k).filter(x => fOk(R, s, x, f, src, true)); const ids = cs.length === k.n ? cs : yield pickReq(s, `코스트: 리무브할 세트 카드 ${k.n}장`, cs, k.n, k.n); ids.forEach(x => unsetOne(R, R.cards[x].fdOn != null ? R.cards[x].fdOn : R.cards[x].setOn != null ? R.cards[x].setOn : src, x)); }
@@ -804,12 +804,12 @@ module.exports = function (A) {
     else if (k.c === 'stackCost') { const cand = k.from === 'hand' ? P.hand.filter(x => fOk(R, s, x, f, src, true)) : P.field.filter(x => x !== src && fOk(R, s, x, f, src, true)); const ids = cand.length === k.n ? cand : yield pickReq(s, `코스트: 겹칠 카드 ${k.n}장 선택`, cand, k.n, k.n, { reveal: k.from === 'hand' ? 1 : 0 });
       let holder = src; if (k.onto === 'pick') { const hc = P.field.filter(x => fOk(R, s, x, k.ontoF, src, true)); holder = hc.length === 1 ? hc[0] : (yield pickReq(s, '카드를 아래에 겹칠 캐릭터를 선택', hc, 1, 1))[0]; }
       if (k.from === 'hand') { yield { who: 1 - s, kind: 'ack', msg: `${nm(s)}이(가) 손패를 공개: ${ids.map(x => D(R, x).n).join(', ')}`, ids, reveal: 1, by: s, hby: 'cost' }; P.hand = P.hand.filter(x => !ids.includes(x)); } else ids.forEach(x => leave(R, x));
-      const h = R.cards[holder]; (h.under = h.under || []).push(...ids); co.rev = (co.rev || []).concat(ids); say(R, `코스트: ${ids.length}장을 ${D(R, holder).n} 아래에 겹침`); }
+      const h = R.cards[holder]; (h.under = h.under || []).push(...ids); co.rev = (co.rev || []).concat(ids); say(R, `코스트: ${ids.length}장을 ${D.cn(R, holder)} 아래에 겹침`); }
     else if (k.c === 'either') { const ok = (k.alts || []).map((alt, i) => [alt, i]).filter(([alt]) => alt.every(x => !canPayOne(R, s, src, x))); const pick = ok.length === 1 ? 0 : yield { who: s, kind: 'opt', msg: '지불할 코스트를 고르세요', labels: ok.map(([, i]) => `코스트 ${i + 1}`) };
       for (const x of ok[pick][0]) yield* pay(R, s, src, x, ctx); }
     else if (k.c === 'handDeckTop') { const cand = P.hand.filter(x => fOk(R, s, x, f, src, true)); const ids = cand.length === k.n ? cand : yield pickReq(s, `코스트: 공개해 덱 위로 보낼 손패 ${k.n}장 선택`, cand, k.n, k.n, { reveal: 1 });
       yield { who: 1 - s, kind: 'ack', msg: `${nm(s)}이(가) 손패를 공개하고 덱 위로: ${ids.map(x => D(R, x).n).join(', ')}`, ids, reveal: 1, by: s, hby: 'cost' }; P.hand = P.hand.filter(x => !ids.includes(x)); ids.forEach(x => P.deck.push(x)); co.rev = (co.rev || []).concat(ids); say(R, `코스트: 손패 ${ids.length}장을 공개하고 덱 위로`); }
-    else if (k.c === 'lpSelf') { c.lpm = (c.lpm || 0) + k.v; say(R, `코스트: ${D(R, src).n} LP${k.v}`); }
+    else if (k.c === 'lpSelf') { c.lpm = (c.lpm || 0) + k.v; say(R, `코스트: ${D.cn(R, src)} LP${k.v}`); }
     else if (k.c === 'discardTo') { const n = P.hand.length - k.n; const ids = yield pickReq(s, `코스트: 손패가 ${k.n}장이 되도록 ${n}장 리무브`, P.hand.slice(), n, n); P.hand = P.hand.filter(x => !ids.includes(x)); P.rem.push(...ids); co.disc = (co.disc || []).concat(ids); }
     else if (X.hasCost(k.c)) yield* X.costPay(R, s, src, k, ctx); }
 
@@ -819,19 +819,19 @@ module.exports = function (A) {
   function* gen(R, it) { const { s, src } = it, ctx = { done: true, t: it.ctx || {}, cost: {}, src };
     if (it.kind === 'ab') { let altUsed = false;
       if (it.declared && (it.ab.cost || []).length) { const pv = altProv(R, s, src);
-        if (pv.length && (canPay(R, s, src, it.ab) || (yield yn(s, `코스트를 지불하는 대신 ${pv.map(x => D(R, x).n).join(' / ')}을(를) 현장에서 리무브할까요?`)))) { const p = pv.length === 1 ? pv[0] : (yield pickReq(s, '코스트 대신 리무브할 캐릭터를 선택', pv, 1, 1))[0]; rmChar(R, p, 'cost'); say(R, `코스트 대신 ${D(R, p).n} 리무브`); altUsed = true; } }
+        if (pv.length && (canPay(R, s, src, it.ab) || (yield yn(s, `코스트를 지불하는 대신 ${pv.map(x => D(R, x).n).join(' / ')}을(를) 현장에서 리무브할까요?`)))) { const p = pv.length === 1 ? pv[0] : (yield pickReq(s, '코스트 대신 리무브할 캐릭터를 선택', pv, 1, 1))[0]; rmChar(R, p, 'cost'); say(R, `코스트 대신 ${D.cn(R, p)} 리무브`); altUsed = true; } }
       if (it.ab.ic === 'ontrig' && (it.ab.evs || []).includes('hrev') && !(it.ab.ops || []).some(o => o && o.opt)) {   // v1.12.7: 공개 트리거 효과는 사용 여부를 먼저 묻는다(이미 "해도 좋다"인 효과는 자체 선택이 있으므로 제외)
-        if (!(yield yn(s, `「${D(R, src).n}」의 선언 효과를 사용하시겠습니까?`))) { const i = abList(R, src).indexOf(it.ab), c0 = R.cards[src]; if (i >= 0 && c0 && c0.u && c0.u[i] > 0) c0.u[i]--; say(R, `${D(R, src).n}의 효과를 사용하지 않음`); return; } }
+        if (!(yield yn(s, `「${D(R, src).n}」의 선언 효과를 사용하시겠습니까?`))) { const i = abList(R, src).indexOf(it.ab), c0 = R.cards[src]; if (i >= 0 && c0 && c0.u && c0.u[i] > 0) c0.u[i]--; say(R, `${D.cn(R, src)}의 효과를 사용하지 않음`); return; } }
       if (!altUsed) for (const k of it.ab.cost || []) if (it.declared) yield* pay(R, s, src, k, ctx);
-      say(R, `▶ 효과 발동: ${D(R, src).n}` + (it.ab.lab ? ` — ${it.ab.lab}` : '')); ctx.done = true; yield* runOps(R, s, src, it.ab.ops, ctx, it); }
+      say(R, `▶ 효과 발동: ${D.cn(R, src)}` + (it.ab.lab ? ` — ${it.ab.lab}` : '')); ctx.done = true; yield* runOps(R, s, src, it.ab.ops, ctx, it); }
     else if (it.kind === 'kill') yield* killG(R, it);
     else if (it.kind === 'cb') it.fn();
-    else if (it.kind === 'event') { say(R, `▶ 이벤트 효과: ${D(R, src).n}`);
+    else if (it.kind === 'event') { say(R, `▶ 이벤트 효과: ${D.cn(R, src)}`);
       for (const ab of it.abs) { if (!condOk(R, s, src, ab, cx(ctx))) { say(R, '(조건 미충족 — 아무 일도 일어나지 않음)'); continue; } yield* runOps(R, s, src, ab.ops, ctx, it); }
       if (!ctx.moved && !R.cards[src].setOn && !R.P[s].rem.includes(src)) R.P[s].rem.push(src); }  // 해결 중 세트 대상이 떠나 이미 리무브된 경우 중복 방지
     else if (it.kind === 'flash') { const d = D(R, src), abs = (d.ab || []).filter(a => a.ic === 'flash' && !a.bang && condOk(R, s, src, a)); const c = R.cards[src];
       const yes = abs.length && (yield { who: s, kind: 'yn', msg: `${d.n}의 히라메키를 발동할까요?` });
-      if (yes) { say(R, `▶ 히라메키 발동: ${d.n}`); for (const ab of abs) yield* runOps(R, s, src, ab.ops, ctx, it); }
+      if (yes) { say(R, `▶ 히라메키 발동: ${D.cn(R, src)}`); for (const ab of abs) yield* runOps(R, s, src, ab.ops, ctx, it); }
       if (!ctx.moved) { c.up = false; R.P[s].rem.push(src); c.st = 'a'; } } }
 
   // v1.12.7: 「손패에서 카드를 공개했을 때」(hrev) 는 공개 경로(효과 op/코스트/확장 효과)와 상관없이 여기 한 곳에서 일으킨다.

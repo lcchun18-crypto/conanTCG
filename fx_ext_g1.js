@@ -6,7 +6,7 @@ module.exports = function (K, def) {
   def('trigTgt', o => ({ op: 'trigTgt', do: opt(o.do, ['sleep', 'stun', 'active', 'ap', 'lp', 'lv', 'kw', 'remove', 'deckBottom', 'hand'], 'lv'), v: str(o.v, 40), until: opt(o.until, ['turn', 'contact', 'oppEnd'], 'turn'), opt: !!o.opt }), function* (R, s, src, o, ctx) {
     const id = ctx.t && ctx.t.tid; ctx.done = false; if (id == null || !R.cards[id] || !onField(R, id)) return;
     if (o.opt && !(yield { who: s, kind: 'yn', msg: `「${D(R, id).n}」을(를) ${o.do === 'deckBottom' ? '덱 아래로 옮길까요' : o.do === 'remove' ? '리무브할까요' : o.do === 'hand' ? '손패로 되돌릴까요' : '처리할까요'}?` })) return;
-    yield* K.applyG(R, s, src, id, o.do, o.v, o.until); setReg(ctx, 'sel', [id]); say(R, `[효과] ${D(R, id).n}: ${o.do}${o.v ? ' ' + o.v : ''}`); ctx.done = true; });
+    yield* K.applyG(R, s, src, id, o.do, o.v, o.until); setReg(ctx, 'sel', [id]); say(R, `[효과] ${D.cn(R, id)}: ${o.do}${o.v ? ' ' + o.v : ''}`); ctx.done = true; });
   // ifLeft: 레지스터(기본 sel)의 카드 중 현장을 떠난 것이 있고(리무브 등) 그 카드가 (떠난 시점의 상태로) 필터에 맞으면 ops, 아니면 else —
   //   예) 「スリープ状態のキャラをリムーブした場合」: 리무브 처리 뒤에 평가하며, 현장에 남아 있는 카드(보호/대체 효과)는 해당하지 않는다
   def('ifLeft', o => ({ op: 'ifLeft', ref: opt(o.ref, REGS, 'sel'), filter: cleanFilter(o.filter), ops: K.cleanOps(o.ops, 1), else: K.cleanOps(o.else, 1) }), function* (R, s, src, o, ctx, it) {

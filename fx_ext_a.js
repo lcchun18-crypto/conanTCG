@@ -21,7 +21,7 @@ module.exports = function (K, def) {
     if (o.pos === 'top') { id = E[E.length - 1]; if (o.opt && !(yield { who: s, kind: 'yn', msg: '증거 맨 위 1장을 손패에 넣을까요?' })) return; }
     else { id = yield* chooseEvid(R, s, s, '손패에 넣을 증거를 선택', !!o.opt, 'any'); if (id == null) return; }
     const c = R.cards[id], wasUp = !!c.up; P.evid = P.evid.filter(x => x !== id); c.up = false; P.hand.push(id); setReg(ctx, 'moved', [id]);
-    say(R, `[효과] ${nm(s)} 증거 1장을 손패에` + (wasUp ? ` (${D(R, id).n})` : '')); ctx.done = true; });
+    say(R, `[효과] ${nm(s)} 증거 1장을 손패에` + (wasUp ? ` (${D.cn(R, id)})` : '')); ctx.done = true; });
 
   // ── 손패 n장을 골라 뒷면 증거로 얻는다
   def('handToEvid', o => ({ op: 'handToEvid', n: Math.max(1, Math.min(num(o.n, 1), 5)) }), function* (R, s, src, o, ctx) {
@@ -34,12 +34,12 @@ module.exports = function (K, def) {
   def('evidToDeck', o => ({ op: 'evidToDeck', who: opt(o.who, ['self', 'opp'], 'opp'), opt: o.opt !== false }), function* (R, s, src, o, ctx) {
     const t = side(s, o.who); ctx.done = false; const id = yield* chooseEvid(R, s, t, '덱 아래로 옮길 증거를 선택', o.opt, 'any'); if (id == null) return;
     const T = R.P[t], c = R.cards[id], wasUp = !!c.up; T.evid = T.evid.filter(x => x !== id); c.up = false; T.deck.unshift(id); setReg(ctx, 'moved', [id]);
-    say(R, `[효과] ${nm(t)}의 증거 1장을 덱 아래로` + (wasUp ? ` (${D(R, id).n})` : '')); ctx.done = true; });
+    say(R, `[효과] ${nm(t)}의 증거 1장을 덱 아래로` + (wasUp ? ` (${D.cn(R, id)})` : '')); ctx.done = true; });
 
   // ── 덱 맨 위 카드를 (표향/뒷면으로) 증거로 얻는다
   def('deckToEvid', o => ({ op: 'deckToEvid', who: opt(o.who, ['self', 'opp'], 'self'), up: !!o.up }), function* (R, s, src, o, ctx) {
     const t = side(s, o.who), E = R.P[t].evid, b = E.length; ctx.done = false; if (R.phase !== 'play') return; gain(R, t, 1);
-    if (E.length > b) { const x = E[E.length - 1]; R.cards[x].up = !!o.up; setReg(ctx, 'moved', [x]); say(R, `[효과] ${nm(t)} 덱 위 카드를 ${o.up ? '표향' : '뒷면'}으로 증거 획득` + (o.up ? ` (${D(R, x).n})` : '')); ctx.done = true; } });
+    if (E.length > b) { const x = E[E.length - 1]; R.cards[x].up = !!o.up; setReg(ctx, 'moved', [x]); say(R, `[효과] ${nm(t)} 덱 위 카드를 ${o.up ? '표향' : '뒷면'}으로 증거 획득` + (o.up ? ` (${D.cn(R, x)})` : '')); ctx.done = true; } });
 
   // ── 현장의 캐릭터(레지스터 ref)를 (소유자의) 증거로 표향/뒷면 그대로 얻는다. 현장을 떠나는 처리(대체 효과·MR 의 파트너 에리어 이동)를 따른다
   def('charToEvid', o => ({ op: 'charToEvid', ref: regOpt(o.ref, 'sel'), up: o.up !== false }), function* (R, s, src, o, ctx) {
@@ -47,7 +47,7 @@ module.exports = function (K, def) {
     for (const id of regIds(R, ctx, o.ref).filter(x => onField(R, x))) { if (!onField(R, id)) continue; const c = R.cards[id], ow = c.o, so = R.cards[src] ? R.cards[src].o : s;
       const rep = yield* replaceCheck(R, id, so, 'effect'); if (rep) { applyTo(R, s, src, id, rep); continue; } if (!onField(R, id)) continue;
       const z = moveOut(R, id, 'rem'); if (z === 'pa') continue;   // MR: 상대 턴에 현장을 떠나면 파트너 에리어로(증거가 되지 않음)
-      R.P[ow].rem = R.P[ow].rem.filter(x => x !== id); c.up = !!o.up; R.P[ow].evid.push(id); got.push(id); say(R, `[효과] ${nm(ow)}이(가) ${D(R, id).n}을(를) ${o.up ? '표향' : '뒷면'}으로 증거 획득`); bus(R, 'evgain', { s: ow, by: 'effect' }); }
+      R.P[ow].rem = R.P[ow].rem.filter(x => x !== id); c.up = !!o.up; R.P[ow].evid.push(id); got.push(id); say(R, `[효과] ${nm(ow)}이(가) ${D.cn(R, id)}을(를) ${o.up ? '표향' : '뒷면'}으로 증거 획득`); bus(R, 'evgain', { s: ow, by: 'effect' }); }
     if (got.length) setReg(ctx, 'moved', got); ctx.done = got.length > 0; });
 
   // ── 캐릭터에 세트된 카드를 1장 골라, 그 카드의 소유자가 표향으로 증거로 얻는다
@@ -58,7 +58,7 @@ module.exports = function (K, def) {
     vis.forEach(x => { labels.push(D(R, x).n + ((hc.fd || []).includes(x) ? ' (뒷면 세트)' : '')); map.push(x); }); if (hid.length) { labels.push(`뒷면 세트 카드 (${hid.length}장 중 무작위 1장)`); map.push(-1); }
     let m; if (map.length === 1) m = map[0]; else m = map[+(yield { who: s, kind: 'opt', msg: '증거로 만들 세트 카드를 선택', labels })]; const x = m === -1 ? pickRandom(hid) : m; if (x == null) return;
     const ow = R.cards[x].o; unsetOne(R, h, x); R.P[ow].rem = R.P[ow].rem.filter(y => y !== x); R.cards[x].up = true; R.P[ow].evid.push(x); setReg(ctx, 'moved', [x]);
-    say(R, `[효과] ${D(R, h).n}에 세트된 ${D(R, x).n}을(를) ${nm(ow)}이(가) 표향 증거로 획득`); bus(R, 'evgain', { s: ow, by: 'effect' }); ctx.done = true; });
+    say(R, `[효과] ${D.cn(R, h)}에 세트된 ${D.cn(R, x)}을(를) ${nm(ow)}이(가) 표향 증거로 획득`); bus(R, 'evgain', { s: ow, by: 'effect' }); ctx.done = true; });
 
   // ── 증거를 위에서 n장 본다(본인에게만 보임, 보고 나서 그대로 둠)
   def('peekEvid', o => ({ op: 'peekEvid', who: opt(o.who, ['self', 'opp'], 'self'), n: Math.max(1, Math.min(num(o.n, 1), 10)) }), function* (R, s, src, o, ctx) {
@@ -68,19 +68,19 @@ module.exports = function (K, def) {
   // ── 증거 위에서 n장을 표향으로 한다(이미 표향이면 그대로)
   def('flipTopEvid', o => ({ op: 'flipTopEvid', who: opt(o.who, ['self', 'opp'], 'opp'), n: Math.max(1, Math.min(num(o.n, 1), 10)) }), function* (R, s, src, o, ctx) {
     const t = side(s, o.who), E = R.P[t].evid, ids = E.slice(-o.n); ctx.done = false; if (!ids.length) return; const fl = K.flipEv(R, t, ids.length, ids.filter(x => !R.cards[x].up));
-    ctx.flipped = fl; setReg(ctx, 'moved', ids); say(R, `[효과] ${nm(t)}의 증거 위에서 ${ids.length}장을 표향으로: ${ids.map(x => D(R, x).n).join(', ')}`); ctx.done = true; });
+    ctx.flipped = fl; setReg(ctx, 'moved', ids); say(R, `[효과] ${nm(t)}의 증거 위에서 ${ids.length}장을 표향으로: ${ids.map(x => D.cn(R, x)).join(', ')}`); ctx.done = true; });
 
   // ── 뒷면 증거를 표향으로(무작위로 n장). any: 0~최대장 중 장수를 직접 정한다. nref: 레지스터의 장수. as: 결과 레지스터(acc 면 이어 붙임)
   def('flipEvid', o => ({ op: 'flipEvid', who: opt(o.who, ['self', 'opp'], 'self'), n: Math.max(1, Math.min(num(o.n, 1), 99)), any: !!o.any, acc: !!o.acc, as: regOpt(o.as, 'chosen2'), nref: o.nref && typeof o.nref === 'object' ? { ref: regOpt(o.nref.ref, 'chosen2') } : null }), function* (R, s, src, o, ctx) {
     const t = side(s, o.who), down = R.P[t].evid.filter(x => !R.cards[x].up); let n = o.nref ? regIds(R, ctx, o.nref.ref).length : o.n; ctx.done = false; const prev = o.acc ? regIds(R, ctx, o.as) : [];
     const mx = Math.min(n, down.length); let k = mx;
     if (o.any && mx > 0) k = +(yield { who: s, kind: 'opt', msg: `${nm(t)}의 뒷면 증거를 표향으로 할 장수 (최대 ${mx}장)`, labels: Array.from({ length: mx + 1 }, (_, j) => `${j}장`) });
-    const ids = k > 0 ? yield* K.flipPick(R, s, t, k) : []; setReg(ctx, o.as, [...prev, ...ids]); if (ids.length) say(R, `[효과] ${nm(t)}의 뒷면 증거 ${ids.length}장을 표향으로: ${ids.map(x => D(R, x).n).join(', ')}`); ctx.done = ids.length > 0; });
+    const ids = k > 0 ? yield* K.flipPick(R, s, t, k) : []; setReg(ctx, o.as, [...prev, ...ids]); if (ids.length) say(R, `[효과] ${nm(t)}의 뒷면 증거 ${ids.length}장을 표향으로: ${ids.map(x => D.cn(R, x)).join(', ')}`); ctx.done = ids.length > 0; });
 
   // ── FILE 에리어 위에서 n장 리무브 / 덱 위에서 n장을 뒷면으로 FILE 위에 한 장씩 놓는다
   def('fileRemTop', o => ({ op: 'fileRemTop', who: opt(o.who, ['self', 'opp'], 'self'), n: Math.max(1, Math.min(num(o.n, 1), 10)) }), function* (R, s, src, o, ctx) {
     const t = side(s, o.who), T = R.P[t], got = []; for (let i = 0; i < o.n && T.file.length; i++) { const x = T.file.pop(); R.cards[x].up = false; T.rem.push(x); got.push(x); }
-    ctx.done = got.length > 0; setReg(ctx, 'removed', got); if (got.length) say(R, `[효과] ${nm(t)}의 FILE 에리어 위에서 ${got.length}장 리무브: ${got.map(x => D(R, x).n).join(', ')}`); });
+    ctx.done = got.length > 0; setReg(ctx, 'removed', got); if (got.length) say(R, `[효과] ${nm(t)}의 FILE 에리어 위에서 ${got.length}장 리무브: ${got.map(x => D.cn(R, x)).join(', ')}`); });
   def('deckToFile', o => ({ op: 'deckToFile', who: opt(o.who, ['self', 'opp'], 'self'), n: Math.max(1, Math.min(num(o.n, 1), 10)) }), function* (R, s, src, o, ctx) {
     const t = side(s, o.who); let k = 0; for (let i = 0; i < o.n && R.phase === 'play'; i++) { const x = pull(R, t); if (x == null) break; R.cards[x].up = false; R.P[t].file.push(x); k++; }
     ctx.done = k > 0; if (k) say(R, `[효과] ${nm(t)} 덱 위 ${k}장을 뒷면으로 FILE 에리어 위에 놓음`); });
@@ -109,5 +109,5 @@ module.exports = function (K, def) {
     const ids = [...((ctx.cost && ctx.cost.flip) || []), ...(ctx.flipped || [])].filter((x, i, a) => a.indexOf(x) === i && R.cards[x] && fOk(R, s, x, f, src, true) && (D(R, x).ab || []).some(a => a.ic === 'flash' && !!a.bang === !!o.bang && condOk(R, s, x, a)));
     if (!ids.length) return; const x = (yield pickReq(s, `표향이 된 ${o.bang ? '【!】' : ''}히라메키 카드를 1장까지 선택 (고르지 않으면 발동하지 않음)`, ids, 0, 1, { reveal: 1 }))[0]; if (x == null || !ids.includes(x)) return;
     if (!(yield yn(s, `「${D(R, x).n}」의 ${o.bang ? '【!】' : ''}히라메키를 발동할까요?`))) return;
-    const abs = (D(R, x).ab || []).filter(a => a.ic === 'flash' && !!a.bang === !!o.bang && condOk(R, s, x, a)); say(R, `▶ 히라메키 발동(표향): ${D(R, x).n}`); const c2 = { done: true, t: {}, cost: {}, src: x }; for (const ab of abs) yield* runOps(R, s, x, ab.ops, c2, it); ctx.done = true; });
+    const abs = (D(R, x).ab || []).filter(a => a.ic === 'flash' && !!a.bang === !!o.bang && condOk(R, s, x, a)); say(R, `▶ 히라메키 발동(표향): ${D.cn(R, x)}`); const c2 = { done: true, t: {}, cost: {}, src: x }; for (const ab of abs) yield* runOps(R, s, x, ab.ops, c2, it); ctx.done = true; });
 };

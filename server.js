@@ -11,8 +11,10 @@ const cl = (x, n = 2000) => String(x || '').slice(0, n);
 const nm = s => s ? '게스트' : '호스트';
 const mkP = () => ({ deck: [], hand: [], file: [], evid: [], rem: [], field: [], partner: null, pIn: false, kase: null, ready: false, pa: [], tr: false });
 const mkR = code => ({ code, ws: [null, null], defs: {}, cards: {}, q: [], eff: null, ending: 0, P: [mkP(), mkP()], phase: 'setup', turn: 0, first: 0, n: 0, fl: {}, sub: null, tt: [[], []], actor: null, log: ['방이 만들어졌습니다.'] });
-const say = (R, t) => R.log.push(t);
+// v1.17.0: 로그 줄에 나온 카드 이름의 위치와 카드(정의) 키를 함께 저장한다. 이름으로 카드를 추측하지 않고, 로그를 만드는 쪽이 D.cn(R, 카드ID) 로 이름을 넣을 때 그 카드의 정의 키(R.cards[id].d)를 기록 → 같은 이름의 다른 카드도 정확히 구분
+const say = (R, t) => { R.log.push(t); const p = R._lp; if (!p) return; R._lp = null; const refs = []; let cur = 0; for (const r of p) { const i = t.indexOf(r.n, cur); if (i < 0) continue; refs.push([i, i + r.n.length, r.d]); cur = i + r.n.length; } if (refs.length) (R.lr || (R.lr = {}))[R.log.length - 1] = refs; };
 const D = (R, id) => R.defs[R.cards[id].d];
+D.cn = (R, id) => { const c = R.cards[id], n = D(R, id).n; (R._lp || (R._lp = [])).push({ n, d: c.d }); return n; };   // say(R, `…${D.cn(R, id)}…`) 에서만 사용: 이름 문자열을 돌려주면서 로그 링크용 (이름, 정의 키) 를 예약
 const tok = d => { const k = String(d.kw || '').toLowerCase(), n = re => { const m = re.exec(k); return m ? +m[1] : 0; };
   return { rapid: /rapid/.test(k), asC: /assault(?!-case)/.test(k), asE: /assault(?!-char)/.test(k), bullet: /bullet/.test(k),
     dis: /disguise/.test(k), mis: n(/misread\s*[:=]?\s*(\d+)/), cut: n(/cutin\s*[:=]?\s*(\d+)/) }; };
@@ -43,7 +45,7 @@ function startTurn(R) { const s = R.turn, P = R.P[s]; R.n++; R.fl = {}; R.actor 
   say(R, `── ${nm(s)}의 턴 (#${R.n}) ──`); FX.fireMain(R, s); if (R.rng != null) snapTake(R); }
 
 // ── v1.9.0 이번 턴 다시시작: 턴 시작 처리(오토/드로우/FILE) 직후의 정규(canonical) 상태를 서버가 보관하고, 복원은 그 스냅샷 자체를 되돌린다(드로우 재실행 아님). 난수 상태(R.rng)도 함께 저장.
-const SNAP_SKIP = new Set(['ws', 'tok', 'gt', 'bot', 'defs', 'code', 'log', 'rv', 'rvSeq', 'rvLog', 'snap', 'curS', '_dp', 'spec', 'noSpec']);
+const SNAP_SKIP = new Set(['ws', 'tok', 'gt', 'bot', 'defs', 'code', 'log', 'lr', '_lp', 'rv', 'rvSeq', 'rvLog', 'snap', 'curS', '_dp', 'spec', 'noSpec']);
 const _prot = new WeakMap();
 const protSet = R => { const n = Object.keys(R.defs).length, c = _prot.get(R.defs); if (c && c.n === n) return c.set; const set = new WeakSet(), st = [R.defs]; while (st.length) { const v = st.pop(); if (!v || typeof v !== 'object' || set.has(v)) continue; set.add(v); Object.values(v).forEach(x => st.push(x)); } _prot.set(R.defs, { n, set }); return set; };
 const dclone = (v, prot) => { if (!v || typeof v !== 'object') return v; if (prot.has(v)) return v; if (Array.isArray(v)) return v.map(x => dclone(x, prot));
@@ -62,7 +64,7 @@ function turnRestart(R, seat) {
 // ── v1.9.0 다시하기: 같은 방 코드·연결을 유지한 채 게임 상태 전체를 처음(덱 등록 전)으로 되돌린다. 이전 덱은 재사용하지 않는다.
 function resetRoom(R, seat) { const keep = { code: R.code, ws: R.ws, tok: R.tok, gt: R.gt, spec: R.spec, noSpec: R.noSpec }; for (const k of Object.keys(R)) delete R[k];
   Object.assign(R, mkR(keep.code)); R.ws = keep.ws; if (keep.tok) R.tok = keep.tok; if (keep.gt) R.gt = keep.gt; if (keep.spec) R.spec = keep.spec; if (keep.noSpec) R.noSpec = true; R.rng = (Math.random() * 4294967296) >>> 0;
-  R.log = [seat === 0 || seat === 1 ? `${nm(seat)}이(가) 게임을 초기화했습니다. 두 플레이어 모두 덱을 다시 등록하세요.` : '게임이 초기화되었습니다.']; return R; }
+  R.lr = null; R._lp = null; R.log = [seat === 0 || seat === 1 ? `${nm(seat)}이(가) 게임을 초기화했습니다. 두 플레이어 모두 덱을 다시 등록하세요.` : '게임이 초기화되었습니다.']; return R; }
 
 function start(R) { R.phase = 'mull'; R.first = R.firstPref === 0 || R.firstPref === 1 ? R.firstPref : Math.random() < .5 ? 0 : 1; R.mullSeat = R.first;
   R.P.forEach(P => { shuf(P.deck); for (let i = 0; i < 5; i++) P.hand.push(P.deck.pop()); });
@@ -97,10 +99,10 @@ function contact(R, a, d) { const t = R.cards[a].o;
   const S = R.sub = { type: 'contact', atk: a, def: d, i: 0, pass: [], used: {} };
   S.order = ap(R, a) < ap(R, d) ? [t, 1 - t] : [1 - t, t]; S.who = S.order[0];
   FX.bus(R, 'contact', { s: R.cards[a].o, ent: a, tid: d }); FX.fire(R, 'oncontact', a, { k: 'atk', ent: d }); FX.fire(R, 'oncontact', d, { k: 'def', ent: a }); FX.fireAllyContact(R, R.cards[a].o, a); FX.fireAllyContact(R, R.cards[d].o, d);
-  say(R, `컨택트! ${D(R, a).n}(AP ${ap(R, a)}) vs ${D(R, d).n}(AP ${ap(R, d)}) — ${nm(S.who)} 먼저 행동`); }
+  say(R, `컨택트! ${D.cn(R, a)}(AP ${ap(R, a)}) vs ${D.cn(R, d)}(AP ${ap(R, d)}) — ${nm(S.who)} 먼저 행동`); }
 function endContact(R) { const S = R.sub, ao = R.cards[S.atk].o, dof = R.cards[S.def].o; R.sub = null;
   if (R.P[ao].field.includes(S.atk) && R.P[dof].field.includes(S.def)) { const A = ap(R, S.atk), B = ap(R, S.def);
-    say(R, `AP 판정: ${A} vs ${B}`); if (A >= B && FX.hasKwTk(R, S.def, 'nrm-con')) say(R, `${D(R, S.def).n}: 이 컨택트로는 리무브되지 않음`); else if (A >= B) { if (FX.replaceAvail(R, S.def, ao, 'contact')) R.q.push({ kind: 'kill', s: ao, atk: S.atk, victim: S.def });
+    say(R, `AP 판정: ${A} vs ${B}`); if (A >= B && FX.hasKwTk(R, S.def, 'nrm-con')) say(R, `${D.cn(R, S.def)}: 이 컨택트로는 리무브되지 않음`); else if (A >= B) { if (FX.replaceAvail(R, S.def, ao, 'contact')) R.q.push({ kind: 'kill', s: ao, atk: S.atk, victim: S.def });
       else { rmChar(R, dof, S.def, 'contact', S.atk); say(R, '상대 캐릭터를 리무브!'); R.fl.kills = R.fl.kills || {}; R.fl.kills[S.atk] = true; FX.fire(R, 'onkill', S.atk, { by: 'contact', victim: S.def }); FX.fireAllyKill(R, ao, S.atk, S.def); } } else say(R, '아무 일도 일어나지 않음'); }
   R.fl.pkA = [{}, {}]; FX.bus(R, 'actend', { s: ao, ent: S.atk, k: 'char', tid: S.def });
   [S.atk, S.def].forEach(x => { if (R.cards[x]) { R.cards[x].cm = 0; R.cards[x].ckw = ''; } }); }
@@ -111,11 +113,11 @@ function cont(R, s, m) { const S = R.sub, P = R.P[s];
     const id = m.id; if (!P.hand.includes(id)) return '손패에 없는 카드';
     const d = D(R, id), t = tok(d), k = R.cards[S.atk].o === s ? 'atk' : 'def', my = S[k];
     if (m.a === 'cin') { if (FX.pk(R, 1 - s, 'nocutin')) return '카드 효과로 인해 컷인을 사용할 수 없습니다'; if (FX.hasKwTk(R, my, 'nocinself')) return '이 캐릭터의 컨택트 중에는 컷인을 사용할 수 없습니다'; if (!FX.cutOk(R, s, id, t.cut)) return '컷인을 가진 카드가 아니거나 지금은 사용할 수 없는 컷인입니다'; const v = FX.cutV(R, s, id, t.cut, my); R.cards[my].cm = (R.cards[my].cm || 0) + v;
-      P.hand = P.hand.filter(x => x !== id); P.rem.push(id); say(R, `컷인! ${d.n} → AP+${v}`); FX.cutOps(R, s, id, my); FX.bus(R, 'cutin', { s, ent: id, tid: my, v }); }
+      P.hand = P.hand.filter(x => x !== id); P.rem.push(id); say(R, `컷인! ${D.cn(R, id)} → AP+${v}`); FX.cutOps(R, s, id, my); FX.bus(R, 'cutin', { s, ent: id, tid: my, v }); }
     else { if (FX.pk(R, 1 - s, 'nodisguise')) return '카드 효과로 인해 변장을 사용할 수 없습니다'; if ((!t.dis && !FX.disAbs(R, id).length) || d.type !== 'char') return '변장을 가진 캐릭터가 아닙니다'; if (!FX.disguiseOk(R, s, id)) return '변장 조건(사건/FILE 등)을 만족하지 않습니다'; if (!P.field.includes(my)) return '컨택트 중인 내 캐릭터가 현장에 없어 변장할 수 없습니다'; const o = R.cards[my], n = R.cards[id]; const swLp = lpOf(R, my), swCols = cols(D(R, my));
       FX.release(R, my); P.field[P.field.indexOf(my)] = id; P.hand = P.hand.filter(x => x !== id);
       Object.assign(n, { st: o.st, apm: o.apm, cm: o.cm, lpm: o.lpm, sum: o.sum }); Object.assign(o, { st: 'a', apm: 0, cm: 0, lpm: 0, sum: 0 });
-      if (FX.isMR(R, my) && R.turn !== s) { P.pa.push(my); say(R, `${D(R, my).n}: 상대 턴에 현장을 떠나 파트너 에리어로 이동`); } else P.deck.unshift(my); S[k] = id; say(R, `변장! ${d.n}(으)로 교체 (원래 캐릭터는 덱 아래)`); FX.mrEnter(R, s, id); if (!FX.pk(R, 1 - s, 'nodisev')) FX.fire(R, 'ondisguise', id, { swapped: my, swLp, swCols }); FX.bus(R, 'disguise', { s, ent: id, tid: id, swapped: my }); }
+      if (FX.isMR(R, my) && R.turn !== s) { P.pa.push(my); say(R, `${D.cn(R, my)}: 상대 턴에 현장을 떠나 파트너 에리어로 이동`); } else P.deck.unshift(my); S[k] = id; say(R, `변장! ${D.cn(R, id)}(으)로 교체 (원래 캐릭터는 덱 아래)`); FX.mrEnter(R, s, id); if (!FX.pk(R, 1 - s, 'nodisev')) FX.fire(R, 'ondisguise', id, { swapped: my, swLp, swCols }); FX.bus(R, 'disguise', { s, ent: id, tid: id, swapped: my }); }
     S.used[s] = 1;
   } else return '컷인/변장/패스 중 선택하세요';
   S.i++; if (S.i === 2 && !(S.pass[0] && !S.pass[1])) S.i = 3;
@@ -169,7 +171,7 @@ function act0(R, s, m) { const P = R.P[s], O = R.P[1 - s];
       { const e = playCheck(R, s, id); if (e) return e; } const lvUsed = FX.lvOf(R, id);
       if (d.type === 'char') { if (P.field.length >= FX.fieldMax(R, s)) { if (!P.field.includes(m.rep)) return '현장이 가득 참 — 스위치할 캐릭터를 선택하세요'; rmChar(R, s, m.rep, 'switch'); say(R, '스위치!'); }
         P.field.push(id); const c = R.cards[id]; c.st = FX.enterSt(R, id); c.sum = 1; c.apm = c.cm = c.lpm = c.lvm = 0; c.tkw = ''; c.tab = []; c.bAp = c.bLp = null; c.lose = ''; FX.mrEnter(R, s, id); FX.noteEnter(R, s, id); }
-      const viaHint = !!R.fl.hw; P.hand = P.hand.filter(x => x !== id); say(R, `${nm(s)} 사용: ${d.n}`);
+      const viaHint = !!R.fl.hw; P.hand = P.hand.filter(x => x !== id); say(R, `${nm(s)} 사용: ${D.cn(R, id)}`);
       if (d.type === 'char') { FX.fire(R, 'onplay', id, { by: 'hand' }); FX.fireAlly(R, s, id, { by: 'hand' }); FX.bus(R, 'enter', { s, ent: id, by: viaHint ? 'hint' : 'hand' }); }
       else { FX.queueEvent(R, s, id); FX.bus(R, 'useev', { s, ent: id, by: viaHint ? 'hint' : 'hand' }); }
       if (viaHint) [P.partner, ...P.field].forEach(x => FX.fire(R, 'onhint', x, { by: 'hint', lv: lvUsed, used: id }));
@@ -196,7 +198,7 @@ function act0(R, s, m) { const P = R.P[s], O = R.P[1 - s];
       if (k === 'char') { const tc = R.cards[m.tid]; if (!tc || !O.field.includes(m.tid) || !canDesig(R, m.id, m.tid)) return '슬립/스턴 상태의 상대 캐릭터만 대상입니다'; if (FX.noAct(R, m.tid)) return '카드 효과로 인해 이 캐릭터는 액션의 대상으로 지정할 수 없습니다'; }
       else if (k !== 'case' || !O.evid.length) return '증거가 1장도 없는 사건은 지정할 수 없습니다';
       else if (FX.hasKwTk(R, m.id, 'nocase')) return '이 캐릭터는 사건을 지정해 액션할 수 없습니다';
-      if (k === 'char') (R.P[1 - s].field.includes(m.tid) && FX.hasKwTk(R, m.tid, 'mdonce')) && ((R.fl.md1 = R.fl.md1 || {})[m.tid] = 1); c.st = 's'; FX.bus(R, 'sleepEv', { s, ent: m.id, by: 'action' }); R.fl.acted = R.fl.acted || {}; R.fl.acted[m.id] = R.fl.acted[m.id] && R.fl.acted[m.id] !== k ? 'both' : k; FX.fire(R, 'onact', m.id, { k }); FX.bus(R, 'act', { s, ent: m.id, tid: k === 'char' ? m.tid : null, k }); R.sub = { type: 'guard', who: 1 - s, atk: m.id, tk: k, tid: m.tid }; say(R, `${nm(s)} 액션: ${D(R, m.id).n} → ${k === 'char' ? D(R, m.tid).n : '상대 사건'}`);
+      if (k === 'char') (R.P[1 - s].field.includes(m.tid) && FX.hasKwTk(R, m.tid, 'mdonce')) && ((R.fl.md1 = R.fl.md1 || {})[m.tid] = 1); c.st = 's'; FX.bus(R, 'sleepEv', { s, ent: m.id, by: 'action' }); R.fl.acted = R.fl.acted || {}; R.fl.acted[m.id] = R.fl.acted[m.id] && R.fl.acted[m.id] !== k ? 'both' : k; FX.fire(R, 'onact', m.id, { k }); FX.bus(R, 'act', { s, ent: m.id, tid: k === 'char' ? m.tid : null, k }); R.sub = { type: 'guard', who: 1 - s, atk: m.id, tk: k, tid: m.tid }; say(R, `${nm(s)} 액션: ${D.cn(R, m.id)} → ${k === 'char' ? D.cn(R, m.tid) : '상대 사건'}`);
       if (t.bullet) { say(R, '불릿: 가드 불가'); return guard(R, null); } return; }
     case 'end': R.ending = 1; P.field.forEach(id => FX.fire(R, 'onend', id)); [P.partner, P.kase, ...P.pa].forEach(id => id != null && FX.fire(R, 'onend', id)); O.field.forEach(id => FX.fire(R, 'onend', id, { gonly: 1, oppEnd: 1 })); [O.partner, O.kase, ...O.pa].forEach(id => id != null && FX.fire(R, 'onend', id, { gonly: 1, oppEnd: 1 })); FX.bus(R, 'turnEnd', { s }); return;
     case 'ability': return FX.declare(R, s, m.id, +m.i);
@@ -230,12 +232,13 @@ function actsFor(R, s) { const out = {}; if (R.phase !== 'play' || R.turn !== s 
 // 캐릭터에 세트된 카드(sl): 앞면 세트 = 공개 정보 전체, 뒷면(fd) 세트 = 본인에게만 카드 정보, 상대에게는 뒷면(정보 없음). (표시용 직렬화만, 게임 규칙 무관)
 const withSets = (R, id, owner, viewer) => { const c = R.cards[id], v = co(R, id), fd = c.fd || [], st = c.sets || [];
   if (fd.length || st.length) v.sl = [...fd.map(y => owner === viewer ? { ...co(R, y), fd: 1 } : { fd: 1, hidden: 1 }), ...st.map(y => co(R, y))]; return v; };
+const logRefs = R => { const st = Math.max(0, R.log.length - 60), o = []; for (let i = st; i < R.log.length; i++) o.push(R.lr && R.lr[i] || 0); return o; };   // v1.17.0: V.log 와 같은 길이의 배열 — 각 줄의 [시작, 끝, 카드 정의 키] 목록 (없으면 0)
 const co = (R, id) => { const c = R.cards[id], d = D(R, id); return { id, d: c.d, st: c.st || 'a', apm: ap(R, id) - (+d.ap || 0), lpm: lpOf(R, id) - (+d.lp || 0), sum: c.sum ? 1 : 0, set: (c.sets || []).length + (c.fd || []).length, under: (c.under || []).length, up: c.up ? 1 : 0, lvx: FX.lvOf(R, id), u: c.u || {}, kw: (c.tkw || '').trim(), bl: c.blank ? 1 : 0, ga: FX.grantedAb(R, id) }; };
 function effView(R, s) { const E = R.eff; if (!E) return null; const q = E.req;
   if (q.who !== s) return { wait: 1, msg: '상대가 효과를 처리하는 중입니다…' };
   return { kind: q.kind, msg: q.msg, min: q.min, max: q.max, ordered: q.ordered, distinct: q.distinct, labels: q.labels, evp: q.evp || null, yes: q.yes, no: q.no, reveal: q.reveal, cards: (q.ids || []).map(x => co(R, x)), sel: q.sel, src: E.it.src != null ? D(R, E.it.src).n : '', srcD: E.it.src != null && R.cards[E.it.src] ? R.cards[E.it.src].d : '', abI: E.it.src != null && E.it.ab ? (D(R, E.it.src).ab || []).indexOf(E.it.ab) : -1, abN: E.it.src != null ? (D(R, E.it.src).ab || []).length : 0, abLab: (E.it.ab && E.it.ab.lab) || '', itK: E.it.kind || '' }; }
 function view(R, s) { const V = { t: 'v', me: s, code: R.code, phase: R.phase, turn: R.turn, n: R.n, first: R.first, mull: R.mullSeat, winner: R.winner,
-    acts: actsFor(R, s), bot: R.bot ? 1 : 0, rt: !R.bot && R.phase === 'play' && R.turn === s && R.snap && R.snap.n === R.n && R.snap.turn === R.turn ? 1 : 0, botName: R.bot ? (R.bot.name || 'BOT / EXPERT') : '', fl: R.fl, log: R.log.slice(-60), eff: effView(R, s), both: R.ws.every(Boolean),
+    acts: actsFor(R, s), bot: R.bot ? 1 : 0, rt: !R.bot && R.phase === 'play' && R.turn === s && R.snap && R.snap.n === R.n && R.snap.turn === R.turn ? 1 : 0, botName: R.bot ? (R.bot.name || 'BOT / EXPERT') : '', fl: R.fl, log: R.log.slice(-60), lr: logRefs(R), eff: effView(R, s), both: R.ws.every(Boolean),
     sub: R.sub && { type: R.sub.type, who: R.sub.who, atk: R.sub.atk, def: R.sub.def, tk: R.sub.tk, tid: R.sub.tid, ms: R.sub.ms }, P: [] };
   for (const i of [0, 1]) { const P = R.P[i], o = i === s, show = o || R.phase === 'play' || R.phase === 'over';
     V.P.push({ ready: P.ready, deck: P.deck.length, hand: o ? P.hand.map(x => co(R, x)) : P.hand.length, file: P.file.length, evid: P.evid.length,

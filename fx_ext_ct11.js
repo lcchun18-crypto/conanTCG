@@ -13,12 +13,12 @@ module.exports = function (K, def) {
       const ids = cand.length === k.n ? cand : yield pickReq(s, `코스트: 스턴시킬 캐릭터 ${k.n}장`, cand, k.n, k.n);
       ids.forEach(x => { const was = R.cards[x].st || 'a'; R.cards[x].st = 'x'; if (was === 'a') bus(R, 'sleepEv', { s, ent: x, by: 'cost' }); });
       co.slept = (co.slept || []).concat(ids); co.lv = ids.length ? (K.lvOf(R, ids[0]) || 0) : co.lv; co.ap = ids.length ? A.ap(R, ids[0]) : co.ap;
-      say(R, `코스트: ${ids.map(x => D(R, x).n).join(', ')} 스턴`); });
+      say(R, `코스트: ${ids.map(x => D.cn(R, x)).join(', ')} 스턴`); });
 
   def('swapRem', o => ({ op: 'swapRem' }), function* (R, s, src, o, ctx) {
     ctx.done = false; const P = R.P[s]; if (!P.deck.includes(src)) return;
     if (!(yield yn(s, `「${D(R, src).n}」을(를) 덱 아래로 보내는 대신 리무브할까요?`))) return;
-    if (!P.deck.includes(src)) return; P.deck = P.deck.filter(x => x !== src); P.rem.push(src); say(R, `[효과] ${D(R, src).n}: 덱 아래로 가는 대신 리무브`); ctx.done = true; });
+    if (!P.deck.includes(src)) return; P.deck = P.deck.filter(x => x !== src); P.rem.push(src); say(R, `[효과] ${D.cn(R, src)}: 덱 아래로 가는 대신 리무브`); ctx.done = true; });
 
   def('ptnActive', o => ({ op: 'ptnActive', who: opt(o.who, ['self', 'opp'], 'self') }), function* (R, s, src, o, ctx) {
     ctx.done = false; const t = o.who === 'opp' ? 1 - s : s, P = R.P[t], pc = P.partner != null ? R.cards[P.partner] : null; if (!pc) return;
@@ -29,7 +29,7 @@ module.exports = function (K, def) {
     ctx.done = false; const ev = it && it.ab ? it.ab._from : null, h = ev != null ? R.cards[ev] : null; if (!h || h.setOn == null) return;
     const holder = h.setOn; if (!(R.cards[holder] && (R.cards[holder].sets || []).includes(ev))) return;
     if (o.opt && !(yield yn(s, `「${D(R, ev).n}」을(를) 파트너 에리어로 옮길까요?`))) return;
-    R.cards[holder].sets = R.cards[holder].sets.filter(x => x !== ev); h.setOn = null; R.P[R.cards[ev].o].pa.push(ev); say(R, `[효과] ${D(R, ev).n}을(를) 파트너 에리어로 이동`); ctx.done = true; });
+    R.cards[holder].sets = R.cards[holder].sets.filter(x => x !== ev); h.setOn = null; R.P[R.cards[ev].o].pa.push(ev); say(R, `[효과] ${D.cn(R, ev)}을(를) 파트너 에리어로 이동`); ctx.done = true; });
   // playMix: 레지스터(리무브 에리어)의 캐릭터 중 awake 장은 통상 상태로, asleep 장은 슬립 상태로 등장시키고, 나머지는 손패에 더한다 (「1枚まで登場させ、1枚までスリープ状態で登場させ、残りを手札に加える」)
   def('playMix', o => ({ op: 'playMix', ref: str(o.ref, 12) || 'chosen', awake: Math.max(0, Math.min(num(o.awake, 1), 5)), asleep: Math.max(0, Math.min(num(o.asleep, 1), 5)) }), function* (R, s, src, o, ctx) {
     const P = R.P[s]; ctx.done = false; let ids = regIds(R, ctx, o.ref).filter(x => P.rem.includes(x) && D(R, x).type === 'char'); if (!ids.length) return;
@@ -43,7 +43,7 @@ module.exports = function (K, def) {
     if (sl.length) yield* K.placeCards(R, s, src, sl, true, ctx);
     const failed = [...aw, ...sl].filter(x => !onField(R, x));   // 현장이 가득 차는 등으로 등장하지 못한 카드는 리무브 에리어에 되돌린다
     failed.forEach(x => P.rem.push(x));
-    toHand.forEach(x => P.hand.push(x)); if (toHand.length) say(R, `[효과] ${toHand.map(x => D(R, x).n).join(', ')}을(를) 손패에 추가`);
+    toHand.forEach(x => P.hand.push(x)); if (toHand.length) say(R, `[효과] ${toHand.map(x => D.cn(R, x)).join(', ')}을(를) 손패에 추가`);
     ctx.done = [...aw, ...sl].some(x => onField(R, x)) || toHand.length > 0; });
 
   // ifIdDiff: 레지스터 a 의 카드와 b 의 카드의 ID(카드 번호: 같은 카드 종류 = 같은 ID)가 서로 다르면 ops, 아니면 else (「選んだキャラとIDの異なるカードを…した場合」)

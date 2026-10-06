@@ -187,7 +187,7 @@ body.m #effp{width:54%;max-height:46%;top:4px;right:4px}body.m #effp .fxh .fxi{w
 #logc .lh{flex:none;display:flex;align-items:center;justify-content:space-between;gap:6px;padding:9px 10px 6px;font-size:12px;font-weight:800;color:var(--gold);letter-spacing:.3px}
 #logc .lh button{padding:2px 8px;font-size:11px}
 #log{flex:1;min-height:0;overflow:auto;padding:0 10px 10px;font-size:11.5px;line-height:1.5;color:#a8b8cb}
-#log div{padding:3px 0;border-bottom:1px solid #ffffff0b}#log div.hi{color:#ffd58a}#log div.trn{color:var(--mut);font-size:10.5px;text-align:center;border-bottom:0;padding-top:7px}
+#log div{padding:3px 0;border-bottom:1px solid #ffffff0b}#log .lgc{cursor:pointer;text-decoration:underline dotted #ffffff55;text-underline-offset:2px}#log .lgc:hover{color:#fff;text-decoration-color:var(--gold)}#log div.hi{color:#ffd58a}#log div.trn{color:var(--mut);font-size:10.5px;text-align:center;border-bottom:0;padding-top:7px}
 #logc.col{width:36px}#logc.col #log{display:none}#logc.col .lh{flex-direction:column;padding:8px 4px}#logc.col .lh span{writing-mode:vertical-rl}
 /* ── 전투 표시: 화살표 / AP ── */
 #arr{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:12;overflow:visible}
@@ -737,7 +737,7 @@ const targetMode=()=>!!(V&&((mode&&mode.k==='act')||pend||V.eff||V.peek||(V.sub&
 function syncSheet(){if(M&&targetMode())closeSheet()}
 function onCardTap(el){if(targetMode())return;const[f,c]=el._pv;pvOpen(f,c,el)}
 let pd=null,lpT=0;
-const PVSEL='.card,.fxi',MODAL='#effp,#etray,#pk,#remp,#rvl,#ovl';
+const PVSEL='.card,.fxi,.lgc',MODAL='#effp,#etray,#pk,#remp,#rvl,#ovl';
 const pvEl=t=>{const el=t&&t.closest&&t.closest(PVSEL);return el&&el._pv?el:null};
 // v1.12.5 모바일: 손가락이 닿는 순간(pointerdown) preview 만 표시한다. 선택/등장/공격 같은 행동은 기존 tap(click) 그대로.
 //  · 효과/선택 중(targetMode)·팝업 안 카드는 시트를 열면 조작을 가리므로 "누르는 동안만" 보이는 클릭 통과 미리보기(#pvf)를 쓴다.
@@ -924,7 +924,10 @@ function render(){if(!V)return;const me=V.me;document.body.classList.toggle('spe
  if(M){const need=(V.phase==='setup'&&!V.P[me].ready)||(V.bot&&V.phase==='over');if(need!==prevNeed){prevNeed=need;document.body.classList.toggle('topopen',need)}syncSheet();$('dbTabDeck')}
  const cur=snap();try{moves(SNAP,cur)}catch(e){}SNAP=cur;if(M)fitM()}
 // ── 로그 / 리무브 에리어 보기 ──
-function drawLog(){const L=$('log');L.innerHTML=V.log.map(l=>`<div class="${/^[—─-]{2}/.test(l)?'trn':/컨택트|컷인|변장|승리|사건 액션|추리|가드/.test(l)?'hi':''}">${esc(l)}</div>`).join('');L.scrollTop=1e9}
+// v1.17.0: 로그 줄 안의 카드 이름만 hover 대상으로 만든다. 서버가 보낸 V.lr[i] = [[시작,끝,카드 정의 키],…] (카드 ID 기반 — 이름으로 다시 추측하지 않는다). hover 는 보드/손패/팝업과 같은 pv(f,c) 와 _pv 를 쓴다(터치는 PVSEL 의 .lgc 로 기존 pvTouch 사용).
+function logHtml(l,refs){if(!refs||!refs.length)return esc(l);let o='',p=0;for(const[a,b,d]of refs){if(a<p||!DEFS[d])continue;o+=esc(l.slice(p,a))+`<span class="lgc" data-d="${esc(d)}">${esc(l.slice(a,b))}</span>`;p=b}return o+esc(l.slice(p))}
+function drawLog(){const L=$('log'),lr=V.lr||[];L.innerHTML=V.log.map((l,i)=>`<div class="${/^[—─-]{2}/.test(l)?'trn':/컨택트|컷인|변장|승리|사건 액션|추리|가드/.test(l)?'hi':''}">${logHtml(l,lr[i])}</div>`).join('');
+ L.querySelectorAll('.lgc').forEach(e=>{const f0=DEFS[e.dataset.d];if(!f0)return;const f=f0.img?{...f0,img:gimg(f0)}:f0,c={d:e.dataset.d};e._pv=[f,c];e.onmouseenter=()=>pv(f,c)});L.scrollTop=1e9}
 function drawRem(){const b=$('remp');b.innerHTML='';if(remShow==null)return;const P=V.P[remShow],box=div('box'),h=document.createElement('b');h.textContent=`${remShow===V.me?'내':'상대'} 리무브 에리어 (${P.rem.length}장)`;box.appendChild(h);const cs=div('cs');
  P.rem.forEach(c=>{const e=mk(c,{});cs.appendChild(e)});if(!P.rem.length)cs.textContent='비어 있습니다';box.appendChild(cs);
  const x=document.createElement('button');x.textContent='닫기';x.className='pri';x.onclick=()=>{remShow=null;render()};box.appendChild(x);b.appendChild(box)}

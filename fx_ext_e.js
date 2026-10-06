@@ -19,11 +19,11 @@ module.exports = function (K, def) {
     let ids = (yield pickReq(s, '대상 캐릭터를 최대 1장 선택 (슬리프 → 스턴 / 액티브 → 슬리프)', cand, 0, 1)).filter(x => cand.includes(x)); if (!ids.length) return;
     ids = yield* K.chosenCheck(R, s, src, ids, it); if (!ids.length) return; const id = ids[0], st = R.cards[id].st || 'a'; setReg(ctx, 'sel', [id]);
     if (st === 's') yield* K.applyG(R, s, src, id, 'stun'); else if (st === 'a') yield* K.applyG(R, s, src, id, 'sleep');
-    say(R, `[효과] ${D(R, id).n}: ${st === 's' ? '스턴' : st === 'a' ? '슬리프' : '변화 없음'}`); ctx.done = true; });
+    say(R, `[효과] ${D.cn(R, id)}: ${st === 's' ? '스턴' : st === 'a' ? '슬리프' : '변화 없음'}`); ctx.done = true; });
   // blankAb: 캐릭터 1장을 선택하여 턴 종료 시까지 원래의 능력(키워드 포함)을 무효로 한다
   def('blankAb', o => ({ op: 'blankAb', filter: cleanFilter(o.filter) }), function* (R, s, src, o, ctx, it) {
     ctx.done = false; const f = rf(R, o.filter, ctx), cand = [...R.P[0].field, ...R.P[1].field].filter(x => fOk(R, s, x, f, src) && !(R.cards[x].o !== s && K.noTarget(R, x, src))); if (!cand.length) return;
     let ids = (yield pickReq(s, '원래 능력을 무효로 할 캐릭터를 최대 1장 선택', cand, 0, 1)).filter(x => cand.includes(x)); if (!ids.length) return;
     ids = yield* K.chosenCheck(R, s, src, ids, it); if (!ids.length) return; const id = ids[0]; R.cards[id].blank = 1; setReg(ctx, 'sel', [id]);
-    say(R, `[효과] ${D(R, id).n}: 턴 종료 시까지 원래의 능력을 잃음`); ctx.done = true; });
+    say(R, `[효과] ${D.cn(R, id)}: 턴 종료 시까지 원래의 능력을 잃음`); ctx.done = true; });
 };

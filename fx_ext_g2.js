@@ -14,7 +14,7 @@ module.exports = function (K, def) {
   def('traitMod', o => ({ op: 'traitMod', lose: (Array.isArray(o.lose) ? o.lose : []).slice(0, 4).map(x => str(x, 30)).filter(Boolean), add: (Array.isArray(o.add) ? o.add : []).slice(0, 4).map(x => str(x, 30)).filter(Boolean) }), function* (R, s, src, o, ctx) {
     const c = R.cards[src]; ctx.done = false; if (!c || !onField(R, src)) return;
     const m = c.tmod || { lose: [], add: [] }; c.tmod = { lose: [...m.lose, ...o.lose], add: [...m.add.filter(x => !o.lose.includes(x)), ...o.add] };
-    say(R, `[효과] ${D(R, src).n}: 특징 [${o.lose.join(', ')}]을(를) 잃고 [${o.add.join(', ')}]을(를) 가짐`); ctx.done = true; });
+    say(R, `[효과] ${D.cn(R, src)}: 특징 [${o.lose.join(', ')}]을(를) 잃고 [${o.add.join(', ')}]을(를) 가짐`); ctx.done = true; });
 
   // trigRem: 레지스터(removed)의 리무브 에리어에 있는 카드의 【現場リムーブ時】 능력을 (확인 후) 발동시킨다
   def('trigRem', o => ({ op: 'trigRem', ref: opt(o.ref, ['removed', 'last', 'moved'], 'removed') }), function* (R, s, src, o, ctx, it) {
@@ -22,7 +22,7 @@ module.exports = function (K, def) {
     for (const x of regIds(R, ctx, o.ref)) { const c = R.cards[x]; if (!c || !R.P[c.o].rem.includes(x)) continue;
       const abs = K.abList(R, x).filter(a => a.ic === 'onremoved' && K.condOk(R, s, x, a, { by: 'effect' })); if (!abs.length) continue;
       if (!(yield yn(s, `「${D(R, x).n}」의 【現場リムーブ時】 효과를 발동시킬까요?`))) continue;
-      say(R, `▶ 효과 발동: ${D(R, x).n} (현장 리무브 시)`); const c2 = { done: true, t: { by: 'effect' }, cost: {}, src: x };
+      say(R, `▶ 효과 발동: ${D.cn(R, x)} (현장 리무브 시)`); const c2 = { done: true, t: { by: 'effect' }, cost: {}, src: x };
       for (const ab of abs) yield* runOps(R, s, x, ab.ops, c2, it); ctx.done = true; } });
 
   // handToLv: 손패가 n장이 될 때까지 리무브하고, 리무브한 카드의 레벨 합계를 기록한다(ctx.lvSum)
