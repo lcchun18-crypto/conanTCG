@@ -521,7 +521,7 @@ data/cards.xlsx ──(tools/build_cards_from_excel.py: 검증 후 변환)──
       └───────(tools/export_cards_to_excel.py: 병합, 신탄 추가 시 자동)────┘
 ```
 * **source of truth = cards.xlsx**. cards.json 은 런타임용 산출물(v1.14.0 부터 이미지 base64 없음 — 경로만). 서버/엔진은 이전과 똑같이 cards.json 만 읽습니다.
-* (v1.14.0) 이미지는 실제 파일(`CardImage/<ID>.jpg`)입니다. Excel Cards 시트의 **`image_file`** 열이 파일명을 관리하고(고치면 게임에 반영), 빌드할 때 cards.json 의 `file`/`img`(`CardImage/<파일명>`)가 만들어집니다. `img_info`(해상도/용량)는 자동 표시입니다.
+* (v1.14.0) 이미지는 실제 파일(`CardImage/<ID>.jpg`)입니다. (v1.16.0: 게임은 이 원본에서 자동 생성한 최적화본 `CardImageWeb/<ID>.webp` 를 읽습니다 — 아래 v1.16.0 참고.) Excel Cards 시트의 **`image_file`** 열이 파일명을 관리하고(고치면 게임에 반영), 빌드할 때 cards.json 의 `file`/`img`(`CardImage/<파일명>`)가 만들어집니다. `img_info`(해상도/용량)는 자동 표시입니다.
 * 연결 키는 항상 **카드 ID**. 행 순서/정렬은 바꿔도 됩니다.
 
 ### Excel 시트
@@ -727,3 +727,35 @@ AI(Expert)와 "어시스트를 적극 쓰며 고코스트 캐릭터가 빠르게
 **화면 (`index.html`)**: 기존 게임판을 그대로 쓰고, 상단에 `👁 관전 중` 표시, 플레이어 1/2 표기, 양쪽 손패 앞면, 행동 버튼·다시하기·덱 등록·항복 숨김. hover/터치 미리보기·우측 상세는 그대로 동작합니다. 관전 연결이 끊기면 자동으로 다시 관전 입장합니다.
 
 **테스트**: `npm run test:spectator` (= `test/spectator_test.js` WebSocket 34항목 + `test/spectator_ui_test.js` 브라우저 3~5창 22항목).
+
+
+## v1.16.0 — 게임용 웹 최적화 이미지 (CardImageWeb)
+
+**원본(`CardImage/`)은 절대 수정하지 않습니다.** 게임이 쓰는 이미지는 원본에서 따로 만든 `CardImageWeb/<ID>.webp` 입니다.
+
+| 폴더 | 내용 | 용도 |
+|---|---|---|
+| `CardImage/` | 고해상도 원본 (id_0001.jpg …) | 보존용 · 새 카드를 넣는 곳 |
+| `CardImageWeb/` | WebP 최적화본 (id_0001.webp …) + `.manifest.json` | 게임/덱빌더가 사용 |
+
+**생성 규칙**: 긴 변(세로 카드는 세로)이 1200px 를 넘을 때만 비율 유지로 축소(원본이 더 작으면 그대로, 확대 금지) · WebP quality 85(method 6) · 파일명은 원본과 같은 ID.
+
+```
+python tools/make_web_images.py              # 새로 추가됐거나 바뀐 원본만 (이미 최신이면 건너뜀)
+python tools/make_web_images.py --check      # 만들지 않고 할 일만 보고
+python tools/make_web_images.py --force      # 전부 다시
+python tools/make_web_images.py --quality 88 # 화질 올리기 (설정이 바뀌면 자동으로 전부 다시 생성)
+python tools/make_web_images.py --prune      # 원본이 없어진 최적화본 삭제
+```
+필요: `pip install pillow`. 원본이 최적화본보다 새로 바뀌었거나(수정 시각·파일 크기) 설정이 바뀌면 자동으로 다시 만듭니다.
+
+**연결(cards.xlsx)**: Cards 시트의 `image_file`(원본 파일명)이 그대로 기준입니다. 최적화본 이름은 같은 ID 에 확장자만 `.webp` 로 바뀌므로 Excel 에 따로 적을 열이 없고, cards.json 의 `img` 는 자동으로 `CardImageWeb/<ID>.webp` 가 됩니다(Excel 파일은 바뀌지 않았습니다).
+**새 카드**: `add_new_cards.py`/`import_cards.py` 가 원본을 `CardImage/` 에 복사하면서 최적화본도 같이 만듭니다. GitHub 에 원본만 올려도 Actions 가 `CardImageWeb` 를 만들어 커밋합니다.
+**안전장치**: 최적화본이 아직 없으면 서버가 같은 ID 의 원본으로 대신 응답합니다(이미지가 안 뜨는 일 없음, 임시본은 캐시하지 않음).
+
+**로딩 속도**
+* 서버: `/CardImageWeb/*` 는 `Cache-Control: public, max-age=86400, stale-while-revalidate=604800` + ETag(304). 같은 브라우저로 다시 열면 이미지는 네트워크 없이 캐시에서 나옵니다(테스트: 208장 → 다운로드 0건). 첫 로드에서 같은 이미지를 두 번 받는 일도 없습니다(0건).
+* 덱빌더 목록은 이미 `loading="lazy"` 라 처음에는 화면 근처 약 200장(전체 1339장의 16%)만 받습니다. 게임 필드/손패는 lazy 를 쓰지 않습니다(늦게 뜨는 것 방지).
+* 대전 카드 정의(`defs`)가 도착하면 두 덱의 카드 이미지를 미리 받아 둡니다(최대 ~30장, 각 1회) → 상대가 카드를 낼 때 이미지가 늦게 뜨지 않습니다.
+
+**테스트**: `npm run test:webimg` (= `python3 test/web_image_test.py` 생성기 규칙·증분 재생성·원본 보존 + `node test/web_image_ui_test.js` 서버/캐시/중복 다운로드/lazy/미리 받기).

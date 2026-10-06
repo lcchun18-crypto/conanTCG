@@ -69,7 +69,7 @@ function start(R) { R.phase = 'mull'; R.first = R.firstPref === 0 || R.firstPref
   say(R, `선공: ${nm(R.first)}. 손패 교체(멀리건)는 1회 가능합니다.`); }
 
 // v1.14.0: 카드 이미지는 파일(CardImage/<파일명>) — 클라이언트가 보내는 img 는 '우리 서버의 CardImage 상대 경로'만 받는다(다른 사이트 URL·경로 이탈 차단). 옛 data URL 은 호환용으로만 허용.
-const IMG_REL = /^CardImage\/[A-Za-z0-9][A-Za-z0-9_.-]{0,118}\.(jpg|jpeg|png|webp)$/i;
+const IMG_REL = /^CardImage(?:Web)?\/[A-Za-z0-9][A-Za-z0-9_.-]{0,118}\.(jpg|jpeg|png|webp)$/i;
 function cleanImg(v) { v = String(v || ''); if (IMG_REL.test(v) && !v.includes('..')) return v; return v.startsWith('data:image/') ? v.slice(0, 200000) : ''; }
 function ready(R, s, m) {
   if (R.phase !== 'setup') return '이미 게임이 시작되었습니다';
@@ -301,15 +301,28 @@ function serveCards(q, r) {
 }
 
 const IMG_DIR = process.env.CARD_IMAGE_DIR ? path.resolve(process.env.CARD_IMAGE_DIR) : path.join(__dirname, 'CardImage');
-function serveCardImage(q, r, name, MIME) {
-  fs.stat(path.join(IMG_DIR, name), (e, st) => {
-    if (e || !st.isFile()) { r.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-cache' }); return r.end('image not found'); }
+const WEB_DIR = process.env.CARD_IMAGE_WEB_DIR ? path.resolve(process.env.CARD_IMAGE_WEB_DIR) : path.join(__dirname, 'CardImageWeb');
+// v1.16.0: /CardImageWeb/<ID>.webp = 게임용 최적화본(기본), /CardImage/<파일> = 고해상도 원본(수정 안 함, 읽기만).
+// 최적화본이 아직 없으면(새 카드를 추가하고 tools/make_web_images.py 를 아직 안 돌렸을 때 등) 같은 ID 의 원본을 대신 보낸다 → 이미지가 안 뜨는 일이 없다.
+function sendImg(q, r, file, name, MIME, cache, fallback) {
+  fs.stat(file, (e, st) => {
+    if (e || !st.isFile()) { if (fallback) return fallback(); r.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-cache' }); return r.end('image not found'); }
     const etag = '"' + st.size.toString(16) + '-' + Math.floor(st.mtimeMs).toString(16) + '"';
-    const h = { 'Content-Type': MIME[path.extname(name).toLowerCase()], 'Content-Length': st.size, 'ETag': etag, 'Last-Modified': st.mtime.toUTCString(), 'Cache-Control': 'public, max-age=600' };   // 이미지를 바꾸면 10분 안에(새로고침하면 즉시) 반영
+    const h = { 'Content-Type': MIME[path.extname(name).toLowerCase()], 'Content-Length': st.size, 'ETag': etag, 'Last-Modified': st.mtime.toUTCString(), 'Cache-Control': cache };
     if (q.headers['if-none-match'] === etag) { delete h['Content-Length']; r.writeHead(304, h); return r.end(); }
     r.writeHead(200, h); if (q.method === 'HEAD') return r.end();
-    fs.createReadStream(path.join(IMG_DIR, name)).on('error', () => r.destroy()).pipe(r);
+    fs.createReadStream(file).on('error', () => r.destroy()).pipe(r);
   });
+}
+// 이미지는 ID 이름 파일이라 거의 안 바뀐다: 하루 동안은 서버에 묻지 않고 브라우저 캐시를 쓰고, 그 뒤엔 ETag 로 304 확인만 한다 (같은 이미지를 다시 내려받지 않음)
+const CACHE_WEB = 'public, max-age=86400, stale-while-revalidate=604800', CACHE_ORIG = 'public, max-age=3600';
+function serveCardImage(q, r, name, MIME) { return sendImg(q, r, path.join(IMG_DIR, name), name, MIME, CACHE_ORIG); }
+function serveWebImage(q, r, name, MIME) {
+  return sendImg(q, r, path.join(WEB_DIR, name), name, MIME, CACHE_WEB, () => {
+    const stem = name.replace(/\.[^.]+$/, '');
+    const tryExt = i => { const ex = ['.jpg', '.png', '.webp'][i]; if (!ex) { r.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-cache' }); return r.end('image not found'); }
+      const fn = stem + ex; return sendImg(q, r, path.join(IMG_DIR, fn), fn, MIME, 'no-cache', () => tryExt(i + 1)); };   // 임시 대체본은 캐시하지 않는다(최적화본이 생기면 바로 바뀜)
+    tryExt(0); });
 }
 function main() {
   const { WebSocketServer } = require('ws');
@@ -322,6 +335,10 @@ function main() {
     if ((q.url || '').split('?')[0] === '/api/specialists') { // 전문 봇 목록 (registry 에서 자동 생성). 전략 프로필은 내보내지 않는다.
       let body; try { body = { specialists: require('./bot/specialists/registry').list(cardsObj()), problems: require('./bot/specialists/registry').problems() }; } catch (e) { body = { specialists: [], problems: ['전문 봇 목록을 만들 수 없습니다: ' + e.message] }; }
       r.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); return r.end(JSON.stringify(body)); }
+    if ((q.url || '').split('?')[0].startsWith('/CardImageWeb/')) {   // v1.16.0: 게임용 최적화 이미지 (cards.json 의 img). 이미지 파일 아니면 404
+      const mw = /^\/CardImageWeb\/([A-Za-z0-9_][A-Za-z0-9_.-]*\.(?:jpg|png|webp))$/i.exec((q.url || '').split('?')[0]);
+      if (mw && !mw[1].includes('..')) return serveWebImage(q, r, mw[1], MIME);
+      r.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-cache' }); return r.end('image not found'); }
     if ((q.url || '').split('?')[0].startsWith('/CardImage/')) {   // v1.14.0: 카드 이미지 원본 파일 (cards.json 의 img = "CardImage/<파일>"). 이 경로 아래는 이미지 파일 아니면 전부 404 (index.html 로 넘기지 않는다)
       const mi = /^\/CardImage\/([A-Za-z0-9_][A-Za-z0-9_.-]*\.(?:jpg|png|webp))$/i.exec((q.url || '').split('?')[0]);
       if (mi && !mi[1].includes('..')) return serveCardImage(q, r, mi[1], MIME);

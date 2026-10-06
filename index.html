@@ -559,7 +559,7 @@ function onMsg(e){let m;try{m=JSON.parse(e.data)}catch{return}
  else if(m.t==='resumeFail'){sessPut(null);toLobby();netUI('warn',m.msg||'방을 복구하지 못했습니다.')}
  else if(m.t==='err'&&NET.specRe){NET.specRe=false;NET.spec=null;toLobby();netUI('warn',m.msg||'관전을 복구하지 못했습니다.')}
  else if(m.t==='err'){loading(false);if(V){$('lerr').textContent='';$('err').textContent=m.msg;setTimeout(()=>{if($('err').textContent===m.msg)$('err').textContent=''},4000)}else{$('lerr').textContent=m.msg}}   // 게임 중 오류는 게임 화면에만, 로비 오류는 로비에만
- else if(m.t==='defs'){DEFS=m.defs;V&&render()}
+ else if(m.t==='defs'){DEFS=m.defs;preloadDefs();V&&render()}
  else if(m.t==='reveal'){if(V&&!V.spec&&(m.to||[]).includes(V.me)){rvQ.push(m);rvNext()}}
  else if(m.t==='reset'){uiReset(m.kind)}
  else if(m.t==='left'){sessPut(null);const sm=NET.spec&&m.msg;NET.spec=null;NET.specRe=false;toLobby();if(sm)$('lerr').textContent=sm;if(botAuto==='restart'&&botCfg)botStart(botCfg);else botAuto=false}
@@ -591,6 +591,8 @@ function pv(f,c){PVNOW=[f,c];const cols=String(f.color||'').split(/[\/,&]/).map(
   +(M&&c&&c.sl&&c.sl.length?'<div class="sets">세트 카드 '+c.sl.length+'장 (터치해서 보기):'+c.sl.map((x,i)=>{const g=x.d&&DEFS[x.d];return g&&g.img?`<button data-i="${i}" style="background-image:url('${g.img}')"></button>`:`<button data-i="${i}" style="background-image:url(assets/cardback.png)">${g?esc(g.n).slice(0,4):'뒷면'}</button>`}).join('')+'</div>':'')}
 // v1.14.0: 카드 이미지는 서버의 파일(CardImage/<ID>.jpg) — 파일이 없거나 깨지면(404) 카드 이름 텍스트로 안전하게 대체한다 (게임/덱빌더가 멈추지 않는다)
 const BADIMG=new Set(),PROBED=new Set();let badT=0;
+// v1.16.0: 대전 카드 정의가 도착하면 두 덱의 카드 이미지를 미리 받아 둔다(최대 ~30장, 브라우저 캐시) → 상대가 카드를 낼 때 이미지가 늦게 뜨지 않는다. 같은 URL 은 한 번만 요청(PROBED)
+function preloadDefs(){try{const L=Object.values(DEFS||{});if(L.length>120)return;L.forEach(f=>{if(f&&f.img)gimg(f)})}catch(e){}}
 function gimg(f){const u=f&&f.img;if(!u)return'';if(BADIMG.has(u))return'';if(!PROBED.has(u)){PROBED.add(u);const im=new Image();im.onerror=()=>{BADIMG.add(u);clearTimeout(badT);badT=setTimeout(()=>{try{V&&render()}catch(e){}},50)};im.src=u}return u}
 document.addEventListener('error',e=>{const t=e.target;if(!t||t.tagName!=='IMG'||t.dataset.fail)return;t.dataset.fail='1';const u=t.getAttribute('src');if(u)BADIMG.add(u);const n=t.dataset.n||t.alt||'',cell=t.dataset.nm?document.createElement('span'):document.createElement('div');cell.className=t.dataset.nm?'nm':'noimg '+(t.className||'');cell.textContent=n;t.replaceWith(cell)},true);
 function mk(c,o={}){const f0=DEFS[c.d]||{n:'?'},f=f0.img?{...f0,img:gimg(f0)}:f0,bk=o.back||c.hidden,d=document.createElement('div');d.className='card'+(bk?' back':'')+(o.land?' land':'')+(o.kase?' kase':'');

@@ -5,9 +5,9 @@ name: Build cards.json from cards.xlsx
 on:
   push:
     branches: [main, master]
-    paths: ['data/cards.xlsx', 'CardImage/**']
+    paths: ['data/cards.xlsx', 'CardImage/**', 'CardImageWeb/**']
   pull_request:
-    paths: ['data/cards.xlsx', 'CardImage/**']
+    paths: ['data/cards.xlsx', 'CardImage/**', 'CardImageWeb/**']
   workflow_dispatch:
 
 permissions:
@@ -32,6 +32,11 @@ jobs:
           node-version: '20'
       - name: Install openpyxl
         run: pip install -r tools/requirements.txt
+      - name: Make web images (CardImage → CardImageWeb, only new/changed originals)
+        if: github.event_name != 'pull_request'
+        run: |
+          pip install pillow
+          python tools/make_web_images.py
       - name: Validate and build (Excel → JSON)
         run: |
           set -o pipefail
@@ -44,16 +49,16 @@ jobs:
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           head -c 60000 build.log >> "$GITHUB_STEP_SUMMARY" || true
           echo '```' >> "$GITHUB_STEP_SUMMARY"
-      - name: Commit data/cards.json
+      - name: Commit data/cards.json and CardImageWeb
         if: github.event_name != 'pull_request'
         run: |
-          if git diff --quiet -- data/cards.json; then
-            echo "cards.json 변경 없음"
+          git add -A data/cards.json CardImageWeb 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "cards.json / CardImageWeb 변경 없음"
           else
             git config user.name "cards-bot"
             git config user.email "cards-bot@users.noreply.github.com"
-            git add data/cards.json
-            git commit -m "chore: cards.xlsx → cards.json 자동 생성 [skip ci]"
+            git commit -m "chore: cards.json / CardImageWeb 자동 생성 [skip ci]"
             git pull --rebase origin "${{ github.ref_name }}" || true
             git push origin "HEAD:${{ github.ref_name }}"
           fi

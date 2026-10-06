@@ -67,7 +67,7 @@ new = X.merge_with_base(cards, meta, BASE)
 ok(new == BASE and X.dumps(new) == BASE_TEXT, "round-trip: cards.json → xlsx → cards.json 이 의미적으로 동일하고 바이트까지 동일")
 a, b = set(BASE["cards"]), set(new["cards"]); lost = [(cid, k) for cid in a for k in BASE["cards"][cid] if new["cards"][cid].get(k, "<X>") != BASE["cards"][cid][k]]
 ok(len(a) == len(b) == len(BASE["cards"]) and a == b and not lost, f"카드 수 {len(a)}→{len(b)}, ID 차이 0, 필드 손실/값 변경 {len(lost)}건")
-ok(all(new["cards"][i]["img"] == c["img"] == "CardImage/" + c["file"] and "data:image" not in c["img"] for i, c in BASE["cards"].items()), f"이미지 {len(BASE['cards'])}장 전부 보존 (v1.14.0: base64 없이 CardImage/<image_file> 경로, Excel 값과 일치)")
+ok(all(new["cards"][i]["img"] == c["img"] == "CardImageWeb/" + c["file"].rsplit(".", 1)[0] + ".webp" and "data:image" not in c["img"] for i, c in BASE["cards"].items()), f"이미지 {len(BASE['cards'])}장 전부 보존 (v1.14.0: base64 없이 CardImage/<image_file> 경로, Excel 값과 일치)")
 ok((d / "cards.xlsx").stat().st_size < 3_000_000, f"cards.xlsx 크기 {(d / 'cards.xlsx').stat().st_size // 1024}KB (이미지 미포함)")
 ok(sum(len(c["ab"]) for c in new["cards"].values()) == sum(len(c["ab"]) for c in BASE["cards"].values()), "능력(ab) 개수 보존")
 

@@ -27,7 +27,7 @@ def mkimg(name, w=700, h=980, color=(200, 30, 30)):
     Image.new("RGB", (w, h), color).save(IMG / name, "JPEG", quality=92)
 for k in ids: mkimg(CI_name := f"{k}.jpg", color=(abs(hash(k)) % 255, 80, 120))
 mkimg("alt_picture.jpg", 800, 1100, (10, 200, 10)); mkimg("small.jpg", 300, 420)
-for k, c in small["cards"].items(): c["file"] = f"{k}.jpg"; c["img"] = f"CardImage/{k}.jpg"
+for k, c in small["cards"].items(): c["file"] = f"{k}.jpg"; c["img"] = f"CardImageWeb/{k}.webp"
 js, xp = tmp / "data" / "cards.json", tmp / "data" / "cards.xlsx"
 js.write_text(json.dumps(small, ensure_ascii=False), "utf-8")
 
@@ -49,7 +49,7 @@ ok("data:image" not in js.read_text("utf-8"), "cards.json 에 base64 이미지�
 # ── 3. Excel 에서 image_file 고치면 게임(JSON)에 반영 (다른 필드는 불변)
 cid = ws.cell(2, 1).value; ws.cell(2, col).value = "alt_picture.jpg"; wb.save(xp)
 code, _ = B.build(xp, js, js, use_node=False, quiet=True); new = json.loads(js.read_text("utf-8"))
-ok(code == 0 and new["cards"][cid]["file"] == "alt_picture.jpg" and new["cards"][cid]["img"] == "CardImage/alt_picture.jpg", f"{cid}: image_file=alt_picture.jpg → img=CardImage/alt_picture.jpg")
+ok(code == 0 and new["cards"][cid]["file"] == "alt_picture.jpg" and new["cards"][cid]["img"] == "CardImageWeb/alt_picture.webp", f"{cid}: image_file=alt_picture.jpg → img=CardImageWeb/alt_picture.webp")
 diff = {k: v for k, v in new["cards"][cid].items() if v != small["cards"][cid].get(k)}
 ok(set(diff) == {"file", "img"}, f"바뀐 필드는 file/img 뿐 (AP/LP/color/lv/trait/series/fx/extra/ab 불변): {sorted(diff)}")
 ok(all(new["cards"][k] == small["cards"][k] for k in ids if k != cid), "다른 카드는 전혀 바뀌지 않음")
@@ -88,7 +88,7 @@ ok(all(mg["cards"][k]["file"] == small["cards"][k]["file"] and mg["cards"][k]["i
 leg = copy.deepcopy(small)
 for k, c in leg["cards"].items(): c["img"] = "data:image/jpeg;base64,/9j/4AAQ"; c["file"] = f"ID_{k}_원본이름.jpg"
 cards, meta, probs = X.read_workbook(xp); mg = X.merge_with_base(cards, meta, leg)
-ok(all(mg["cards"][k]["img"].startswith("CardImage/") and "data:" not in mg["cards"][k]["img"] for k in ids), "옛 base64 가 남은 JSON 에서도 Excel 의 image_file 기준으로 경로가 만들어짐(base64 제거)")
+ok(all(mg["cards"][k]["img"].startswith("CardImageWeb/") and "data:" not in mg["cards"][k]["img"] for k in ids), "옛 base64 가 남은 JSON 에서도 Excel 의 image_file 기준으로 경로가 만들어짐(base64 제거)")
 
 # ── 6. 새 카드 추가: 원본 파일 그대로 복사(재압축 없음) → Excel 에 image_file → JSON 에는 경로만
 EX.export(js, xp, rebuild=True, quiet=True); small2 = json.loads(js.read_text("utf-8"))
@@ -98,7 +98,7 @@ tj = tmp / "tr.json"; tj.write_text(json.dumps([{"id": "9500", "n": "テスト",
 r = subprocess.run([sys.executable, str(ROOT / "add_new_cards.py"), str(src), "--from-json", str(tj), "--db", str(js)], capture_output=True, text=True, cwd=str(tmp), timeout=300)
 out = r.stdout + r.stderr; nj = json.loads(js.read_text("utf-8")); nc = nj["cards"].get("id_9500")
 ok(r.returncode == 0 and nc is not None, "add_new_cards --from-json 로 새 카드 추가: " + (out[-200:] if r.returncode else "OK"))
-ok(nc and nc["file"] == "id_9500.jpg" and nc["img"] == "CardImage/id_9500.jpg", "새 카드: file=id_9500.jpg, img=CardImage/id_9500.jpg (경로만 기록)")
+ok(nc and nc["file"] == "id_9500.jpg" and nc["img"] == "CardImageWeb/id_9500.webp", "새 카드: file=id_9500.jpg, img=CardImageWeb/id_9500.webp (경로만 기록)")
 ok("data:image" not in js.read_text("utf-8"), "새 카드를 추가해도 cards.json 에 base64 가 들어가지 않음")
 ok((IMG / "id_9500.jpg").exists() and (IMG / "id_9500.jpg").read_bytes() == src_bytes, "이미지는 CardImage/id_9500.jpg 로 원본 그대로 복사(바이트 동일, 재압축/축소 없음)")
 ok(CI.read_size(IMG / "id_9500.jpg") == (716, 1000), "해상도 716x1000 유지")
@@ -113,14 +113,14 @@ ok(js.read_text("utf-8") == b4 and not (IMG / "id_9501.jpg").exists(), "원본 �
 
 # ── 7. 헬퍼 단위
 ok(CI.check_name("id_1068.jpg") is None and CI.check_name("a/b.jpg") and CI.check_name("..\\a.jpg") and CI.check_name("a.bmp") and CI.check_name(" a.jpg"), "check_name: 정상/경로/확장자/공백 판정")
-ok(CI.img_path("id_1.jpg") == "CardImage/id_1.jpg" and CI.img_path("") == "", "img_path")
+ok(CI.img_path("id_1.jpg") == "CardImageWeb/id_1.webp" and CI.img_path("") == "", "img_path")
 shutil.rmtree(tmp, ignore_errors=True)
 
 # ── 8. 실제 프로젝트 데이터
 db = REAL["cards"]; cs, meta, probs = X.read_workbook(ROOT / "data" / "cards.xlsx")
 ok(not [p for p in probs if p.level == "ERROR"], "실제 data/cards.xlsx 읽기 오류 없음")
 ok(len(db) >= 1339 and all("data:image" not in (c.get("img") or "") for c in db.values()), f"실제 cards.json {len(db)}장: base64 이미지 0건")
-ok(all(c.get("img") == CI.img_path(c.get("file")) and c.get("file") for c in db.values()), "모든 카드: img == CardImage/<file>, file 이 비어 있지 않음")
+ok(all(c.get("img") == CI.img_path(c.get("file")) and c.get("file") for c in db.values()), "모든 카드: img == CardImageWeb/<file 의 .webp>, file 이 비어 있지 않음")
 ok(all(CI.check_name(c["file"]) is None for c in db.values()), "모든 file 이 안전한 파일명 형식")
 ok(all(cs[k].get("file") == db[k].get("file") for k in db) and set(cs) == set(db), "Excel image_file 과 JSON file 이 전 카드에서 일치")
 ok(all(db[k]["file"].rsplit(".", 1)[0] == k for k in db), "파일명이 모두 카드 ID 와 같음 (id_XXXX.jpg)")

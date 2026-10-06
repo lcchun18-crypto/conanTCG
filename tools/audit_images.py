@@ -8,7 +8,7 @@
           파일명 불일치(DB 의 file 값 ≠ ID.확장자) / 해상도(평균·최소) / (옛 base64 가 남아 있으면) 원본 교체 가능·base64 만 있는 카드 수.
 매칭이 애매한 파일은 자동으로 추측하지 않고 '애매함' 목록으로만 남긴다.
 """
-import argparse, base64, csv, hashlib, io, json, sys
+import argparse, base64, csv, hashlib, io, json, os, sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -50,7 +50,7 @@ def audit(db_path, img_dir, xlsx_cards=None, out_csv=None, quiet=False):
     fset = {f.lower(): f for f in files}
     R = {"db_cards": len(cards), "files": len(files)}
     rows = []           # (구분, ID/파일, 내용)
-    matched, noimg, mism, bad_ref = 0, [], [], []
+    matched, noimg, mism, bad_ref = 0, [], [], []; matched_ids = []
     ref = {}            # 파일(소문자) → 사용하는 카드
     res = []
     for cid in sorted(cards):
@@ -59,7 +59,7 @@ def audit(db_path, img_dir, xlsx_cards=None, out_csv=None, quiet=False):
         guess = next((fset[(cid + e).lower()] for e in (".jpg", ".png", ".webp") if (cid + e).lower() in fset), None)
         use = fset.get(f.lower()) if f else None
         use = use or guess      # 파일명이 ID 와 같은 이미지(id_0001.jpg)는 안전하게 매칭된 것으로 본다
-        if use: ref.setdefault(use.lower(), []).append(cid); matched += 1
+        if use: ref.setdefault(use.lower(), []).append(cid); matched += 1; matched_ids.append(cid)
         else:
             noimg.append(cid); rows.append(("이미지 없음", cid, f"file={f!r}" + (f" (ID 이름의 파일 {guess} 은 있음)" if guess else "")))
         if f and guess and f.lower() != guess.lower(): mism.append(cid); rows.append(("파일명 불일치", cid, f"file={f!r} ≠ {guess}"))
@@ -90,6 +90,9 @@ def audit(db_path, img_dir, xlsx_cards=None, out_csv=None, quiet=False):
         W = [min(r[1], r[2]) for r in res]; H = [max(r[1], r[2]) for r in res]; B = [r[3] for r in res]
         R.update(res_avg=(sum(r[1] for r in res) // len(res), sum(r[2] for r in res) // len(res)), res_min=min(res, key=lambda r: r[1] * r[2])[1:3], short_avg=sum(W) // len(W), short_min=min(W), long_avg=sum(H) // len(H), bytes_avg=sum(B) // len(B), bytes_min=min(B), bytes_max=max(B), bytes_total=sum(B))
     b64 = {cid: c["img"] for cid, c in cards.items() if (c.get("img") or "").startswith("data:image")}
+    wd = CI.web_dir_for(db_path) if not os.environ.get("CARD_IMAGE_WEB_DIR") else CI.web_dir()   # v1.16.0: 게임용 최적화본(CardImageWeb) 현황
+    wmiss = [cid for cid in matched_ids if not (wd / CI.web_name(cards[cid].get("file") or cid)).is_file()] if wd.is_dir() else list(matched_ids)
+    R["web_dir"] = str(wd); R["web_missing"] = len(wmiss)
     R["b64_cards"] = len(b64)
     if b64:
         up = only = 0; ob = []
@@ -116,6 +119,7 @@ def audit(db_path, img_dir, xlsx_cards=None, out_csv=None, quiet=False):
     if "res_avg" in R:
         log(f"  해상도 평균 {R['res_avg'][0]}x{R['res_avg'][1]}px / 최소 {R['res_min'][0]}x{R['res_min'][1]}px (짧은 변 평균 {R['short_avg']}, 최소 {R['short_min']})")
         log(f"  파일 크기 평균 {R['bytes_avg'] // 1024}KB (최소 {R['bytes_min'] // 1024}KB ~ 최대 {R['bytes_max'] // 1024}KB, 합계 {R['bytes_total'] / 1e6:.0f}MB)")
+    log(f"  게임용 최적화본(CardImageWeb)이 없는 카드     : {R['web_missing']}" + ("  → python tools/make_web_images.py 로 만들 수 있습니다 (그동안은 서버가 원본으로 대신 보여 줍니다)" if R["web_missing"] else ""))
     if R["b64_cards"]:
         log(f"  옛 base64 가 남은 카드              : {R['b64_cards']} (평균 {R['b64_avg_bytes'] / 1024:.1f}KB)")
         log(f"    → 원본 파일로 교체 가능 {R['upgradable']} / base64 밖에 없어 교체 불가 {R['b64_only']}")
