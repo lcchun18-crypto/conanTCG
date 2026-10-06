@@ -95,7 +95,7 @@ AI 는 이전 탐색/평가 방식을 버리고 아래 규칙만 따른다 (`bot
 | 이벤트를 캐릭터에 세트 / 세트된 캐릭터가 능력을 얻음 | `op:"set"` + `ic:"grant", g:{능력}` (캐릭터가 떠나면 세트 카드는 리무브 에리어로) |
 
 ### 임포터 새 기능
-* `--effects-only [기존.json]` : 이미지 인식(1단계)을 **다시 하지 않고** 저장된 원문(일/한)·썸네일로 효과 JSON(2단계, 텍스트만 전송)만 재생성. 인자를 생략하면 `--out` 파일을 읽어 갱신(덮어쓰기 전에 `*.before-effects.json` 백업). 색 판별도 저장된 썸네일로 다시 수행.
+* `--effects-only [기존.json]` : 이미지 인식(1단계)을 **다시 하지 않고** 저장된 원문(일/한)·이미지 파일(CardImage)로 효과 JSON(2단계, 텍스트만 전송)만 재생성. 인자를 생략하면 `--out` 파일을 읽어 갱신(덮어쓰기 전에 `*.before-effects.json` 백업). 색 판별도 저장된 썸네일로 다시 수행.
 * `--effects-only --rules-only` : API도 키도 없이, 규칙 변환기(`effect_rules.py`)만 다시 적용(무료·즉시).
 * 2단계 캐시 키에 **SPEC·스키마·모델·카드 텍스트의 해시**를 넣었습니다 → 프롬프트를 고치면 예전 결과를 자동으로 재사용하지 않습니다.
 * `effect_rules.py` : 모델이 manual 로 남긴 정형 문장(숫자/카드명/특징/색만 바뀌는 문형)을 결정적으로 구조화. 하나라도 모르는 문장이 섞이면 손대지 않고 manual 유지.
@@ -520,8 +520,8 @@ data/cards.xlsx ──(tools/build_cards_from_excel.py: 검증 후 변환)──
       ▲                                                                   │
       └───────(tools/export_cards_to_excel.py: 병합, 신탄 추가 시 자동)────┘
 ```
-* **source of truth = cards.xlsx**. cards.json 은 런타임용 산출물(이미지 base64 포함). 서버/엔진은 이전과 똑같이 cards.json 만 읽습니다.
-* 이미지(`img`, 약 18MB)는 Excel 에 넣지 않습니다. 빌드할 때 기존 cards.json 에서 **카드 ID 로 그대로 가져옵니다**(손실 없음). Excel 에는 `img_info`(참고용)만 표시됩니다.
+* **source of truth = cards.xlsx**. cards.json 은 런타임용 산출물(v1.14.0 부터 이미지 base64 없음 — 경로만). 서버/엔진은 이전과 똑같이 cards.json 만 읽습니다.
+* (v1.14.0) 이미지는 실제 파일(`CardImage/<ID>.jpg`)입니다. Excel Cards 시트의 **`image_file`** 열이 파일명을 관리하고(고치면 게임에 반영), 빌드할 때 cards.json 의 `file`/`img`(`CardImage/<파일명>`)가 만들어집니다. `img_info`(해상도/용량)는 자동 표시입니다.
 * 연결 키는 항상 **카드 ID**. 행 순서/정렬은 바꿔도 됩니다.
 
 ### Excel 시트
@@ -685,3 +685,28 @@ AI(Expert)와 "어시스트를 적극 쓰며 고코스트 캐릭터가 빠르게
 - 현재 DB: 1,219장에 series 기록(P01~P11, D01~D11 에서 실제 발견된 코드만). 프로모(PR…) 118장·특별(SP) 1장은 박스/덱 시리즈가 아니라서 빈 값으로 두었고 `data/series_review.csv` 에 목록이 있습니다. 판독 불가로 남은 카드는 없습니다.
 - 판독 도구: `python tools/series_scan.py <이미지폴더> [--apply]` (tesseract OCR 다수결 + B/D 전용 판독, 애매하면 추측하지 않고 uncertain 목록으로). 새 카드를 `add_new_cards.py` 로 추가하면 같은 방식으로 series 가 자동으로 채워집니다(못 읽으면 빈 값 → Excel 에서 직접 입력).
 - 테스트: `npm run test:series` (= `python3 test/series_xlsx_test.py && node test/series_ui_test.js`).
+
+## v1.14.0 — 카드 이미지를 파일로 관리 + 원본 해상도 사용
+**왜**: 게임 상세 화면이 cards.json 안의 172×240 base64 썸네일(약 10KB)을 확대해서 흐렸습니다. 이제 `CardImage/` 폴더의 원본 파일(평균 722×977px, 약 230KB)을 그대로 씁니다. 재압축·축소 없음.
+
+**역할 분리**
+| 무엇 | 어디 |
+|---|---|
+| 실제 이미지 파일 | `CardImage/id_0001.jpg …` (프로젝트 루트, 파일명 = 카드 ID) |
+| 이미지 파일명 관리 | `data/cards.xlsx` Cards 시트 **`image_file`** 열 (기존 `file` 열을 이 이름으로 연결 — 옛 이름 `file` 도 읽힘) |
+| 게임이 읽는 경로 | `data/cards.json` 의 `file`(= image_file) + `img`(`CardImage/id_0001.jpg`). base64 없음 → cards.json 21MB → 1.9MB |
+| 제공 | `server.js` 가 `/CardImage/<파일>` 로 정적 제공 (jpg/png/webp 만, ETag/304, 경로 이탈·비이미지는 404). 위치를 바꾸려면 환경변수 `CARD_IMAGE_DIR` |
+
+**Excel 에서 이미지 바꾸기**: 새 이미지를 `CardImage/` 에 넣고 → Cards 시트 `image_file` 에 파일명(예: `id_1068.jpg`)만 적기(폴더/URL 금지) → 평소처럼 빌드/푸시. 검증: 형식(경로·URL·확장자) 오류 / 폴더에 없는 파일 오류 / 깨진 이미지 오류 / 같은 파일 중복·저해상도(짧은 변 500px 미만)·미연결 파일 경고. 오류가 있으면 cards.json 을 만들지 않습니다.
+
+**신탄 추가** (`add_new_cards.py`, `import_cards.py`): 새 이미지는 **원본 그대로** `CardImage/<ID>.<확장자>` 로 복사(재압축 없음) → cards.xlsx 에 `image_file` 기록 → cards.json 에는 경로만. 복사에 실패하면 cards.json 을 쓰지 않습니다.
+
+**화면**: 게임 우측 상세·덱빌더 큰 미리보기·효과 팝업·공개 팝업은 모두 같은 원본 파일을 직접 사용(작은 이미지를 확대하지 않음). 목록/필드/손패는 같은 파일을 CSS 로 작게 표시(덱빌더 목록은 `loading="lazy"`). 파일이 없거나 깨지면(404) 카드명 텍스트로 대체되고 게임은 계속 진행됩니다. 썸네일 구조는 성능 문제가 실제로 생기면 그때 추가합니다.
+
+**도구**
+- `python tools/audit_images.py` — 전체 점검(DB 카드 수/파일 수/매칭/이미지 없는 카드/DB 에 없는 파일/중복/파일명 불일치/해상도). 목록은 `data/image_audit.csv`.
+- `python tools/migrate_images.py --src <원본폴더> [--apply]` — 이번 1회성 마이그레이션 도구(base64 → 파일). 내용으로 확실히 확정되는 것만 자동 정리하고 애매하면 건드리지 않고 보고. 이번 실행 결과는 `data/image_migration_report.csv`.
+- 이번 마이그레이션: `id_1260.jpg` 는 DB 에 없는 ID 였고, 옛 썸네일과 내용이 일치(유사도 0.9998, 유일한 후보)해서 **id_1261(コナンVS怪盗キッド)** 의 이미지로 확정 → `CardImage/id_1261.jpg` 로 추가했습니다(원본 `id_1260.jpg` 는 그대로 남아 있으니 직접 지우셔도 됩니다 — 빌드가 "연결되지 않은 파일" 로 알려 줍니다).
+- cards.xlsx 는 보내주신 최신본을 기준으로 **image_file 열(이름·값)과 img_info 만** 바꿨습니다. 다른 셀·서식·Excel 드롭다운은 그대로입니다(XML 직접 수정).
+- 배포: `CardImage/` 폴더도 저장소에 함께 올라가야 합니다(약 320MB). `.github` 자동 빌드는 `CardImage/**` 변경도 감지해 image_file 연결을 다시 검증합니다.
+- 테스트: `npm run test:images` (= `python3 test/image_files_test.py && node test/image_ui_test.js`).

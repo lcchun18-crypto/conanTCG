@@ -577,10 +577,14 @@ function pv(f,c){PVNOW=[f,c];const cols=String(f.color||'').split(/[\/,&]/).map(
  String(f.trait||'').split(',').map(x=>x.trim()).filter(Boolean).forEach(t=>ch.push(`<span class="chipm tr" title="특징">${esc(t)}</span>`));   // v1.12.4: 특징 badge (카드 ID 앞)
  {const cid=cardId(f,c);if(cid)ch.push(`<span class="chipm cid" title="눌러서 복사" data-cid="${esc(cid)}">카드 ID: ${esc(cid)}</span>`)}
  const kr=String(f.extra||'').trim();
- $('pv').innerHTML=(f.img?`<img src="${f.img}" alt="">`:`<div class="noimg">${esc(f.n)}</div>`)+`<div class="nm" title="카드명"><span class="nml">카드명:</span> <b>${esc(f.n||'?')}</b></div><div class="meta">${ch.join('')}</div>`   // v1.12.7: 카드명 텍스트(이미지 바로 아래, 칩 위)
+ $('pv').innerHTML=(f.img&&!BADIMG.has(f.img)?`<img src="${esc(f.img)}" alt="" data-n="${esc(f.n||'')}">`:`<div class="noimg">${esc(f.n)}</div>`)+`<div class="nm" title="카드명"><span class="nml">카드명:</span> <b>${esc(f.n||'?')}</b></div><div class="meta">${ch.join('')}</div>`   // v1.12.7: 카드명 텍스트(이미지 바로 아래, 칩 위)
   +(kr?`<div class="fx">${fxHtml(kr)}</div>`:(f.fx?'<div class="nofx">한국어 효과 텍스트가 등록되지 않은 카드입니다.</div>':''))
   +(M&&c&&c.sl&&c.sl.length?'<div class="sets">세트 카드 '+c.sl.length+'장 (터치해서 보기):'+c.sl.map((x,i)=>{const g=x.d&&DEFS[x.d];return g&&g.img?`<button data-i="${i}" style="background-image:url('${g.img}')"></button>`:`<button data-i="${i}" style="background-image:url(assets/cardback.png)">${g?esc(g.n).slice(0,4):'뒷면'}</button>`}).join('')+'</div>':'')}
-function mk(c,o={}){const f=DEFS[c.d]||{n:'?'},bk=o.back||c.hidden,d=document.createElement('div');d.className='card'+(bk?' back':'')+(o.land?' land':'')+(o.kase?' kase':'');
+// v1.14.0: 카드 이미지는 서버의 파일(CardImage/<ID>.jpg) — 파일이 없거나 깨지면(404) 카드 이름 텍스트로 안전하게 대체한다 (게임/덱빌더가 멈추지 않는다)
+const BADIMG=new Set(),PROBED=new Set();let badT=0;
+function gimg(f){const u=f&&f.img;if(!u)return'';if(BADIMG.has(u))return'';if(!PROBED.has(u)){PROBED.add(u);const im=new Image();im.onerror=()=>{BADIMG.add(u);clearTimeout(badT);badT=setTimeout(()=>{try{V&&render()}catch(e){}},50)};im.src=u}return u}
+document.addEventListener('error',e=>{const t=e.target;if(!t||t.tagName!=='IMG'||t.dataset.fail)return;t.dataset.fail='1';const u=t.getAttribute('src');if(u)BADIMG.add(u);const n=t.dataset.n||t.alt||'',cell=t.dataset.nm?document.createElement('span'):document.createElement('div');cell.className=t.dataset.nm?'nm':'noimg '+(t.className||'');cell.textContent=n;t.replaceWith(cell)},true);
+function mk(c,o={}){const f0=DEFS[c.d]||{n:'?'},f=f0.img?{...f0,img:gimg(f0)}:f0,bk=o.back||c.hidden,d=document.createElement('div');d.className='card'+(bk?' back':'')+(o.land?' land':'')+(o.kase?' kase':'');
  if(c.id!=null)d.dataset.id=c.id;
  if(!bk){if(f.img){if(o.land)d.style.setProperty('--img',`url("${f.img}")`);else d.style.backgroundImage=`url("${f.img}")`}
   // 카드 위에는 AP/증거/코스트 같은 수치 오버레이를 붙이지 않는다 (카드 이미지 + 오른쪽 상세 패널 + 전투 표시로 확인)
@@ -673,7 +677,7 @@ function pl(id,P,mine){const el=$(id);el.innerHTML='';const me=V.me,tgt=actTg()|
  // 정보: 덱 더미 + badge (리무브 badge 클릭 = 리무브 에리어 보기)
  const dk=stk(P.deck,'덱','dk','덱 '+P.deck+'장',0,true);dk.id=pre+'-deck';
  const rm=stk(P.rem.length,'리무브','dk rm','리무브 에리어: '+P.rem.length+'장 (클릭하면 카드 목록)',0,true);rm.id=pre+'-rem';rm.style.cursor='pointer';
- {const pl_=rm.querySelector('.pile');pl_.innerHTML='';const top=P.rem[P.rem.length-1],tf=top&&DEFS[top.d];if(top){const c=document.createElement('div');c.className='card'+(tf&&tf.img?'':' back');if(tf&&tf.img)c.style.backgroundImage=`url("${tf.img}")`;c.style.left='0';c.style.top='0';if(tf){c._pv=[tf,top];c.onmouseenter=()=>pv(tf,top);c.title='리무브 맨 위: '+(tf.n||'')}pl_.appendChild(c)}else{const e=document.createElement('div');e.className='empty';e.style.width=CWs+'px';e.style.height=CHs+'px';pl_.appendChild(e)}pl_.style.width=CWs+'px';pl_.style.height=CHs+'px'}
+ {const pl_=rm.querySelector('.pile');pl_.innerHTML='';const top=P.rem[P.rem.length-1],tf=top&&DEFS[top.d],tu=tf?gimg(tf):'';if(top){const c=document.createElement('div');c.className='card'+(tu?'':' back');if(tu)c.style.backgroundImage=`url("${tu}")`;c.style.left='0';c.style.top='0';if(tf){c._pv=[tf,top];c.onmouseenter=()=>pv(tf,top);c.title='리무브 맨 위: '+(tf.n||'')}pl_.appendChild(c)}else{const e=document.createElement('div');e.className='empty';e.style.width=CWs+'px';e.style.height=CHs+'px';pl_.appendChild(e)}pl_.style.width=CWs+'px';pl_.style.height=CHs+'px'}
  rm.onmouseenter=()=>{const t=P.rem[P.rem.length-1],f=t&&DEFS[t.d];if(f)pv(f,t)};rm.onclick=e=>{e.stopPropagation();remShow=remShow===(mine?me:1-me)?null:(mine?me:1-me);render()};
  const zi=mine?div('z-info',dk,rm):div('z-info',rm,dk);
  // 아래(상대는 위) 줄: 손패(왼쪽) | FILE(중앙) | 이름표(오른쪽)
@@ -728,7 +732,7 @@ const pvEl=t=>{const el=t&&t.closest&&t.closest(PVSEL);return el&&el._pv?el:null
 //  · 효과/선택 중(targetMode)·팝업 안 카드는 시트를 열면 조작을 가리므로 "누르는 동안만" 보이는 클릭 통과 미리보기(#pvf)를 쓴다.
 //  · preventDefault 를 쓰지 않고 passive 리스너라 스크롤/드래그는 그대로.
 function pvFloat(f,c,x){let b=$('pvf');if(!b){b=document.createElement('div');b.id='pvf';document.body.appendChild(b)}
- b.innerHTML=(f.img?`<img src="${esc(f.img)}" alt="">`:`<div class="pfn">${esc(f.n||'?')}</div>`)+`<div class="pft"><b>${esc(f.n||'')}</b><span>${esc(cardId(f,c)||'')}</span></div>`;b.className='on '+(x>innerWidth/2?'l':'r')}
+ b.innerHTML=(f.img&&!BADIMG.has(f.img)?`<img src="${esc(f.img)}" alt="" data-n="${esc(f.n||'')}">`:`<div class="pfn">${esc(f.n||'?')}</div>`)+`<div class="pft"><b>${esc(f.n||'')}</b><span>${esc(cardId(f,c)||'')}</span></div>`;b.className='on '+(x>innerWidth/2?'l':'r')}
 function pvFloatOff(){const b=$('pvf');if(b)b.className=''}
 function pvTouch(el,x){const[f,c]=el._pv;if(!M)return;if(el.closest('#sheet,#fsv'))return;
  if(targetMode()||el.closest(MODAL)){pv(f,c);pvFloat(f,c,x)}else{pvOpen(f,c,el)}}
@@ -809,7 +813,7 @@ function effPick(id){const E=V.eff;if(!E||E.kind!=='pick')return;if(E.max===1){A
  const i=esel.indexOf(id);if(i>=0)esel.splice(i,1);else if(E.ordered||esel.length<E.max)esel.push(id);else $('err').textContent=E.max+'장까지 선택할 수 있습니다';render()}
 function effUI(b,B){const E=V.eff;if(E.wait)return E.msg;
  const box=document.createElement('div');box.className='box';{let sf=DEFS[E.srcD]||{};if(!sf.n&&E.src){const k=Object.keys(DEFS).find(k=>DEFS[k]&&DEFS[k].n===E.src);if(k)sf=DEFS[k]}
-  const cid0=E.srcD?cardId(sf,{d:E.srcD}):'',img=sf.img||(DB.cards[cid0]||{}).img||'',im=img?`<img class="fxi" src="${esc(img)}" alt="${esc(sf.n||E.src||'')}">`:`<div class="fxi noimg">${esc(sf.n||E.src||'')}</div>`,cid=cid0;
+  const cid0=E.srcD?cardId(sf,{d:E.srcD}):'',img=sf.img||(DB.cards[cid0]||{}).img||'',im=img&&!BADIMG.has(img)?`<img class="fxi" src="${esc(img)}" alt="${esc(sf.n||E.src||'')}">`:`<div class="fxi noimg">${esc(sf.n||E.src||'')}</div>`,cid=cid0;
   box.innerHTML=`<div class="fxh">${im}<div class="fxm"><b>효과 · ${esc(sf.n||E.src||'효과')}</b>${cid?`<span class="fxid">${esc(cid)}</span>`:''}<div class="fxq">${esc(E.msg||'')}</div>${effText(E)}</div></div>`;
   { const fi=box.querySelector('.fxi'),pc={d:E.srcD}; if(fi&&(sf.n||sf.img)){ const ff=sf.img?sf:{...sf,img:(DB.cards[cid0]||{}).img}; fi._pv=[ff,pc]; fi.onmouseenter=()=>pv(ff,pc); } } }   // v1.12.5: 효과 팝업 카드 이미지도 일반 카드와 같은 preview 경로(_pv)
  $('effp').appendChild(box);
@@ -1041,7 +1045,7 @@ function bPred(tok){let m;tok=tok.toLowerCase();
 function bFilter(){const ps=$('dbQ').value.trim().split(/\s+/).filter(Boolean).map(bPred);
  return bIx.filter(c=>(!bFil.size||bCols(c).some(x=>bFil.has(x)))&&ps.every(p=>p(c)))}
 function bCell(c){const d=document.createElement('div');d.className='cc';d.dataset.id=c.id;
- if(c.img){const i=document.createElement('img');i.onload=()=>{if(i.naturalWidth>i.naturalHeight*1.1)d.classList.add('wide')};i.src=c.img;i.alt='';i.draggable=false;i.decoding='async';d.appendChild(i)}else{const n=document.createElement('span');n.className='nm';n.textContent=c.n;d.appendChild(n)}
+ if(c.img){const i=document.createElement('img');i.onload=()=>{if(i.naturalWidth>i.naturalHeight*1.1)d.classList.add('wide')};i.loading='lazy';i.dataset.n=c.n;i.dataset.nm='1';i.src=c.img;i.alt='';i.draggable=false;i.decoding='async';d.appendChild(i)}else{const n=document.createElement('span');n.className='nm';n.textContent=c.n;d.appendChild(n)}
  d.appendChild(document.createElement('b')).className='bd';bBadge(d,c);if(typeof bSelId!=='undefined'&&bSelId===c.id)d.classList.add('pick');return d}
 function bBadge(d,c){const n=W.cards[c.id]||0,sl=W.kase===c.id||W.partner===c.id,b=d.querySelector('.bd');d.classList.toggle('in',!!(n||sl));d.classList.toggle('sl',sl);d.classList.toggle('max',n>=bLimit(c)&&n>0);b.textContent=sl?'✓':n}
 function bRender(){const g=$('dbGrid');bList=bFilter();g.innerHTML='';g.scrollTop=0;bShown=0;
@@ -1050,7 +1054,7 @@ function bRender(){const g=$('dbGrid');bList=bFilter();g.innerHTML='';g.scrollTo
  bMore();}
 function bMore(){const g=$('dbGrid');let guard=0;while(bShown<bList.length&&guard++<40){const f=document.createDocumentFragment();for(const c of bList.slice(bShown,bShown+120))f.appendChild(bCell(c));bShown=Math.min(bList.length,bShown+120);g.appendChild(f);if(g.scrollHeight>g.clientHeight+600)break}}
 function bCellsOf(id){return document.querySelectorAll(`#dbGrid .cc[data-id="${CSS.escape(id)}"]`)}
-function bPv(id){const c=DB.cards[id];if(!c)return;const im=$('dbPvImg');im.innerHTML='';im.style.backgroundImage=c.img?`url("${c.img}")`:'';if(!c.img)im.textContent=c.n;
+function bPv(id){const c=DB.cards[id];if(!c)return;const im=$('dbPvImg');im.innerHTML='';im.style.backgroundImage=c.img&&!BADIMG.has(c.img)?`url("${c.img}")`:'';if(!c.img||BADIMG.has(c.img))im.textContent=c.n;else if(!PROBED.has(c.img)){PROBED.add(c.img);const pr=new Image();pr.onerror=()=>{BADIMG.add(c.img);if(DB.cards[id]===c){im.style.backgroundImage='';im.textContent=c.n}};pr.src=c.img}
  const ch=[B_TYPE[c.type]||c.type,...bCols(c).map(k=>(B_COL.find(x=>x[0]===k)||[0,k])[1]+'색'),c.lv!==''&&c.lv!=null?(c.type==='case'?'사건 Lv '+c.lv+(c.lv2?' / '+c.lv2:''):'Lv '+c.lv):'',c.ap?'AP '+c.ap:'',c.lp!==''&&c.lp!=null?'LP '+c.lp:'',c.series?'시리즈 '+c.series:'',...String(c.trait||'').split(',').map(x=>x.trim()).filter(Boolean),'카드 ID: '+(c.id||id)].filter(Boolean);   // v1.12.4: 특징 badge (카드 ID 앞)
  $('dbCardName').innerHTML=`<span class="nml">카드명:</span> <b>${esc(c.n||'?')}</b>`;   // v1.12.7
  $('dbChips').innerHTML=ch.map(x=>`<span>${esc(x)}</span>`).join('');
@@ -1068,10 +1072,10 @@ function bFlash(id){bCellsOf(id).forEach(e=>{e.classList.remove('flash');void e.
 function bRefresh(ids){ids.filter(Boolean).forEach(id=>bCellsOf(id).forEach(e=>bBadge(e,DB.cards[id])));bDeck()}
 function bDeck(){const ent=Object.entries(W.cards).filter(([id])=>DB.cards[id]).sort((a,b)=>{const x=DB.cards[a[0]],y=DB.cards[b[0]];return(B_RANK[x.type]??0)-(B_RANK[y.type]??0)||bLv(x)-bLv(y)||a[0].localeCompare(b[0])}),M=$('dbMain');M.innerHTML='';
  for(const[id,n]of ent){const c=DB.cards[id],g=document.createElement('div');g.className='dg';g.dataset.id=id;g.style.width=`calc(var(--dw) + ${n-1} * var(--off))`;g.title='클릭 = 1장 빼기';
-  for(let i=0;i<n;i++){const e=c.img?document.createElement('img'):document.createElement('i');if(c.img)e.src=c.img;else e.textContent=c.n;e.style.left=`calc(${i} * var(--off))`;e.draggable=false;g.appendChild(e)}
+  for(let i=0;i<n;i++){const e=c.img?document.createElement('img'):document.createElement('i');if(c.img){e.loading='lazy';e.dataset.n=c.n;e.dataset.nm='1';e.src=c.img}else e.textContent=c.n;e.style.left=`calc(${i} * var(--off))`;e.draggable=false;g.appendChild(e)}
   const b=document.createElement('b');b.textContent='×'+n;g.appendChild(b);M.appendChild(g)}
  if(!ent.length)M.innerHTML='<div style="color:var(--mut);padding:20px;font-size:13px">아래 카드 목록에서 카드를 클릭하면 메인 덱에 추가됩니다. 덱의 카드를 클릭하면 1장씩 빠집니다.</div>';
- for(const[el,k,lab]of[[$('dbCase'),'kase','사건'],[$('dbPart'),'partner','파트너']]){const c=DB.cards[W[k]];el.className='dbslot'+(c?' full':'');el.dataset.id=c?c.id:'';el.dataset.k=k;el.style.backgroundImage=c&&c.img?`url("${c.img}")`:'';el.innerHTML=`<small>${lab} ${c?1:0} / 1</small>`+(c?(c.img?'':esc(c.n)):`${lab}<br>슬롯`);el.title=c?'클릭 = 빼기':lab+' 카드를 클릭해서 지정';if(c&&c.img){const w=bWide[c.id];if(w===undefined){const im=new Image();im.onload=()=>{bWide[c.id]=im.naturalWidth>im.naturalHeight*1.1;bDeck()};im.onerror=()=>{bWide[c.id]=false};im.src=c.img}else el.classList.toggle('wide',w)}}
+ for(const[el,k,lab]of[[$('dbCase'),'kase','사건'],[$('dbPart'),'partner','파트너']]){const c=DB.cards[W[k]];el.className='dbslot'+(c?' full':'');el.dataset.id=c?c.id:'';el.dataset.k=k;el.style.backgroundImage=c&&c.img?`url("${c.img}")`:'';el.innerHTML=`<small>${lab} ${c?1:0} / 1</small>`+(c?(c.img?'':esc(c.n)):`${lab}<br>슬롯`);el.title=c?'클릭 = 빼기':lab+' 카드를 클릭해서 지정';if(c&&c.img){const w=bWide[c.id];if(w===undefined){const im=new Image();im.onload=()=>{bWide[c.id]=im.naturalWidth>im.naturalHeight*1.1;bDeck()};im.onerror=()=>{bWide[c.id]=false;BADIMG.add(c.img);el.style.backgroundImage='';el.append(c.n)};im.src=c.img}else el.classList.toggle('wide',w)}}
  const t=bTot(),k=W.kase&&DB.cards[W.kase]?1:0,p=W.partner&&DB.cards[W.partner]?1:0,ok=t===40&&k&&p;
  $('dbStat').innerHTML=`<span class="${t===40?'ok':'bad'}">메인 덱 ${t} / 40</span><span class="${k?'ok':'bad'}">사건 ${k} / 1</span><span class="${p?'ok':'bad'}">파트너 ${p} / 1</span><span class="hint">${ok?'✔ 덱 등록 가능':'덱 등록에는 메인 40장 + 사건 1 + 파트너 1 이 필요합니다'}</span>`;
  $('dbTabDeck').textContent=`덱 ${t}/40`+(ok?' ✔':'');bPickMark();bBarUpd()}

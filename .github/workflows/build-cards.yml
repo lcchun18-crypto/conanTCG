@@ -5,9 +5,9 @@ name: Build cards.json from cards.xlsx
 on:
   push:
     branches: [main, master]
-    paths: ['data/cards.xlsx']
+    paths: ['data/cards.xlsx', 'CardImage/**']
   pull_request:
-    paths: ['data/cards.xlsx']
+    paths: ['data/cards.xlsx', 'CardImage/**']
   workflow_dispatch:
 
 permissions:

@@ -4,7 +4,7 @@
 원칙
   · Excel(data/cards.xlsx) = 사람이 관리하는 원본, JSON(data/cards.json) = 게임이 읽는 런타임 파일(자동 생성).
   · 연결 키는 항상 카드 ID. 행 순서/정렬은 의미가 없다.
-  · 이미지(img: base64 data URL)는 Excel 에 넣지 않는다. 빌드할 때 기존 cards.json 에서 ID 로 그대로 가져온다(손실 없음).
+  · (v1.14.0) 이미지는 실제 파일(CardImage/<id>.jpg)로 관리한다. Excel Cards 시트의 image_file 열 = 파일명(JSON 의 file), 빌드할 때 JSON 의 img 를 "CardImage/<파일명>" 으로 만든다. base64 는 더 이상 JSON 에 넣지 않는다.
   · 값 인코딩은 무손실: 문자열은 그대로, 숫자/true/false/null/배열/객체는 JSON 표기. (예: 문자열 "5" 는 "\"5\"" 로 구분)
 """
 import copy, hashlib, json, os, re, subprocess, sys
@@ -12,14 +12,18 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
+if str(HERE) not in sys.path: sys.path.insert(0, str(HERE))
+import card_images as CI   # noqa: E402  (v1.14.0 이미지 파일 관리)
 
 # ───────── 시트/열 정의 (현재 cards.json 에 실제 존재하는 필드 기준) ─────────
 SHEETS = ("Cards", "Abilities", "Ops", "CardExtra", "Meta")
 CARD_COLS = ["id", "type", "color", "lv", "lv2", "ap", "lp", "kw", "trait", "n", "series", "fx", "extra", "file"]   # 카드 1장의 스칼라 필드 (모두 문자열)
+HDR_NAME = {"file": "image_file"}      # JSON 필드 file(이미지 파일명) 은 Excel 에서 image_file 열로 보인다 (옛 Excel 의 file 열 이름도 읽는다)
+HDR_ALIAS = {"image_file": "file"}
 CARD_READONLY = ["ab_count", "img_info"]                                                                   # 참고용(가져올 때 무시)
 NUM_COLS = ("lv", "lv2", "ap", "lp")
 CARD_ABKEY, CARD_IMG = "ab", "img"
-OPTIONAL_COLS = {"series"}   # 옛 Excel 에 없어도 오류가 아닌 열 (없으면 기존 JSON 값 유지)
+OPTIONAL_COLS = {"series", "file"}   # 옛 Excel 에 없어도 오류가 아닌 열 (없으면 기존 JSON 값 유지)
 LAST_HAS = set()             # 마지막으로 읽은 Cards 시트에 실제로 있던 선택 열
 CORE_KEYS = set(CARD_COLS) | {CARD_ABKEY, CARD_IMG}
 AB_FIXED = ["card_id", "ab_index"]
@@ -41,15 +45,17 @@ DESC = {   # 필드 설명 / 편집 구분
  "lv": ("레벨 = FILE 코스트", "logic"), "lv2": ("사건 카드의 해결편 레벨", "logic"), "ap": ("AP (공격력)", "logic"), "lp": ("LP (라이프)", "logic"),
  "kw": ("키워드 (assault, misread1, disguise, rapid, bullet …)", "logic"), "trait": ("특징 (쉼표로 구분)", "logic"), "n": ("카드명", "display"),
  "fx": ("일본어 원문 효과 텍스트 (표시용, 엔진 동작에 영향 없음)", "display"), "extra": ("한국어 효과 설명 (표시용, 엔진 동작에 영향 없음)", "display"),
- "file": ("카드 이미지 원본 파일명 (참고용 메타데이터)", "meta"),
+ "image_file": ("카드 이미지 파일명 (CardImage 폴더 안의 실제 파일, 예: id_1068.jpg). 여기를 고치면 게임의 이미지가 바뀝니다. 폴더 경로·URL 은 쓰지 마세요", "logic"),
+ "file": ("카드 이미지 파일명 (image_file 의 옛 이름)", "logic"),
  "series": ("시리즈/상품 코드 (P01~P11 = 박스, D01~ = 덱; 카드 이미지 오른쪽 아래 B11…/D01… 코드 기준). 덱빌더에서 P11 처럼 검색. 잘못 읽혔으면 여기서 고치세요", "display"),
- "ab_count": ("능력(ab) 개수 — 자동 계산, 편집 불필요", "readonly"), "img_info": ("이미지 정보 — 참고용. 이미지는 Excel 이 아니라 cards.json 에 보존됨", "readonly"),
+ "ab_count": ("능력(ab) 개수 — 자동 계산, 편집 불필요", "readonly"), "img_info": ("이미지 정보(해상도/용량) — 자동 표시, 편집 불필요. 이미지 파일은 CardImage 폴더에 있습니다", "readonly"),
  "card_id": ("카드 ID", "key"), "ab_index": ("카드 안에서의 능력 번호 (0부터)", "key"), "ic": ("trigger/능력 종류 (onplay, declare, flash …)", "logic"),
  "txt": ("이 능력의 일본어 원문 (표시용)", "display"), "lim": ("사용 제한 횟수(ターン n)", "logic"), "cond": ("발동 조건 (JSON 객체)", "logic"), "tgt": ("대상 지정 (JSON 객체)", "logic"),
  "cost": ("코스트 (JSON 배열)", "logic"), "ops": ("실행 효과 → Ops 시트 참조", "logic"), "ops_count": ("ops 개수 — 자동 계산", "readonly"),
  "filter_own": ("실제 효과 대상(filter)의 소유자: self=내 쪽 / opp=상대 쪽 / any=양쪽. 최상위 효과의 filter.own 을 여기서 관리합니다 (params 의 filter 에는 own 이 안 보임). 비워 두면 own 미지정 — 엔진은 플레이를 막지 않도록 제한 없이(양쪽) 처리하고 검증이 경고합니다. 굵은 조건/코스트의 own 은 Abilities 시트의 cond/cost 안에 있습니다.", "logic"),
  "op_index": ("능력 안에서의 효과 순서 (0부터)", "key"), "op": ("효과 primitive 이름 (엔진이 지원하는 것만)", "logic"), "params": ("효과 매개변수 (JSON 객체, 하위 ops 포함)", "logic"),
 }
+GUIDE_IMG_TEXT = "이미지는 실제 파일로 관리합니다 (CardImage 폴더의 id_XXXX.jpg). Cards 시트의 image_file 열에 파일명을 적으면 게임에 반영됩니다 (cards.json 에는 경로만 저장, base64 없음). 새 이미지는 CardImage 폴더에 넣고 image_file 만 적으세요."
 FILL = {"key": "D9E1F2", "logic": "FCE4D6", "display": "E2EFDA", "meta": "FFF2CC", "readonly": "D9D9D9"}
 
 
@@ -99,14 +105,15 @@ def ab_columns(cards):
     return [k for k in AB_FIRST if k in freq or k == "ops"] + rest
 
 
-def img_info(card):
-    im = card.get(CARD_IMG) or ""
-    if not im: return "(이미지 없음)"
-    head, _, b64 = im.partition(",")
-    return f"{head.replace('data:', '')} {len(b64) * 3 // 4 // 1024}KB sha1:{hashlib.sha1(im.encode()).hexdigest()[:8]}"
+def img_info(card, img_dir=None):
+    """참고용 표시: 'WxH 용량'. 파일이 없으면 '(파일 없음)'. (v1.14.0: 실제 이미지 파일 기준)"""
+    f = card.get("file") or ""
+    if not f: return "(이미지 없음)"
+    if CI.check_name(f): return "(잘못된 파일명)"
+    return CI.info_text(Path(img_dir or CI.img_dir()) / f)
 
 
-def card_rows(cards):
+def card_rows(cards, img_dir=None):
     """cards(dict id→card) → (Cards 행, Abilities 행(dict), Ops 행, CardExtra 행). 정렬: ID 순."""
     cr, ar, orows, er = [], [], [], []
     for cid in sorted(cards):
@@ -116,7 +123,9 @@ def card_rows(cards):
             if k in c:
                 v = c[k]
                 row[k] = (int(v) if k in NUM_COLS and isinstance(v, str) and re.fullmatch(r"0|[1-9]\d*", v) else v)
-        row["ab_count"] = len(c.get(CARD_ABKEY) or []); row["img_info"] = img_info(c)
+        row["ab_count"] = len(c.get(CARD_ABKEY) or []); row["img_info"] = img_info(c, img_dir)
+        for k0, h0 in HDR_NAME.items():
+            if k0 in row: row[h0] = row.pop(k0)
         cr.append(row)
         for i, a in enumerate(c.get(CARD_ABKEY) or []):
             arow = {"card_id": cid, "ab_index": i}
@@ -180,9 +189,13 @@ def read_workbook(path):
     cards, order = {}, {}
     # --- Cards
     ws = wb["Cards"]; hdr, hx = _headers(ws, "Cards", [c for c in CARD_COLS if c not in OPTIONAL_COLS], probs)
+    for h0, k0 in HDR_ALIAS.items():      # image_file 열 → JSON 필드 file (옛 Excel 의 file 열도 그대로 인정)
+        if h0 in hx:
+            if k0 in hx: probs.append(Problem("WARN", None, "Cards 시트", f"'{h0}' 열과 '{k0}' 열이 둘 다 있습니다 — '{h0}' 열만 사용하고 '{k0}' 열은 무시합니다"))
+            hx[k0] = hx[h0]
     LAST_HAS.clear(); LAST_HAS.update(c for c in OPTIONAL_COLS if c in hx)
     if probs: return None, None, probs
-    known = set(CARD_COLS) | set(CARD_READONLY)
+    known = set(CARD_COLS) | set(CARD_READONLY) | set(HDR_ALIAS)
     for h in hx:
         if h not in known: probs.append(Problem("WARN", None, "Cards 시트", f"알 수 없는 열 '{h}' 은(는) 무시됩니다 (메모용 열은 이름 앞에 # 을 붙이세요)"))
     for r, row in _rows(ws):
@@ -335,7 +348,6 @@ def merge_with_base(xl_cards, xl_meta, base):
             card = {k: x[k] for k in CARD_COLS if k in x}; card["ab"] = x.get("ab", [])
             for k, v in x.items():
                 if k not in CORE_KEYS: card[k] = v
-            card["img"] = ""
         else:
             card = copy.deepcopy(b)
             for k in CARD_COLS:
@@ -347,6 +359,7 @@ def merge_with_base(xl_cards, xl_meta, base):
             else: card["ab"] = reorder_like(x.get("ab", []), b.get("ab") or [])
             for k, v in x.items():
                 if k not in CORE_KEYS: card[k] = v
+        card["img"] = CI.img_path(card.get("file") or "")      # v1.14.0: 게임이 읽는 이미지 경로는 image_file(file) 에서 만든다 (base64 저장 안 함)
         out_cards[cid] = card
     out = {}
     for k, v in (base or {}).items():
@@ -396,7 +409,7 @@ def own_problems(cid, abs_):
     return out
 
 
-def validate_cards(cards, base, allow_delete=(), use_node=True, min_ratio=0.9, partial=False):
+def validate_cards(cards, base, allow_delete=(), use_node=True, min_ratio=0.9, partial=False, img_dir=None):
     """의미 검증(스키마). 반환: problems 리스트."""
     probs = []; st = base_stats(base); bc = (base or {}).get("cards", {}) if base else {}
     types = st["types"] - {None} or {"char", "event", "partner", "case"}
@@ -424,6 +437,7 @@ def validate_cards(cards, base, allow_delete=(), use_node=True, min_ratio=0.9, p
                     probs.append(Problem("ERROR", cid, f"{w}, 열 {k}", f"'{k}' 값의 형식이 올바르지 않습니다 (현재 DB: {'/'.join(sorted(ts))}, 입력: {type(v).__name__} {json.dumps(v, ensure_ascii=False)[:50]})"))
             if "lim" in a and (not isinstance(a["lim"], int) or isinstance(a["lim"], bool) or not 0 <= a["lim"] <= 3): probs.append(Problem("ERROR", cid, f"{w}, 열 lim", f"lim 은 0~3 의 정수여야 합니다: {a['lim']!r}"))
     for cid in sorted(cards): probs += own_problems(cid, cards[cid].get("ab") or [])
+    probs += image_problems(cards, img_dir)
     # 카드 삭제/급감 (요약을 맨 앞에)
     missing = [] if partial else sorted(set(bc) - set(cards)); ad = set(allow_delete); head = []
     if bc and not partial and len(cards) < len(bc) * min_ratio and not ad: head.append(Problem("ERROR", None, "Cards 시트", f"카드 수가 급감했습니다 ({len(bc)} → {len(cards)}장). 행을 실수로 지운 것이 아닌지 확인하세요"))
@@ -433,6 +447,34 @@ def validate_cards(cards, base, allow_delete=(), use_node=True, min_ratio=0.9, p
     probs = head + probs
     if use_node:
         probs += node_check(cards, bc)
+    return probs
+
+
+def image_problems(cards, img_dir=None):
+    """v1.14.0: Cards 시트 image_file 검증 — 형식(경로/URL 금지) · 파일 존재 · 중복 사용 · 저해상도 · 폴더에만 있는 파일"""
+    probs, d = [], Path(img_dir) if img_dir else CI.img_dir()
+    have_dir = d.is_dir(); used = {}
+    if not have_dir: probs.append(Problem("WARN", None, "이미지 폴더", f"이미지 폴더({d})가 없어 image_file 의 파일 존재 검사는 건너뜁니다"))
+    low = []
+    for cid in sorted(cards):
+        f = cards[cid].get("file") or ""; w = "Cards 시트 image_file"
+        if f == "": probs.append(Problem("WARN", cid, w, "image_file 이 비어 있어 카드 이미지가 표시되지 않습니다 (CardImage 폴더에 파일을 넣고 파일명을 적으세요, 예: " + cid + ".jpg)")); continue
+        bad = CI.check_name(f)
+        if bad: probs.append(Problem("ERROR", cid, w, f"image_file 값이 올바르지 않습니다: {f!r} — {bad}")); continue
+        used.setdefault(f.lower(), []).append(cid)
+        if have_dir:
+            fp = d / f
+            if not fp.is_file(): probs.append(Problem("ERROR", cid, w, f"image_file 의 파일이 {CI.IMG_DIR_NAME} 폴더에 없습니다: {f} (파일명을 확인하거나 이미지를 넣으세요)")); continue
+            sz = CI.read_size(fp)
+            if sz is None: probs.append(Problem("ERROR", cid, w, f"이미지 파일을 읽을 수 없습니다(깨졌거나 이미지가 아님): {f}"))
+            elif min(sz) < CI.MIN_W: low.append((cid, f, sz))
+    for f, ids in sorted(used.items()):
+        if len(ids) > 1: probs.append(Problem("WARN", ids[0], "Cards 시트 image_file", f"같은 이미지 파일을 여러 카드가 사용합니다: {f} ← {', '.join(ids)}"))
+    for cid, f, sz in low[:20]: probs.append(Problem("WARN", cid, "Cards 시트 image_file", f"해상도가 낮습니다: {f} ({sz[0]}x{sz[1]})"))
+    if len(low) > 20: probs.append(Problem("WARN", None, "이미지", f"… 저해상도 이미지 {len(low) - 20}장 더 있습니다"))
+    if have_dir:
+        extra = sorted(x.name for x in d.iterdir() if x.is_file() and x.suffix.lower() in (".jpg", ".jpeg", ".png", ".webp") and x.name.lower() not in used)
+        if extra: probs.append(Problem("WARN", None, "이미지 폴더", f"어떤 카드의 image_file 에도 연결되지 않은 파일 {len(extra)}개: {', '.join(extra[:10])}" + (" …" if len(extra) > 10 else "")))
     return probs
 
 
@@ -482,7 +524,9 @@ def changes(base, new):
         out = []
         for k in list(bc[cid]) + [k for k in nc[cid] if k not in bc[cid]]:
             if k == "img":
-                if bc[cid].get(k) != nc[cid].get(k): out.append("img: (이미지 데이터 변경)")
+                if bc[cid].get(k) != nc[cid].get(k):
+                    o_, n_ = bc[cid].get(k) or "", nc[cid].get(k) or ""
+                    out.append("img: " + ("(base64)" if o_.startswith("data:") else _short(o_)) + " → " + ("(base64)" if n_.startswith("data:") else _short(n_)))
                 continue
             if k not in nc[cid]: out.append(f"{k}: {_short(bc[cid][k])} → (삭제)")
             elif k not in bc[cid]: out.append(f"{k}: (없음) → {_short(nc[cid][k])}")
@@ -503,13 +547,13 @@ def report_text(added, removed, ch, other=()):
 
 
 # ───────── JSON → 워크북 ─────────
-def write_workbook(db, path, base_for_img=None):
+def write_workbook(db, path, base_for_img=None, img_dir=None):
     import openpyxl
     from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.comments import Comment
     from openpyxl.worksheet.datavalidation import DataValidation
     cards = db["cards"]
-    cr, ar, orows, er = card_rows(cards)
+    cr, ar, orows, er = card_rows(cards, img_dir)
     wb = openpyxl.Workbook(); wb.remove(wb.active)
     hdrfont = Font(bold=True, color="000000")
     def fill(kind): return PatternFill("solid", fgColor=FILL[kind])
@@ -534,9 +578,9 @@ def write_workbook(db, path, base_for_img=None):
                 if DESC.get(h, ("", ""))[1] == "readonly": cell.fill = fill("readonly")
         ws.freeze_panes = freeze; ws.auto_filter.ref = f"A1:{_colname(len(cols) - 1)}{max(len(rows) + 1, 2)}"
         return ws
-    ccols = CARD_COLS + CARD_READONLY
+    ccols = [HDR_NAME.get(c, c) for c in CARD_COLS] + CARD_READONLY
     for r in cr: pass
-    ws = sheet("Cards", ccols, cr, {"id": 11, "type": 9, "color": 14, "lv": 5, "lv2": 5, "ap": 8, "lp": 5, "kw": 14, "trait": 28, "n": 22, "series": 9, "fx": 70, "extra": 70, "file": 16, "ab_count": 9, "img_info": 26}, wrap=("fx", "extra", "trait"), numeric=NUM_COLS)
+    ws = sheet("Cards", ccols, cr, {"id": 11, "type": 9, "color": 14, "lv": 5, "lv2": 5, "ap": 8, "lp": 5, "kw": 14, "trait": 28, "n": 22, "series": 9, "fx": 70, "extra": 70, "image_file": 18, "ab_count": 9, "img_info": 22}, wrap=("fx", "extra", "trait"), numeric=NUM_COLS)
     for rr in range(2, len(cr) + 2): ws.cell(rr, ccols.index("ab_count") + 1).value = f'=COUNTIF(Abilities!$A:$A,A{rr})'; ws.cell(rr, ccols.index("ab_count") + 1).fill = fill("readonly")
     acols = AB_FIXED + ab_columns(cards) + AB_READONLY
     sheet("Abilities", acols, ar, {"card_id": 11, "ab_index": 8, "ic": 12, "txt": 60, "lim": 6, "cond": 36, "tgt": 30, "cost": 30, "ops": 10}, wrap=("txt", "cond", "tgt", "cost"), freeze="C2", numeric=("lim",))
@@ -568,7 +612,7 @@ def write_workbook(db, path, base_for_img=None):
             ("사용법", "Cards 시트에서 카드 ID 를 검색(Ctrl+F)해 셀을 고치고 저장 → GitHub 에 올리면 자동 검증/변환/배포됩니다.", ""),
             ("연결 키", "항상 카드 ID(id / card_id). 행 순서·정렬은 마음대로 바꿔도 됩니다.", ""),
             ("시트", "Cards=카드 기본 정보 / Abilities=능력(ab) 1개당 1행 / Ops=능력 안의 효과(primitive) 1개당 1행 / CardExtra=추가 필드 / Meta=최상위 항목", ""),
-            ("이미지", "이미지(base64)는 Excel 에 없습니다. cards.json 에 그대로 보존되며 ID 로 자동 연결됩니다.", ""),
+            ("이미지", GUIDE_IMG_TEXT, ""),
             ("own(소유자)", "굵은 발동 조건/코스트(Abilities 의 cond/cost)에서 own 이 없으면 자기 쪽(self)입니다. 실제 효과 대상은 Ops 시트의 filter_own 열(self/opp/any 드롭다운)에서 관리합니다. 비워 두면 '미지정'으로 검증이 경고합니다.", ""),
             ("메모 열", "열 이름 앞에 # 또는 _ 를 붙이면 변환 시 무시됩니다.", ""), ("", "", ""), ("머리글 색", "의미", ""),
             ("파랑", "연결 키(ID/번호) — 바꾸지 마세요", "key"), ("주황", "엔진 동작에 영향을 주는 값(색/AP/LP/효과 등)", "logic"), ("초록", "표시용 텍스트 — 고쳐도 게임 로직은 바뀌지 않음", "display"),

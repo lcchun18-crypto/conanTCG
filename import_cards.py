@@ -26,6 +26,8 @@ try:
     import effect_rules  # 규칙 기반 효과 변환기(같은 폴더)
 except ImportError:
     effect_rules = None
+sys.path.insert(0, str(Path(__file__).resolve().parent / "tools"))
+import card_images as CI  # v1.14.0: 카드 이미지는 파일(CardImage/<ID>.jpg)로 관리 — cards.json 에는 경로만 기록한다 (base64 저장 안 함)
 
 for _st in (sys.stdout, sys.stderr):  # Windows 콘솔(cp949 등)에서 일본어/한글 출력으로 죽지 않도록
     try: _st.reconfigure(encoding="utf-8", errors="replace")
@@ -317,7 +319,7 @@ def apply_type(d, landscape=None):
 def read_card(cli, model, p, cache, a):
     cf = cache / f"{CACHE_VER}_{p.stem}.json"
     if cf.exists():
-        d = json.loads(cf.read_text("utf-8")); apply_type(d); return d  # 예전 캐시(종류를 모델이 정해 둔 것)도 카드 필드 근거로 다시 판정 — API 재호출 없음
+        d = json.loads(cf.read_text("utf-8")); d.pop("img", None); d["src_path"] = str(p); d["file"] = d.get("file") or p.name; apply_type(d); return d  # 예전 캐시(종류를 모델이 정해 둔 것)도 카드 필드 근거로 다시 판정 — API 재호출 없음
     full, box, thumb, im = prep(p, a.send_px, a.crop_px, a.thumb_px); d = None
     for attempt in range(3):
         d = ask(cli, model, SYS1, card_content(full, box), TOOL1, 4096, p.name)
@@ -325,7 +327,7 @@ def read_card(cli, model, p, cache, a):
         break
     d = norm1(d)
     for bad, good in FIX.items(): d["fx_ja"] = (d.get("fx_ja") or "").replace(bad, good)
-    d["img"] = thumb; d["file"] = p.name; d["series"] = series_of(p)
+    d["file"] = p.name; d["src_path"] = str(p); d["series"] = series_of(p)   # v1.14.0: 썸네일(base64)은 저장하지 않는다 — 원본 파일을 CardImage/<ID> 로 복사해 쓴다
     apply_type(d, im.size[0] > im.size[1])
     if d["type"] in ("char", "event", "case"): check_color(d, im)
     cf.write_text(json.dumps(d, ensure_ascii=False), "utf-8"); return d
@@ -489,7 +491,10 @@ def card_entry(cid, d, st):
     """1단계 결과 d + 2단계 결과 st → (DB 카드 dict, 확인 필요 사유 목록)"""
     ab = st.get("abilities", []); man = "manual" in json.dumps(ab)
     card = {"id": cid, "n": d["name"], "type": d["type"], "color": d.get("color", ""), "lv": d.get("lv", ""), "lv2": d.get("lv2", ""), "ap": d.get("ap", ""), "lp": d.get("lp", ""),
-            "kw": st.get("kw", "") or d.get("kw", ""), "trait": d.get("trait", ""), "fx": d.get("fx_ja", ""), "extra": d.get("fx_ko", ""), "ab": ab, "img": d["img"], "file": d.get("file", ""), "series": d.get("series", "")}
+            "kw": st.get("kw", "") or d.get("kw", ""), "trait": d.get("trait", ""), "fx": d.get("fx_ja", ""), "extra": d.get("fx_ko", ""), "ab": ab, "img": "", "file": d.get("file", ""), "series": d.get("series", "")}
+    if d.get("src_path"):   # 새 이미지: 원본 파일 그대로 CardImage/<ID>.<확장자> (재압축 없음). 실제 복사는 commit_images() 가 저장 직전에 한다
+        card["file"], card["img"] = CI.stage_image(cid, d["src_path"])
+    else: card["img"] = CI.img_path(card["file"])   # 이미 파일 방식인 카드(--effects-only 등)는 그대로
     fl = list(d.get("flags", []))
     if d["type"] == "char" and not (d.get("ap") and d.get("lp")): fl.append("AP/LP 없음")
     if d.get("fx_ja") and d["type"] != "partner" and not ab and not st.get("_nostruct"): fl.append("효과 텍스트는 있는데 효과 데이터 없음")
@@ -502,17 +507,18 @@ def base_from_db(src):
     data = json.loads(Path(src).read_text("utf-8")); res = []
     for cid, c in data.get("cards", {}).items():
         d = {"name": c.get("n", ""), "type": c.get("type", "char"), "color": c.get("color", ""), "lv": c.get("lv", ""), "lv2": c.get("lv2", ""), "ap": c.get("ap", ""), "lp": c.get("lp", ""),
-             "trait": c.get("trait", ""), "fx_ja": c.get("fx", ""), "fx_ko": c.get("extra", ""), "img": c.get("img", ""), "file": c.get("file") or f"{cid}(파일명 미저장)", "flags": [], "kw": c.get("kw", "")}
+             "trait": c.get("trait", ""), "fx_ja": c.get("fx", ""), "fx_ko": c.get("extra", ""), "file": c.get("file") or "", "flags": [], "kw": c.get("kw", "")}
         res.append((cid, d))
     return res
 
 
-def recheck_color(d):
-    """저장된 썸네일로 색 판별을 다시 수행(이미지 원본/API 불필요)"""
-    img = d.get("img", "")
-    if d["type"] in ("char", "event", "case") and img.startswith("data:image"):
-        try: check_color(d, Image.open(io.BytesIO(base64.b64decode(img.split(",", 1)[1]))).convert("RGB"))
-        except Exception as e: d["flags"].append(f"썸네일 색 판별 실패: {e}")
+def recheck_color(d, img_dir=None):
+    """저장된 이미지 파일(CardImage/<file>)로 색 판별을 다시 수행 (이미지 파일이 없으면 건너뜀)"""
+    f = d.get("file") or ""
+    p = Path(img_dir or CI.img_dir()) / f
+    if d["type"] in ("char", "event", "case") and f and not CI.check_name(f) and p.is_file():
+        try: check_color(d, Image.open(p).convert("RGB"))
+        except Exception as e: d["flags"].append(f"이미지 색 판별 실패: {e}")
 
 
 def effects_only(cli, a, out):
@@ -541,6 +547,9 @@ def effects_only(cli, a, out):
 
 
 def write_outputs(a, out, cards, rows, fails):
+    imgd = CI.img_dir_for(out) if (out.name == "cards.json" and out.parent.name == "data") else out.parent / CI.IMG_DIR_NAME
+    done = CI.commit_images(imgd)   # 새 카드 이미지를 먼저 복사한다 (실패하면 cards.json 을 쓰지 않는다)
+    if done: print(f"카드 이미지 {len(done)}장을 {imgd} 에 저장했습니다 (원본 그대로, 재압축 없음)")
     order = sorted(cards)  # 결과 파일은 항상 ID 순서(재현 가능)
     out.write_text(json.dumps({"cards": {k: cards[k] for k in order}, "decks": {}}, ensure_ascii=False, separators=(",", ":")), "utf-8")
     with open(out.with_suffix(".review.csv"), "w", newline="", encoding="utf-8-sig") as fh:

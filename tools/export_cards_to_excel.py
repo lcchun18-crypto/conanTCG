@@ -21,9 +21,10 @@ ROOT = X.ROOT
 def export(json_path, xlsx_path, update_ids=(), prefer_json=False, rebuild=False, quiet=False):
     log = (lambda *a: None) if quiet else print
     json_path, xlsx_path = Path(json_path), Path(xlsx_path)
+    imgd = X.CI.img_dir_for(json_path)
     db = X.load_json(json_path)
     if rebuild or not xlsx_path.exists():
-        info = X.write_workbook(db, xlsx_path); log(f"{xlsx_path} 생성: 카드 {info['cards']}장 / 능력 {info['abilities']}행 / 효과 {info['ops']}행"); return {"created": True, **info}
+        info = X.write_workbook(db, xlsx_path, img_dir=imgd); log(f"{xlsx_path} 생성: 카드 {info['cards']}장 / 능력 {info['abilities']}행 / 효과 {info['ops']}행"); return {"created": True, **info}
     xl_cards, xl_meta, probs = X.read_workbook(xlsx_path)
     errs = [p for p in probs if p.level == "ERROR"]
     if errs or xl_cards is None:
@@ -51,7 +52,7 @@ def export(json_path, xlsx_path, update_ids=(), prefer_json=False, rebuild=False
     for k, v in (xl_meta or {}).items(): out.setdefault(k, v)
     bak = xlsx_path.with_name(xlsx_path.stem + ".backup.xlsx")
     shutil.copy2(xlsx_path, bak)
-    info = X.write_workbook(out, xlsx_path)
+    info = X.write_workbook(out, xlsx_path, img_dir=imgd)
     log(f"{xlsx_path} 갱신: 카드 {info['cards']}장 (새로 추가 {len(added)}장, JSON 값으로 교체 {len(repl)}장)  — 이전 파일은 {bak.name} 로 백업")
     if added: log("  추가된 카드: " + ", ".join(added[:20]) + (f" … 외 {len(added) - 20}장" if len(added) > 20 else ""))
     if kept_diff: log(f"  주의: Excel 과 cards.json 의 값이 다른 카드 {len(kept_diff)}장 — Excel 값을 유지했습니다(빌드하면 JSON 이 Excel 에 맞춰집니다): " + ", ".join(kept_diff[:15]) + (" …" if len(kept_diff) > 15 else ""))

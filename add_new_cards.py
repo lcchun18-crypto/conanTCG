@@ -99,7 +99,7 @@ def _kw_conditional_fix(card):
 def from_transcription(a, folder, old):
     """카드 데이터(JSON, 이미지를 읽어 옮겨 적은 값)에서 새 카드 엔트리를 만든다. API 호출 없음.
     JSON 항목: id, n, type, color, lv, lv2, ap, lp, trait, kw, fx(일본어 원문), extra(한국어), src(이미지 파일명, 없으면 ID_<id>_* 로 찾음)
-    이미지는 썸네일(img)과 색 검증(card_color: FILE 원/프레임 우선, 일러스트 색 안 씀)에만 쓴다."""
+    이미지는 원본 그대로 CardImage/<ID>.<확장자> 로 복사하고 cards.json 에는 경로만 기록한다 (v1.14.0). 색 검증(card_color: FILE 원/프레임 우선)에도 쓴다."""
     recs = json.loads(Path(a.from_json).read_text("utf-8"))
     todo, dup_exist, dup_in, seen = [], [], [], set()
     for r in recs:
@@ -117,7 +117,7 @@ def from_transcription(a, folder, old):
             _full, _box, thumb, im = ic.prep(p, a.send_px, a.crop_px, a.thumb_px)
             d = {"name": r["n"], "type": r["type"], "color": r.get("color", ""), "lv": str(r.get("lv", "") or ""), "lv2": str(r.get("lv2", "") or ""), "ap": str(r.get("ap", "") or ""),
                  "lp": str(r.get("lp", "") or ""), "kw": r.get("kw", "") or "", "trait": r.get("trait", "") or "", "fx_ja": r.get("fx", "") or "", "fx_ko": r.get("extra", "") or "",
-                 "img": thumb, "file": Path(p).name, "series": ic.series_of(p), "flags": []}
+                 "src_path": str(p), "file": Path(p).name, "series": ic.series_of(p), "flags": []}
             if r["type"] in ("char", "event", "case"):
                 before = d["color"]; ic.check_color(d, im)
                 if d["color"] != before and not r.get("color_locked"): d["color"] = before; d["flags"].append(f"색 검사 제안 무시(원문 색 유지): {before}")
@@ -152,6 +152,11 @@ def commit(a, db_path, data, old, new, rows, fails, stats, n_old, stamp, rep_dir
         bk_dir = db_path.parent / "backup"; bk_dir.mkdir(exist_ok=True); bk = bk_dir / f"cards-{stamp}.json"; k = 1
         while bk.exists(): k += 1; bk = bk_dir / f"cards-{stamp}-{k}.json"  # 같은 초에 다시 실행해도 기존 백업을 덮어쓰지 않는다
         shutil.copy2(db_path, bk)
+    try:   # v1.14.0: 새 카드 이미지는 원본 그대로 CardImage/<ID>.<확장자> 로 복사(재압축 없음) → cards.json 에는 경로만 기록
+        done = ic.CI.commit_images(ic.CI.img_dir_for(db_path), set(new))
+        if done: print(f"카드 이미지 {len(done)}장을 {ic.CI.img_dir_for(db_path)} 에 저장했습니다")
+    except Exception as e:
+        print(f"이미지 저장 실패 — cards.json 은 그대로입니다: {e}"); stats(0, len(fails) + len(new), n_old); return 1
     try: final = atomic_write(db_path, out, merged.keys(), keep)
     except Exception as e:
         print(f"저장 실패 — 기존 cards.json 은 그대로입니다: {e}"); stats(0, len(fails) + len(new), n_old); return 1

@@ -1,13 +1,14 @@
 // CT-P11 신규 88장: 전수 실플레이 스모크(수동 fallback 없이 엔진이 끝까지 처리) + 데이터 검증 + 위험 카드 개별 테스트
 const U = require('./mz_util'); const { t, G, real, dummy, field, hand, rem, pa, play, auto, ok, eq, has, req, ans, fillFile, pump, evid, DB, FX } = U;
 const fs = require('fs'), path = require('path');
+const IMGD = process.env.CARD_IMAGE_DIR || require('path').join(__dirname, '..', 'CardImage');   // v1.14.0: 카드 이미지는 CardImage 폴더의 파일
 const NEW = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'ct11_ids.json'), 'utf8'));
 const BS = c => ({ p: { n: 'P', type: 'partner', color: c, lp: '1' }, k: { n: 'K', type: 'case', color: c, lv: '2', lv2: '3' } });
 const colors = c => String(c).split('/');
 // 데이터 검증
 t('ct11-data', '88장 모두 존재/이미지/색/타입/KO 텍스트/ab', () => {
   const db = DB(); eq(NEW.length, 88, '88장'); const seen = new Set();
-  for (const id of NEW) { const c = db[id]; ok(c, id + ' 없음'); ok(!seen.has(id), '중복'); seen.add(id); ok(c.img, id + ' img'); ok(fs.existsSync(path.join(__dirname, '..', c.img.replace(/^\/+/, ''))) || fs.existsSync(path.join(__dirname, '..', 'assets', path.basename(c.img))) || /^(data:|https?:)/.test(c.img), id + ' 이미지 파일'); ok(c.n, id + ' 이름');
+  for (const id of NEW) { const c = db[id]; ok(c, id + ' 없음'); ok(!seen.has(id), '중복'); seen.add(id); ok(c.img, id + ' img'); ok((/^CardImage\//.test(c.img) ? (!fs.existsSync(IMGD) || fs.existsSync(path.join(IMGD, c.img.slice(10)))) : false) || fs.existsSync(path.join(__dirname, '..', c.img.replace(/^\/+/, ''))) || fs.existsSync(path.join(__dirname, '..', 'assets', path.basename(c.img))) || /^(data:|https?:)/.test(c.img), id + ' 이미지 파일'); ok(c.n, id + ' 이름');
     ok(['char', 'event', 'case', 'partner'].includes(c.type), id + ' type'); ok(colors(c.color).every(x => ['red', 'blue', 'green', 'yellow', 'white', 'black'].includes(x)), id + ' color ' + c.color);
     if (c.type === 'char') ok(c.ap && c.lp, id + ' ap/lp'); ok(c.fx || c.type === 'partner', id + ' JP 텍스트'); if (c.ab && c.ab.length) ok(c.extra, id + ' KO 텍스트'); } });
 // 전수 실플레이: 카드 종류별로 가능한 모든 시작 방법으로 실행 → 예외/멈춤/수동 fallback 없음

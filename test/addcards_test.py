@@ -1,6 +1,7 @@
 """add_new_cards.py (증분 추가) 검증 — 모의 API 서버 사용. 실행: python test/addcards_test.py"""
 import json, os, re, shutil, subprocess, sys, tempfile
 from pathlib import Path
+os.environ.pop("CARD_IMAGE_DIR", None)   # v1.14.0: 임시 프로젝트를 쓰는 테스트는 실제 CardImage 폴더를 건드리지 않는다
 from PIL import Image, ImageDraw
 HERE = Path(__file__).parent; ROOT = HERE.parent; sys.path.insert(0, str(HERE)); sys.path.insert(0, str(HERE / "shim")); sys.path.insert(0, str(ROOT))
 import mock_api as M

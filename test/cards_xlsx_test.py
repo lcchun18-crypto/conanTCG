@@ -3,6 +3,7 @@
 실행: python3 test/cards_xlsx_test.py   (openpyxl, node 필요)"""
 import copy, io, json, os, random, shutil, subprocess, sys, tempfile, contextlib
 from pathlib import Path
+os.environ.pop("CARD_IMAGE_DIR", None)   # v1.14.0: 임시 프로젝트를 쓰는 테스트는 실제 CardImage 폴더를 건드리지 않는다
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 import cards_xlsx as X, build_cards_from_excel as B, export_cards_to_excel as E
@@ -66,7 +67,7 @@ new = X.merge_with_base(cards, meta, BASE)
 ok(new == BASE and X.dumps(new) == BASE_TEXT, "round-trip: cards.json → xlsx → cards.json 이 의미적으로 동일하고 바이트까지 동일")
 a, b = set(BASE["cards"]), set(new["cards"]); lost = [(cid, k) for cid in a for k in BASE["cards"][cid] if new["cards"][cid].get(k, "<X>") != BASE["cards"][cid][k]]
 ok(len(a) == len(b) == len(BASE["cards"]) and a == b and not lost, f"카드 수 {len(a)}→{len(b)}, ID 차이 0, 필드 손실/값 변경 {len(lost)}건")
-ok(all(new["cards"][i]["img"] == c["img"] and c["img"].startswith("data:image/") for i, c in BASE["cards"].items()), "이미지 1,251장 전부 보존 (Excel 에는 base64 없음)")
+ok(all(new["cards"][i]["img"] == c["img"] == "CardImage/" + c["file"] and "data:image" not in c["img"] for i, c in BASE["cards"].items()), f"이미지 {len(BASE['cards'])}장 전부 보존 (v1.14.0: base64 없이 CardImage/<image_file> 경로, Excel 값과 일치)")
 ok((d / "cards.xlsx").stat().st_size < 3_000_000, f"cards.xlsx 크기 {(d / 'cards.xlsx').stat().st_size // 1024}KB (이미지 미포함)")
 ok(sum(len(c["ab"]) for c in new["cards"].values()) == sum(len(c["ab"]) for c in BASE["cards"].values()), "능력(ab) 개수 보존")
 

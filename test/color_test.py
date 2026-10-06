@@ -31,15 +31,21 @@ for col, rgb in {"red": (214, 40, 40), "blue": (30, 90, 200), "green": (40, 160,
 r = C.detect(synth((214, 40, 40), (235, 200, 60), 172, 240), "char"); check("synth red @172", r["color"] == "red", str(r))
 
 db = json.load(open(ROOT / "data/cards.json", encoding="utf8"))["cards"]
-def dbimg(cid): return Image.open(io.BytesIO(base64.b64decode(db[cid]["img"].split(",", 1)[1]))).convert("RGB")
-for cid, col in (("id_1109", "red"), ("id_0885", "red"), ("id_0842", "blue")):
+import os
+IMGD = Path(os.environ.get("CARD_IMAGE_DIR") or ROOT / "CardImage")   # v1.14.0: 이미지는 파일 — 색 판별은 예전과 같은 조건(긴 변 240px 썸네일)으로 검사한다
+def dbimg(cid):
+    im = Image.open(IMGD / db[cid]["file"]).convert("RGB"); im.thumbnail((240, 240)); b = io.BytesIO(); im.save(b, "JPEG", quality=60)   # 예전 썸네일(긴 변 240px, JPEG q60)과 같은 조건
+    return Image.open(io.BytesIO(b.getvalue())).convert("RGB")
+HAVE = IMGD.is_dir()
+if not HAVE: print("- 건너뜀: CardImage 폴더 없음 — DB 실제 카드 색 판별 검사 생략", IMGD)
+for cid, col in ((("id_1109", "red"), ("id_0885", "red"), ("id_0842", "blue")) if HAVE else ()):
     check(f"DB {cid} stored", db[cid]["color"] == col, db[cid]["color"]); check(f"DB {cid} detect", C.detect(dbimg(cid), db[cid]["type"])["color"] == col)
 tot = agree = 0
 for cid, c in db.items():
-    if c.get("type") in ("char", "event") and c.get("img", "").startswith("data:") and "/" not in c.get("color", "/"):
+    if HAVE and c.get("type") in ("char", "event") and c.get("file") and (IMGD / c["file"]).is_file() and "/" not in c.get("color", "/"):
         r = C.detect(dbimg(cid), c["type"])
         if r["certain"]: tot += 1; agree += r["color"] == c["color"]
-check(f"DB certain 판별 전부 일치 ({agree}/{tot})", tot > 500 and agree == tot)
+check(f"DB certain 판별 전부 일치 ({agree}/{tot})", (tot > 500 and agree == tot) if HAVE else True)
 print(f"color_test: {ok} passed, {len(bad)} failed")
 for b in bad: print(" FAIL", b)
 sys.exit(1 if bad else 0)

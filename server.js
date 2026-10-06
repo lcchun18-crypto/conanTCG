@@ -68,12 +68,15 @@ function start(R) { R.phase = 'mull'; R.first = R.firstPref === 0 || R.firstPref
   R.P.forEach(P => { shuf(P.deck); for (let i = 0; i < 5; i++) P.hand.push(P.deck.pop()); });
   say(R, `선공: ${nm(R.first)}. 손패 교체(멀리건)는 1회 가능합니다.`); }
 
+// v1.14.0: 카드 이미지는 파일(CardImage/<파일명>) — 클라이언트가 보내는 img 는 '우리 서버의 CardImage 상대 경로'만 받는다(다른 사이트 URL·경로 이탈 차단). 옛 data URL 은 호환용으로만 허용.
+const IMG_REL = /^CardImage\/[A-Za-z0-9][A-Za-z0-9_.-]{0,118}\.(jpg|jpeg|png|webp)$/i;
+function cleanImg(v) { v = String(v || ''); if (IMG_REL.test(v) && !v.includes('..')) return v; return v.startsWith('data:image/') ? v.slice(0, 200000) : ''; }
 function ready(R, s, m) {
   if (R.phase !== 'setup') return '이미 게임이 시작되었습니다';
   const defs = {}, P = R.P[s], T = ['partner', 'char', 'event', 'case'];
   Object.entries(m.defs || {}).slice(0, 300).forEach(([id, d]) => { defs[id] = R.defs[s + ':' + id] = {
     n: cl(d.n, 80), type: T.includes(d.type) ? d.type : 'char', color: cl(d.color, 30), lv: cl(d.lv, 4), lv2: cl(d.lv2, 4), ap: cl(d.ap, 8),
-    lp: cl(d.lp, 4), kw: cl(d.kw, 100), trait: cl(d.trait, 100), ab: FX.cleanAb(typeof d.ab === 'string' ? (() => { try { return JSON.parse(d.ab); } catch { return []; } })() : d.ab), fx: cl(d.fx), extra: cl(d.extra), img: String(d.img || '').startsWith('data:image/') ? d.img.slice(0, 200000) : '' }; });
+    lp: cl(d.lp, 4), kw: cl(d.kw, 100), trait: cl(d.trait, 100), ab: FX.cleanAb(typeof d.ab === 'string' ? (() => { try { return JSON.parse(d.ab); } catch { return []; } })() : d.ab), fx: cl(d.fx), extra: cl(d.extra), img: cleanImg(d.img) }; });
   const L = m.list || [];
   if (L.length !== 40) return `덱은 정확히 40장이어야 합니다 (현재 ${L.length}장)`;
   for (const id of L) { const d = defs[id]; if (!d || !['char', 'event'].includes(d.type)) return '덱에는 캐릭터/이벤트 카드만 넣을 수 있습니다'; }
@@ -290,6 +293,17 @@ function serveCards(q, r) {
   r.writeHead(200, h); r.end(q.method === 'HEAD' ? undefined : gz ? c.gz : c.body);
 }
 
+const IMG_DIR = process.env.CARD_IMAGE_DIR ? path.resolve(process.env.CARD_IMAGE_DIR) : path.join(__dirname, 'CardImage');
+function serveCardImage(q, r, name, MIME) {
+  fs.stat(path.join(IMG_DIR, name), (e, st) => {
+    if (e || !st.isFile()) { r.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-cache' }); return r.end('image not found'); }
+    const etag = '"' + st.size.toString(16) + '-' + Math.floor(st.mtimeMs).toString(16) + '"';
+    const h = { 'Content-Type': MIME[path.extname(name).toLowerCase()], 'Content-Length': st.size, 'ETag': etag, 'Last-Modified': st.mtime.toUTCString(), 'Cache-Control': 'public, max-age=600' };   // 이미지를 바꾸면 10분 안에(새로고침하면 즉시) 반영
+    if (q.headers['if-none-match'] === etag) { delete h['Content-Length']; r.writeHead(304, h); return r.end(); }
+    r.writeHead(200, h); if (q.method === 'HEAD') return r.end();
+    fs.createReadStream(path.join(IMG_DIR, name)).on('error', () => r.destroy()).pipe(r);
+  });
+}
 function main() {
   const { WebSocketServer } = require('ws');
   // UI 정적 자산(카드 뒷면 등): /assets/<파일명> 만 제공 (게임 로직과 무관)
@@ -301,6 +315,10 @@ function main() {
     if ((q.url || '').split('?')[0] === '/api/specialists') { // 전문 봇 목록 (registry 에서 자동 생성). 전략 프로필은 내보내지 않는다.
       let body; try { body = { specialists: require('./bot/specialists/registry').list(cardsObj()), problems: require('./bot/specialists/registry').problems() }; } catch (e) { body = { specialists: [], problems: ['전문 봇 목록을 만들 수 없습니다: ' + e.message] }; }
       r.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); return r.end(JSON.stringify(body)); }
+    if ((q.url || '').split('?')[0].startsWith('/CardImage/')) {   // v1.14.0: 카드 이미지 원본 파일 (cards.json 의 img = "CardImage/<파일>"). 이 경로 아래는 이미지 파일 아니면 전부 404 (index.html 로 넘기지 않는다)
+      const mi = /^\/CardImage\/([A-Za-z0-9_][A-Za-z0-9_.-]*\.(?:jpg|png|webp))$/i.exec((q.url || '').split('?')[0]);
+      if (mi && !mi[1].includes('..')) return serveCardImage(q, r, mi[1], MIME);
+      r.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-cache' }); return r.end('image not found'); }
     const m = /^\/assets\/([\w.-]+)$/.exec((q.url || '').split('?')[0]);
     if (m && MIME[path.extname(m[1]).toLowerCase()]) return fs.readFile(path.join(__dirname, 'assets', m[1]), (e, d) => { if (e) { r.writeHead(404); return r.end(); } r.writeHead(200, { 'Content-Type': MIME[path.extname(m[1]).toLowerCase()], 'Cache-Control': 'public, max-age=86400' }); r.end(d); });
     fs.readFile(path.join(__dirname, 'index.html'), (e, d) => { if (e) { r.writeHead(500); return r.end('index.html 을 읽을 수 없습니다'); } r.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' }); r.end(d); }); });

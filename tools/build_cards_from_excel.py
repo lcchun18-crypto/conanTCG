@@ -28,10 +28,11 @@ def show_warns(warns, log, limit=20):
     for p in own[:limit]: log("WARN\n" + str(p))
     if len(own) > limit: log(f"… 외 own 미지정 경고 {len(own) - limit}건 (전체: node tools/ownership_audit.js, data/ownership_review.csv)")
 
-def build(xlsx, base_path, out_path, allow_delete=(), dry_run=False, check=False, use_node=True, report=None, quiet=False):
+def build(xlsx, base_path, out_path, allow_delete=(), dry_run=False, check=False, use_node=True, report=None, quiet=False, img_dir=None):
     """반환: (종료코드, 정보 dict)"""
     log = (lambda *a: None) if quiet else print
     xlsx, base_path, out_path = Path(xlsx), Path(base_path), Path(out_path)
+    img_dir = Path(img_dir) if img_dir else X.CI.img_dir_for(base_path)
     if not xlsx.exists():
         log(f"ERROR\n{xlsx}\n  Excel 파일이 없습니다. 먼저 `python tools/export_cards_to_excel.py` 로 만드세요."); return 1, {}
     base, base_text = None, None
@@ -42,14 +43,13 @@ def build(xlsx, base_path, out_path, allow_delete=(), dry_run=False, check=False
     xl_cards, xl_meta, probs = X.read_workbook(xlsx)
     errs = [p for p in probs if p.level == "ERROR"]; warns = [p for p in probs if p.level != "ERROR"]
     if xl_cards is not None:   # 읽기 오류가 있어도 가능한 검증은 계속해서 한 번에 모두 알려 준다
-        vp = X.validate_cards(xl_cards, base, allow_delete=allow_delete, use_node=use_node, partial=bool(errs))
+        vp = X.validate_cards(xl_cards, base, allow_delete=allow_delete, use_node=use_node, partial=bool(errs), img_dir=img_dir)
         errs += [p for p in vp if p.level == "ERROR"]; warns += [p for p in vp if p.level != "ERROR"]
     if not errs:
         new = X.merge_with_base(xl_cards, xl_meta, base)
-        for cid, c in new["cards"].items():
+        for cid, c in new["cards"].items():     # v1.14.0: 이미지는 파일(CardImage) — img 는 image_file 에서 만든 경로여야 한다
             im = c.get("img", "")
-            if not im: warns.append(X.Problem("WARN", cid, "이미지", "이 카드에는 이미지 데이터가 없습니다 (신탄은 add_new_cards.py 로 추가하면 이미지가 함께 들어갑니다)"))
-            elif not im.startswith("data:image/"): errs.append(X.Problem("ERROR", cid, "이미지", "img 값이 이미지 data URL 이 아닙니다 (cards.json 의 img 는 Excel 에서 고치는 항목이 아닙니다)"))
+            if im.startswith("data:"): errs.append(X.Problem("ERROR", cid, "이미지", "img 에 base64 가 들어 있습니다 (이미지는 CardImage 폴더의 파일로 관리합니다)"))
     if not errs:   # 서버는 data/color_overrides.json 을 cards.json 위에 덮어써서 읽는다 → Excel 색과 다르면 알려 준다
         ovp = base_path.parent / "color_overrides.json"
         try: ov = json.loads(ovp.read_text("utf-8")) if ovp.exists() else {}

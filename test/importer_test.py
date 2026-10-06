@@ -2,6 +2,7 @@
 실행: python test/importer_test.py"""
 import json, os, shutil, subprocess, sys, tempfile
 from pathlib import Path
+os.environ.pop("CARD_IMAGE_DIR", None)   # v1.14.0: 임시 프로젝트를 쓰는 테스트는 실제 CardImage 폴더를 건드리지 않는다
 from PIL import Image, ImageDraw
 HERE = Path(__file__).parent; ROOT = HERE.parent; sys.path.insert(0, str(HERE)); sys.path.insert(0, str(HERE / "shim"))
 import mock_api as M
@@ -186,7 +187,7 @@ def _():
     ok(r.returncode == 0, o + r.stderr.decode("utf-8", "replace")); reqs = M.S["reqs"]; ok(len(reqs) == 19, f"효과 있는 19장만 요청해야 함: {len(reqs)}")
     ok(all(not any(c.get("type") == "image" for c in (q["messages"][0]["content"] if isinstance(q["messages"][0]["content"], list) else [])) for q in reqs), "이미지 블록이 전송됨")
     ok(all(q["tools"][0]["name"] == "abilities" and q["tool_choice"] == {"type": "auto"} for q in reqs), "2단계 도구 요청 형태")
-    ok((tmp / "eo.before-effects.json").exists(), "덮어쓰기 전 백업"); c = db(out); ok(len(c) == 20 and c["id_0001"]["img"] == FIX["id_0001"]["img"] and c["id_0001"]["fx"] == FIX["id_0001"]["fx"] and c["id_0001"]["extra"] == FIX["id_0001"]["extra"], "일/한 원문·썸네일 보존")
+    ok((tmp / "eo.before-effects.json").exists(), "덮어쓰기 전 백업"); c = db(out); ok(len(c) == 20 and c["id_0001"]["img"] == (lambda f: ("CardImage/" + f) if f else "")(FIX["id_0001"].get("file", "")) and "data:image" not in c["id_0001"]["img"] and c["id_0001"]["fx"] == FIX["id_0001"]["fx"] and c["id_0001"]["extra"] == FIX["id_0001"]["extra"], "일/한 원문 보존 + 이미지는 base64 가 아닌 CardImage 경로")
     ok((tmp / "eo.manual.txt").exists() and (tmp / "eo.review.csv").exists(), "manual.txt / review.csv")
     M.reset(); r = subprocess.run([sys.executable, str(IMP), "--effects-only", "--out", str(out), "--workers", "3"], capture_output=True, env=e, timeout=180, cwd=str(tmp)); ok(r.returncode == 0 and len(M.S["reqs"]) == 0, f"2회차 요청 {len(M.S['reqs'])}건")
 
@@ -203,7 +204,7 @@ def _():
     r = subprocess.run([sys.executable, str(IMP), "--effects-only", str(FIXJ), "--rules-only", "--out", str(out)], capture_output=True, env=env, timeout=120, cwd=str(tmp)); o = r.stdout.decode("utf-8", "replace")
     ok(r.returncode == 0, o + r.stderr.decode("utf-8", "replace")); ok("완전 자동 19장(100.0%)" in o and "manual 포함 0장" in o, o)
     res = node_check(out); ok(res["withFx"] == 19 and res["auto"] == 19 and res["manual"] == 0, str(res)); before = node_check(FIXJ); ok(before["auto"] == 6 and before["manual"] == 13, f"기준선: {before['auto']}/{before['manual']}")
-    ok(all(v["img"] == FIX[k]["img"] for k, v in db(out).items()), "썸네일 보존"); ok(len(open(tmp / "ro.review.csv", encoding="utf-8-sig").read().strip().splitlines()) == 1, "review.csv 는 머리글만(색 오탐도 사라짐)")
+    ok(all(v["img"] == (lambda f: ("CardImage/" + f) if f else "")(FIX[k].get("file", "")) and "data:image" not in v["img"] for k, v in db(out).items()), "이미지 경로 보존(base64 없음)"); ok(len(open(tmp / "ro.review.csv", encoding="utf-8-sig").read().strip().splitlines()) == 1, "review.csv 는 머리글만(색 오탐도 사라짐)")
 
 
 @t("--sample N: 폴더 전체에서 무작위 N장, --seed 로 재현, 없으면 매번 다름")
@@ -284,7 +285,7 @@ def _():
     r = subprocess.run([sys.executable, str(IMP), "--effects-only", str(S100J), "--rules-only", "--out", str(out)], capture_output=True, env=env, timeout=300, cwd=str(tmp)); o = r.stdout.decode("utf-8", "replace")
     ok(r.returncode == 0, o + r.stderr.decode("utf-8", "replace")); ok("효과 있는 카드 93장 중 완전 자동 93장(100.0%)" in o and "manual 포함 0장" in o and "실패 0장" in o, o)
     res = node_check(out); ok(res["withFx"] == 93 and res["auto"] == 93 and res["manual"] == 0, str(res)); base = node_check(S100J); ok(base["auto"] == 22 and base["manual"] == 70, f"기준선 {base['auto']}/{base['manual']}")
-    ok(all(v["img"] == S100[k]["img"] for k, v in db(out).items()), "썸네일 보존"); ok(len(open(tmp / "s100.review.csv", encoding="utf-8-sig").read().strip().splitlines()) == 2, "review.csv 는 머리글 + 종류 보정된 id_1075 1건뿐")
+    ok(all(v["img"] == (lambda f: ("CardImage/" + f) if f else "")(S100[k].get("file", "")) and "data:image" not in v["img"] for k, v in db(out).items()), "이미지 경로 보존(base64 없음)"); ok(len(open(tmp / "s100.review.csv", encoding="utf-8-sig").read().strip().splitlines()) == 2, "review.csv 는 머리글 + 종류 보정된 id_1075 1건뿐")
     new = db(out)
     for k, c in S100.items():  # 이미 자동이던 22장: 기존 능력이 (기본값 차이를 빼고) 그대로 남아 있어야 한다. 새로 붙는 것은 키워드 정적 능력뿐
         if c["type"] == "partner" or not c.get("fx") or ER.has_manual(c["ab"]): continue
