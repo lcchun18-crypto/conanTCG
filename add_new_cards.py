@@ -117,7 +117,7 @@ def from_transcription(a, folder, old):
             _full, _box, thumb, im = ic.prep(p, a.send_px, a.crop_px, a.thumb_px)
             d = {"name": r["n"], "type": r["type"], "color": r.get("color", ""), "lv": str(r.get("lv", "") or ""), "lv2": str(r.get("lv2", "") or ""), "ap": str(r.get("ap", "") or ""),
                  "lp": str(r.get("lp", "") or ""), "kw": r.get("kw", "") or "", "trait": r.get("trait", "") or "", "fx_ja": r.get("fx", "") or "", "fx_ko": r.get("extra", "") or "",
-                 "img": thumb, "file": Path(p).name, "flags": []}
+                 "img": thumb, "file": Path(p).name, "series": ic.series_of(p), "flags": []}
             if r["type"] in ("char", "event", "case"):
                 before = d["color"]; ic.check_color(d, im)
                 if d["color"] != before and not r.get("color_locked"): d["color"] = before; d["flags"].append(f"색 검사 제안 무시(원문 색 유지): {before}")

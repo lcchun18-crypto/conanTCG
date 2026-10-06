@@ -64,6 +64,20 @@ FIX = {"手紙": "手札", "手銃": "手札", "リームーブ": "リムーブ"
 LEGEND = "【登場時】【宣言】【カットイン】"  # 예전 버전의 유출 문자열이 다시 나오면 오류로 간주
 
 
+def series_of(path):
+    """카드 이미지 오른쪽 아래 상품 코드(B11…/D01…) → 시리즈(P11/D01). 못 읽으면 ''(추측하지 않음). 도구: tools/series_scan.py"""
+    try:
+        import sys as _s, collections as _c
+        _t = str(Path(__file__).resolve().parent / "tools")
+        if _t not in _s.path: _s.path.insert(0, _t)
+        import series_scan as _ss
+        _p, info, _raw, _err = _ss.scan_one(path)
+        r, why = _ss.decide(info or {})
+        return r or ""
+    except Exception:
+        return ""
+
+
 def prep(p, send_px, crop_px, thumb_px):
     im = Image.open(p).convert("RGB")
     full = im.copy(); full.thumbnail((send_px, send_px))
@@ -311,7 +325,7 @@ def read_card(cli, model, p, cache, a):
         break
     d = norm1(d)
     for bad, good in FIX.items(): d["fx_ja"] = (d.get("fx_ja") or "").replace(bad, good)
-    d["img"] = thumb; d["file"] = p.name
+    d["img"] = thumb; d["file"] = p.name; d["series"] = series_of(p)
     apply_type(d, im.size[0] > im.size[1])
     if d["type"] in ("char", "event", "case"): check_color(d, im)
     cf.write_text(json.dumps(d, ensure_ascii=False), "utf-8"); return d
@@ -475,7 +489,7 @@ def card_entry(cid, d, st):
     """1단계 결과 d + 2단계 결과 st → (DB 카드 dict, 확인 필요 사유 목록)"""
     ab = st.get("abilities", []); man = "manual" in json.dumps(ab)
     card = {"id": cid, "n": d["name"], "type": d["type"], "color": d.get("color", ""), "lv": d.get("lv", ""), "lv2": d.get("lv2", ""), "ap": d.get("ap", ""), "lp": d.get("lp", ""),
-            "kw": st.get("kw", "") or d.get("kw", ""), "trait": d.get("trait", ""), "fx": d.get("fx_ja", ""), "extra": d.get("fx_ko", ""), "ab": ab, "img": d["img"], "file": d.get("file", "")}
+            "kw": st.get("kw", "") or d.get("kw", ""), "trait": d.get("trait", ""), "fx": d.get("fx_ja", ""), "extra": d.get("fx_ko", ""), "ab": ab, "img": d["img"], "file": d.get("file", ""), "series": d.get("series", "")}
     fl = list(d.get("flags", []))
     if d["type"] == "char" and not (d.get("ap") and d.get("lp")): fl.append("AP/LP 없음")
     if d.get("fx_ja") and d["type"] != "partner" and not ab and not st.get("_nostruct"): fl.append("효과 텍스트는 있는데 효과 데이터 없음")

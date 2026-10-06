@@ -488,7 +488,7 @@ body.m #dbErr>div{max-width:94vw}
   <div class="dbr"><button class="ghost" onclick="bDel()">덱 삭제</button><button onclick="bClose()">닫기</button></div></div>
  <div id="dbPv" class="dbbox"><div id="dbPvImg"><span>카드에 마우스를 올리면<br>크게 표시됩니다</span></div><div id="dbCardName"></div><div id="dbChips"></div><div id="dbTx"></div></div></div>
  <div id="dbR"><div id="dbDeck" class="dbbox"><div id="dbStat"></div><div id="dbToast"></div><div id="dbSlots"><div class="dbslot" id="dbCase"></div><div class="dbslot" id="dbPart"></div></div><div id="dbMain"></div></div>
-  <div id="dbFil" class="dbbox"><div id="dbCols"></div><input id="dbQ" type="search" placeholder="검색: ap2000 · lp2 · event · 5 (등장 FILE 코스트)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search"><span id="dbCnt"></span></div>
+  <div id="dbFil" class="dbbox"><div id="dbCols"></div><input id="dbQ" type="search" placeholder="검색: ap2000 · lp2 · event · 5 (등장 FILE 코스트) · P11 / D01 (시리즈)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search"><span id="dbCnt"></span></div>
   <div id="dbGrid"></div></div>
  <div id="dbBar"><span id="dbBarImg"></span><div id="dbBarTx"><b id="dbBarN"></b><small id="dbBarC"></small></div><button id="dbBarM" aria-label="1장 빼기">−</button><button class="pri" id="dbBarP" aria-label="1장 넣기">＋</button><button class="t" id="dbBarI">상세</button></div>
  <div id="dbErr"><div><b>덱 파일을 적용하지 않았습니다</b><ul id="dbErrL"></ul><button class="pri" onclick="$('dbErr').style.display='none'">확인</button></div></div></div>
@@ -1036,6 +1036,7 @@ function bPred(tok){let m;tok=tok.toLowerCase();
  if(m=/^lp(\d+)$/.exec(tok)){const n=+m[1];return c=>c.lp!==''&&c.lp!=null&&+c.lp===n}
  if(/^\d+$/.test(tok)){const n=+tok;return c=>c.type==='char'&&c.lv!==''&&c.lv!=null&&+c.lv===n}
  if(['event','char','case','partner'].includes(tok))return c=>c.type===tok;
+ if(/^[pd]\d{2}$/.test(tok))return c=>String(c.series||'').toLowerCase()===tok;   // v1.13.2: 시리즈/상품 코드 (P11 / D01) — 카드 이미지 오른쪽 아래 코드 기준 series 필드
  return c=>(String(c.n)+' '+c.id+' '+(c.kw||'')+' '+(c.trait||'')+' '+(c.extra||'')+' '+(c.fx||'')).toLowerCase().includes(tok)}
 function bFilter(){const ps=$('dbQ').value.trim().split(/\s+/).filter(Boolean).map(bPred);
  return bIx.filter(c=>(!bFil.size||bCols(c).some(x=>bFil.has(x)))&&ps.every(p=>p(c)))}
@@ -1050,7 +1051,7 @@ function bRender(){const g=$('dbGrid');bList=bFilter();g.innerHTML='';g.scrollTo
 function bMore(){const g=$('dbGrid');let guard=0;while(bShown<bList.length&&guard++<40){const f=document.createDocumentFragment();for(const c of bList.slice(bShown,bShown+120))f.appendChild(bCell(c));bShown=Math.min(bList.length,bShown+120);g.appendChild(f);if(g.scrollHeight>g.clientHeight+600)break}}
 function bCellsOf(id){return document.querySelectorAll(`#dbGrid .cc[data-id="${CSS.escape(id)}"]`)}
 function bPv(id){const c=DB.cards[id];if(!c)return;const im=$('dbPvImg');im.innerHTML='';im.style.backgroundImage=c.img?`url("${c.img}")`:'';if(!c.img)im.textContent=c.n;
- const ch=[B_TYPE[c.type]||c.type,...bCols(c).map(k=>(B_COL.find(x=>x[0]===k)||[0,k])[1]+'색'),c.lv!==''&&c.lv!=null?(c.type==='case'?'사건 Lv '+c.lv+(c.lv2?' / '+c.lv2:''):'Lv '+c.lv):'',c.ap?'AP '+c.ap:'',c.lp!==''&&c.lp!=null?'LP '+c.lp:'',...String(c.trait||'').split(',').map(x=>x.trim()).filter(Boolean),'카드 ID: '+(c.id||id)].filter(Boolean);   // v1.12.4: 특징 badge (카드 ID 앞)
+ const ch=[B_TYPE[c.type]||c.type,...bCols(c).map(k=>(B_COL.find(x=>x[0]===k)||[0,k])[1]+'색'),c.lv!==''&&c.lv!=null?(c.type==='case'?'사건 Lv '+c.lv+(c.lv2?' / '+c.lv2:''):'Lv '+c.lv):'',c.ap?'AP '+c.ap:'',c.lp!==''&&c.lp!=null?'LP '+c.lp:'',c.series?'시리즈 '+c.series:'',...String(c.trait||'').split(',').map(x=>x.trim()).filter(Boolean),'카드 ID: '+(c.id||id)].filter(Boolean);   // v1.12.4: 특징 badge (카드 ID 앞)
  $('dbCardName').innerHTML=`<span class="nml">카드명:</span> <b>${esc(c.n||'?')}</b>`;   // v1.12.7
  $('dbChips').innerHTML=ch.map(x=>`<span>${esc(x)}</span>`).join('');
  const kr=String(c.extra||'').trim();$('dbTx').innerHTML=kr?(typeof fxHtml==='function'?fxHtml(kr):esc(kr)):(c.fx?'<div class="nofx">한국어 효과 텍스트가 등록되지 않은 카드입니다.</div>':'<div class="nofx">효과가 없는 카드입니다.</div>')}

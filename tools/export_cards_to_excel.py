@@ -39,6 +39,10 @@ def export(json_path, xlsx_path, update_ids=(), prefer_json=False, rebuild=False
         else:
             xc = xl_cards[cid]
             if {k: v for k, v in xc.items()} != {k: v for k, v in jx.items()}: kept_diff.append(cid)
+    for k in X.OPTIONAL_COLS:        # 옛 Excel(해당 열 없음)이면 JSON 값으로 채운다. 열이 있으면 Excel 값(빈 칸 포함)이 원본
+        if k not in X.LAST_HAS:
+            for cid, jc in db["cards"].items():
+                if k in jc and cid in merged: merged[cid] = {**merged[cid], k: jc[k]}
     only_excel = sorted(set(xl_cards) - set(db["cards"]))
     # img_info 표시를 위해 이미지는 JSON 에서 가져온다
     out = {"cards": {cid: ({**c, "img": db["cards"][cid].get("img", "")} if cid in db["cards"] else c) for cid, c in merged.items()}}

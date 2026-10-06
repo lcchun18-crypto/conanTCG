@@ -15,10 +15,12 @@ ROOT = HERE.parent
 
 # ───────── 시트/열 정의 (현재 cards.json 에 실제 존재하는 필드 기준) ─────────
 SHEETS = ("Cards", "Abilities", "Ops", "CardExtra", "Meta")
-CARD_COLS = ["id", "type", "color", "lv", "lv2", "ap", "lp", "kw", "trait", "n", "fx", "extra", "file"]   # 카드 1장의 스칼라 필드 (모두 문자열)
+CARD_COLS = ["id", "type", "color", "lv", "lv2", "ap", "lp", "kw", "trait", "n", "series", "fx", "extra", "file"]   # 카드 1장의 스칼라 필드 (모두 문자열)
 CARD_READONLY = ["ab_count", "img_info"]                                                                   # 참고용(가져올 때 무시)
 NUM_COLS = ("lv", "lv2", "ap", "lp")
 CARD_ABKEY, CARD_IMG = "ab", "img"
+OPTIONAL_COLS = {"series"}   # 옛 Excel 에 없어도 오류가 아닌 열 (없으면 기존 JSON 값 유지)
+LAST_HAS = set()             # 마지막으로 읽은 Cards 시트에 실제로 있던 선택 열
 CORE_KEYS = set(CARD_COLS) | {CARD_ABKEY, CARD_IMG}
 AB_FIXED = ["card_id", "ab_index"]
 AB_FIRST = ["ic", "txt", "lim", "cond", "tgt", "cost", "ops"]            # 항상 앞에 두는 열
@@ -40,6 +42,7 @@ DESC = {   # 필드 설명 / 편집 구분
  "kw": ("키워드 (assault, misread1, disguise, rapid, bullet …)", "logic"), "trait": ("특징 (쉼표로 구분)", "logic"), "n": ("카드명", "display"),
  "fx": ("일본어 원문 효과 텍스트 (표시용, 엔진 동작에 영향 없음)", "display"), "extra": ("한국어 효과 설명 (표시용, 엔진 동작에 영향 없음)", "display"),
  "file": ("카드 이미지 원본 파일명 (참고용 메타데이터)", "meta"),
+ "series": ("시리즈/상품 코드 (P01~P11 = 박스, D01~ = 덱; 카드 이미지 오른쪽 아래 B11…/D01… 코드 기준). 덱빌더에서 P11 처럼 검색. 잘못 읽혔으면 여기서 고치세요", "display"),
  "ab_count": ("능력(ab) 개수 — 자동 계산, 편집 불필요", "readonly"), "img_info": ("이미지 정보 — 참고용. 이미지는 Excel 이 아니라 cards.json 에 보존됨", "readonly"),
  "card_id": ("카드 ID", "key"), "ab_index": ("카드 안에서의 능력 번호 (0부터)", "key"), "ic": ("trigger/능력 종류 (onplay, declare, flash …)", "logic"),
  "txt": ("이 능력의 일본어 원문 (표시용)", "display"), "lim": ("사용 제한 횟수(ターン n)", "logic"), "cond": ("발동 조건 (JSON 객체)", "logic"), "tgt": ("대상 지정 (JSON 객체)", "logic"),
@@ -176,7 +179,8 @@ def read_workbook(path):
     if probs: return None, None, probs
     cards, order = {}, {}
     # --- Cards
-    ws = wb["Cards"]; hdr, hx = _headers(ws, "Cards", CARD_COLS, probs)
+    ws = wb["Cards"]; hdr, hx = _headers(ws, "Cards", [c for c in CARD_COLS if c not in OPTIONAL_COLS], probs)
+    LAST_HAS.clear(); LAST_HAS.update(c for c in OPTIONAL_COLS if c in hx)
     if probs: return None, None, probs
     known = set(CARD_COLS) | set(CARD_READONLY)
     for h in hx:
@@ -189,6 +193,7 @@ def read_workbook(path):
         if not ID_RE.match(cid): probs.append(Problem("ERROR", cid, w("id"), "카드 ID 형식이 올바르지 않습니다 (id_0001 형태)"))
         c = {"id": cid}; cards[cid] = c; order[cid] = r
         for k in CARD_COLS[1:]:
+            if k not in hx: continue
             v = row[hx[k]]
             if v is None: continue
             if k in NUM_COLS:
@@ -334,6 +339,7 @@ def merge_with_base(xl_cards, xl_meta, base):
         else:
             card = copy.deepcopy(b)
             for k in CARD_COLS:
+                if k in OPTIONAL_COLS and k not in LAST_HAS: continue      # Excel 에 그 열이 없으면 기존 JSON 값 유지
                 if k in x: card[k] = x[k]
                 elif k in card and k != "id" and card[k] == "": pass          # 빈 칸 = 빈 문자열 유지
                 elif k in card: card[k] = ""                                    # 칸을 비웠으면 빈 문자열
@@ -530,7 +536,7 @@ def write_workbook(db, path, base_for_img=None):
         return ws
     ccols = CARD_COLS + CARD_READONLY
     for r in cr: pass
-    ws = sheet("Cards", ccols, cr, {"id": 11, "type": 9, "color": 14, "lv": 5, "lv2": 5, "ap": 8, "lp": 5, "kw": 14, "trait": 28, "n": 22, "fx": 70, "extra": 70, "file": 16, "ab_count": 9, "img_info": 26}, wrap=("fx", "extra", "trait"), numeric=NUM_COLS)
+    ws = sheet("Cards", ccols, cr, {"id": 11, "type": 9, "color": 14, "lv": 5, "lv2": 5, "ap": 8, "lp": 5, "kw": 14, "trait": 28, "n": 22, "series": 9, "fx": 70, "extra": 70, "file": 16, "ab_count": 9, "img_info": 26}, wrap=("fx", "extra", "trait"), numeric=NUM_COLS)
     for rr in range(2, len(cr) + 2): ws.cell(rr, ccols.index("ab_count") + 1).value = f'=COUNTIF(Abilities!$A:$A,A{rr})'; ws.cell(rr, ccols.index("ab_count") + 1).fill = fill("readonly")
     acols = AB_FIXED + ab_columns(cards) + AB_READONLY
     sheet("Abilities", acols, ar, {"card_id": 11, "ab_index": 8, "ic": 12, "txt": 60, "lim": 6, "cond": 36, "tgt": 30, "cost": 30, "ops": 10}, wrap=("txt", "cond", "tgt", "cost"), freeze="C2", numeric=("lim",))
