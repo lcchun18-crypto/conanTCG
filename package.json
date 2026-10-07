@@ -1,6 +1,6 @@
 {
   "name": "conan-sim",
-  "version": "1.17.0",
+  "version": "1.17.1",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -69,7 +69,8 @@
     "test:ct11": "node test/mz_ct11.js && node test/ct11_ui_test.js",
     "test:series": "python3 test/series_xlsx_test.py && node test/series_ui_test.js",
     "series:scan": "python3 tools/series_scan.py",
-    "test:loghover": "node test/log_hover_test.js"
+    "test:loghover": "node test/log_hover_test.js",
+    "test:fdset": "node test/fd_set_pick_test.js"
   },
   "engines": {
     "node": ">=18"

@@ -230,19 +230,22 @@ function actsFor(R, s) { const out = {}; if (R.phase !== 'play' || R.turn !== s 
   for (const id of [...P.evid, ...P.file]) if (R.cards[id].up && FX.abInfo(R, id).some(a => a.ic === 'declare')) { abs(id); (out[id] || []).forEach(e => { e.z = 1; e.nm = D(R, id).n; }); }   // 표향 증거/FILE 카드의 선언 능력(fromUp)
   return out; }
 // 캐릭터에 세트된 카드(sl): 앞면 세트 = 공개 정보 전체, 뒷면(fd) 세트 = 본인에게만 카드 정보, 상대에게는 뒷면(정보 없음). (표시용 직렬화만, 게임 규칙 무관)
-const withSets = (R, id, owner, viewer) => { const c = R.cards[id], v = co(R, id), fd = c.fd || [], st = c.sets || [];
-  if (fd.length || st.length) v.sl = [...fd.map(y => owner === viewer ? { ...co(R, y), fd: 1 } : { fd: 1, hidden: 1 }), ...st.map(y => co(R, y))]; return v; };
+// v1.17.1: 뒷면 세트 카드를 고르는 질의(sp)가 열려 있는 동안에는, 그 캐릭터들의 뒷면 세트 카드를 본인에게도 뒷면으로만 내보낸다(hover/우측 상세로 정체가 드러나지 않게). 질의가 끝나면 원래대로.
+const hiddenSetIds = (R, s) => { const E = R.eff; if (!E || !E.req || E.req.who !== s || !E.req.sp) return null; const hs = new Set(); for (const e of E.req.sp) { const hc = R.cards[e.h]; if (hc) (hc.fd || []).forEach(y => hs.add(y)); } return hs; };
+const withSets = (R, id, owner, viewer, hs) => { const c = R.cards[id], v = co(R, id), fd = c.fd || [], st = c.sets || [];
+  if (fd.length || st.length) v.sl = [...fd.map(y => owner === viewer && !(hs && hs.has(y)) ? { ...co(R, y), fd: 1 } : { fd: 1, hidden: 1 }), ...st.map(y => co(R, y))]; return v; };
 const logRefs = R => { const st = Math.max(0, R.log.length - 60), o = []; for (let i = st; i < R.log.length; i++) o.push(R.lr && R.lr[i] || 0); return o; };   // v1.17.0: V.log 와 같은 길이의 배열 — 각 줄의 [시작, 끝, 카드 정의 키] 목록 (없으면 0)
 const co = (R, id) => { const c = R.cards[id], d = D(R, id); return { id, d: c.d, st: c.st || 'a', apm: ap(R, id) - (+d.ap || 0), lpm: lpOf(R, id) - (+d.lp || 0), sum: c.sum ? 1 : 0, set: (c.sets || []).length + (c.fd || []).length, under: (c.under || []).length, up: c.up ? 1 : 0, lvx: FX.lvOf(R, id), u: c.u || {}, kw: (c.tkw || '').trim(), bl: c.blank ? 1 : 0, ga: FX.grantedAb(R, id) }; };
 function effView(R, s) { const E = R.eff; if (!E) return null; const q = E.req;
   if (q.who !== s) return { wait: 1, msg: '상대가 효과를 처리하는 중입니다…' };
-  return { kind: q.kind, msg: q.msg, min: q.min, max: q.max, ordered: q.ordered, distinct: q.distinct, labels: q.labels, evp: q.evp || null, yes: q.yes, no: q.no, reveal: q.reveal, cards: (q.ids || []).map(x => co(R, x)), sel: q.sel, src: E.it.src != null ? D(R, E.it.src).n : '', srcD: E.it.src != null && R.cards[E.it.src] ? R.cards[E.it.src].d : '', abI: E.it.src != null && E.it.ab ? (D(R, E.it.src).ab || []).indexOf(E.it.ab) : -1, abN: E.it.src != null ? (D(R, E.it.src).ab || []).length : 0, abLab: (E.it.ab && E.it.ab.lab) || '', itK: E.it.kind || '' }; }
+  return { kind: q.kind, msg: q.msg, min: q.min, max: q.max, ordered: q.ordered, distinct: q.distinct, labels: q.labels, evp: q.evp || null, yes: q.yes, no: q.no, reveal: q.reveal, cards: (q.ids || []).map(x => co(R, x)), sp: q.sp ? q.sp.map(e => e.fd ? { h: e.h, fd: 1, k: e.k, m: e.m } : { h: e.h, fd: 0, c: co(R, e.x) }) : null, sel: q.sel, src: E.it.src != null ? D(R, E.it.src).n : '', srcD: E.it.src != null && R.cards[E.it.src] ? R.cards[E.it.src].d : '', abI: E.it.src != null && E.it.ab ? (D(R, E.it.src).ab || []).indexOf(E.it.ab) : -1, abN: E.it.src != null ? (D(R, E.it.src).ab || []).length : 0, abLab: (E.it.ab && E.it.ab.lab) || '', itK: E.it.kind || '' }; }
 function view(R, s) { const V = { t: 'v', me: s, code: R.code, phase: R.phase, turn: R.turn, n: R.n, first: R.first, mull: R.mullSeat, winner: R.winner,
     acts: actsFor(R, s), bot: R.bot ? 1 : 0, rt: !R.bot && R.phase === 'play' && R.turn === s && R.snap && R.snap.n === R.n && R.snap.turn === R.turn ? 1 : 0, botName: R.bot ? (R.bot.name || 'BOT / EXPERT') : '', fl: R.fl, log: R.log.slice(-60), lr: logRefs(R), eff: effView(R, s), both: R.ws.every(Boolean),
     sub: R.sub && { type: R.sub.type, who: R.sub.who, atk: R.sub.atk, def: R.sub.def, tk: R.sub.tk, tid: R.sub.tid, ms: R.sub.ms }, P: [] };
+  const HS = hiddenSetIds(R, s);
   for (const i of [0, 1]) { const P = R.P[i], o = i === s, show = o || R.phase === 'play' || R.phase === 'over';
     V.P.push({ ready: P.ready, deck: P.deck.length, hand: o ? P.hand.map(x => co(R, x)) : P.hand.length, file: P.file.length, evid: P.evid.length,
-      rem: P.rem.map(x => co(R, x)), field: P.field.map(x => withSets(R, x, i, s)), pa: P.pa.map(x => co(R, x)), tr: P.tr ? 1 : 0, evUp: P.evid.filter(x => R.cards[x].up).map(x => co(R, x)), evl: P.evid.map(x => R.cards[x].up ? co(R, x) : 0), fil: P.file.map(x => R.cards[x].up ? co(R, x) : 0), fileUp: P.file.filter(x => R.cards[x].up).map(x => co(R, x)),
+      rem: P.rem.map(x => co(R, x)), field: P.field.map(x => withSets(R, x, i, s, HS)), pa: P.pa.map(x => co(R, x)), tr: P.tr ? 1 : 0, evUp: P.evid.filter(x => R.cards[x].up).map(x => co(R, x)), evl: P.evid.map(x => R.cards[x].up ? co(R, x) : 0), fil: P.file.map(x => R.cards[x].up ? co(R, x) : 0), fileUp: P.file.filter(x => R.cards[x].up).map(x => co(R, x)),
       partner: P.partner ? (show ? { ...co(R, P.partner), inFile: P.pIn } : { hidden: 1 }) : null,
       kase: P.kase ? (show ? { ...co(R, P.kase), solved: !!R.cards[P.kase].solved } : { hidden: 1 }) : null }); }
   return V; }

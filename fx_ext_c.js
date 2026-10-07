@@ -8,7 +8,9 @@ module.exports = function (K, def) {
   function* pickSetCard(R, s, h, cards) {
     if (cards.length === 1) return cards[0];
     const hc = R.cards[h], fdl = hc.fd || [], pubs = cards.filter(x => !fdl.includes(x)), hid = cards.filter(x => fdl.includes(x));
-    if (hc.o === s || !hid.length) return (yield pickReq(s, '리무브할 세트 카드를 선택', cards, 1, 1))[0];
+    if (hc.o === s && hid.length === 0 && !fdl.some(x => cards.includes(x))) return (yield pickReq(s, '리무브할 세트 카드를 선택', cards, 1, 1))[0];
+    if (hc.o === s) return (yield* K.pickSets(R, s, '리무브할 세트 카드를 선택', cards, 1))[0];   // v1.17.1: 내 뒷면 세트 카드는 위치만 보이는 선택(증거 뒤집기와 동일)
+    if (!hid.length) return (yield pickReq(s, '리무브할 세트 카드를 선택', cards, 1, 1))[0];
     if (!pubs.length) return hid[0];
     const i = yield { who: s, kind: 'opt', msg: '리무브할 세트 카드를 선택', labels: [...pubs.map(x => D(R, x).n), '뒷면 카드'] };
     return i < pubs.length ? pubs[i] : hid[0]; }

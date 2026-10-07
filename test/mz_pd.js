@@ -217,7 +217,7 @@ t('id_1056', '등장 시: [警視庁] 가 아니면 가져오지 못하고 덱 �
 
 t('id_1065', '액션 종료 시(턴1): 선택1 — 이 캐릭터의 뒷면 세트 카드 1장을 손패에', () => {
   const R = G({ c: real('id_1065', { lv: '0' }), w: dummy('W') }, ['c'], ['w']); const s = R.turn, o = 1 - s; const c = field(R, s, 'c'); const [f1] = fdSet(R, c, 2); const w = field(R, o, 'w', 's'); R.cards[c].sum = 0;
-  U.toContact(R, s, c, w); U.endContact(R); pump(R); const q = req(R); eq(q && q.kind, 'opt', '2택'); ans(R, 0); const q2 = req(R); if (q2) ans(R, [f1]); eq(nfd(R, c), 1, '뒷면 카드 -1'); ok(has(R, s, 'hand', f1), '손패에'); });
+  U.toContact(R, s, c, w); U.endContact(R); pump(R); const q = req(R); eq(q && q.kind, 'opt', '2택'); ans(R, 0); const q2 = req(R); if (q2) U.ansSet(R, f1); eq(nfd(R, c), 1, '뒷면 카드 -1'); ok(has(R, s, 'hand', f1), '손패에'); });
 t('id_1065', '액션 종료 시: 선택2 — 뒷면 카드가 없는 [サッカー選手] 캐릭터에 뒷면 카드 1장을 옮김(후보 한정)', () => {
   const R = G({ c: real('id_1065', { lv: '0' }), w: dummy('W'), s1: dummy('S1', { trait: 'サッカー選手' }), s2: dummy('S2', { trait: 'サッカー選手' }), z: dummy('Z') }, ['c'], ['w']); const s = R.turn, o = 1 - s; const c = field(R, s, 'c'); const [f1] = fdSet(R, c, 1); const s1 = field(R, s, 's1'), s2 = field(R, s, 's2'), z = field(R, s, 'z'); fdSet(R, s2, 1); const w = field(R, o, 'w', 's');
   U.toContact(R, s, c, w); U.endContact(R); pump(R); ans(R, 1); const q = req(R); ok(q.sel.includes(s1) && !q.sel.includes(s2) && !q.sel.includes(z), '뒷면이 없는 [サッカー選手] 만'); ans(R, [s1]); eq(nfd(R, s1), 1, '이동'); eq(nfd(R, c), 0, '이 캐릭터에서 빠짐'); });

@@ -472,6 +472,22 @@ module.exports = function (A) {
     ids.forEach(x => { const i = E.indexOf(x), up = !!R.cards[x].up; pos.push(i); hid.push(up ? 0 : 1); labels.push(up ? `${i + 1}번째 앞면 증거: ${D(R, x).n}` : `${i + 1}번째 뒷면 증거`); });
     return { labels, evp: { t, pos, hid } }; };
 
+  // ── v1.17.1: 세트 카드 "직접 고르기" — 뒷면(fd) 세트 카드는 증거 뒤집기 선택(evOpts/flipPick)과 같은 방식으로 위치만 보여 준다.
+  //   질의에는 카드 id/정의 키/이름을 싣지 않는다(effView 가 sp 에서 fd 항목의 x 를 제거). 선택지 번호 = ids 의 순서. 앞면 세트 카드는 이전처럼 카드로 보여 준다.
+  //   뒷면이 하나도 없으면 기존 pickReq(카드 선택)를 그대로 쓴다. 반환: 고른 카드 id 배열(pickReq 와 같은 모양).
+  const setOpts = (R, s, ids) => { const labels = [], sp = [];
+    ids.forEach(x => { const c = R.cards[x], fd = c.fdOn != null, h = fd ? c.fdOn : c.setOn, hc = R.cards[h], mine = hc.o === s, fi = R.P[hc.o].field.indexOf(h), where = `${mine ? '내' : '상대'} 현장${fi >= 0 ? ` ${fi + 1}번째` : ''} ${D(R, h).n}`;
+      if (fd) { const L = hc.fd || [], k = L.indexOf(x) + 1; labels.push(`${where}의 뒷면 세트 카드 (${k}/${L.length})`); sp.push({ h, fd: 1, k, m: L.length, x }); }
+      else { labels.push(`${where}에 세트된 ${D(R, x).n}`); sp.push({ h, fd: 0, x }); } });
+    return { labels, sp }; };
+  function* pickSets(R, s, msg, ids, n, o = {}) {
+    if (!ids.some(x => R.cards[x] && R.cards[x].fdOn != null)) return yield pickReq(s, msg, ids, o.upto ? 0 : n, n);
+    const out = []; let rest = ids.slice();
+    for (let i = 0; i < n && rest.length; i++) { const op = setOpts(R, s, rest), labels = op.labels.slice(); if (o.upto) labels.push('선택하지 않음');
+      const j = yield { who: s, kind: 'opt', msg: `${msg}${n > 1 ? ` (${i + 1}/${n})` : ''}`, labels, sp: op.sp };
+      const m = rest[+j]; if (m === undefined) { if (o.upto) break; out.push(rest[0]); rest = rest.slice(1); continue; } out.push(m); rest = rest.filter(x => x !== m); }
+    return out; }
+
   // 뒷면 증거를 n장 표향으로: 효과 텍스트가 위치를 정하지 않으면(= "뒷면 증거 1개") 효과를 쓰는 플레이어가 직접 고른다. 전부 뒤집는 경우(n ≥ 뒷면 수)는 선택이 무의미하므로 바로 처리.
   //   위치가 정해진 효과(맨 위 n장 등)는 이 함수를 쓰지 않고 flipEv 에 ids 를 직접 넘긴다.
   function* flipPick(R, s, t, n, why) { const down = faceDown(R, t); if (n >= down.length) return flipEv(R, t, n);
@@ -789,7 +805,7 @@ module.exports = function (A) {
       const ids = yield* flipPick(R, s, s, n, '코스트'); co.flip = (co.flip || []).concat(ids); say(R, `코스트: 뒷면 증거 ${ids.length}장을 표향으로` + ids.map(x => ` (${D.cn(R, x)})`).join('')); }
     else if (k.c === 'fieldBottom') { const cand = [...ally(R, 0), ...ally(R, 1)].filter(x => fOk(R, s, x, f, src, true)); const ids = cand.length === k.n ? cand : yield pickReq(s, `코스트: 덱 아래로 보낼 현장의 캐릭터 ${k.n}장`, cand, k.n, k.n);
       ids.forEach(x => moveOut(R, x, 'deckBottom')); }
-    else if (k.c === 'unset') { const cs = unsetPool(R, s, src, k).filter(x => fOk(R, s, x, f, src, true)); const ids = cs.length === k.n ? cs : yield pickReq(s, `코스트: 리무브할 세트 카드 ${k.n}장`, cs, k.n, k.n); ids.forEach(x => unsetOne(R, R.cards[x].fdOn != null ? R.cards[x].fdOn : R.cards[x].setOn != null ? R.cards[x].setOn : src, x)); }
+    else if (k.c === 'unset') { const cs = unsetPool(R, s, src, k).filter(x => fOk(R, s, x, f, src, true)); const ids = cs.length === k.n ? cs : yield* pickSets(R, s, `코스트: 리무브할 세트 카드 ${k.n}장`, cs, k.n); ids.forEach(x => unsetOne(R, R.cards[x].fdOn != null ? R.cards[x].fdOn : R.cards[x].setOn != null ? R.cards[x].setOn : src, x)); }
     else if (k.c === 'unstack') { const under = c.under || [], ids = under.slice(0, k.n); c.under = under.slice(k.n); ids.forEach(x => R.P[R.cards[x].o].rem.push(x)); co.rem = (co.rem || []).concat(ids); say(R, `코스트: 겹쳐진 카드 ${ids.length}장을 리무브`); }
     else if (k.c === 'remBottom') { const cand = P.rem.filter(x => fOk(R, s, x, f, src, true)); const ids = cand.length === k.n ? cand : yield pickReq(s, `코스트: 리무브 에리어에서 덱 아래로 보낼 카드 ${k.n}장`, cand, k.n, k.n, { reveal: 1 });
       const ord = k.order && ids.length > 1 ? yield pickReq(s, `덱 아래에 놓을 순서대로 클릭 (${ids.length}장)`, ids, ids.length, ids.length, { ordered: true }) : ids;
@@ -892,7 +908,7 @@ module.exports = function (A) {
   // 클라이언트 표시용: 세트/임시로 받은 능력(d.ab 뒤에 붙는 것들)
   const grantedAb = (R, id) => { const n = R.cards[id] && (R.cards[id].blank || R.cards[id].lkiBlank) ? 0 : (D(R, id).ab || []).length; return abList(R, id).slice(n).map((a, k) => ({ i: n + k, ic: a.ic, lab: a.lab || '', txt: a.txt || '', lim: a.lim || 0 })); };
   const hasCut = (R, id) => cutAbs(R, 0, id).length > 0 || handCutV(R, R.cards[id].o, id) > 0;
-  const X = require('./fx_ext')({ nameBanned, fieldMax, chosenCheck, useOk, A, D, say, shuf, pull, chk, gain, nm, fcount, cols, fOk, rf, countOf, condOk, regIds, setReg, pickReq, yn, onField, inPa, moveCards, applyG, applyTo, placeCards, inZone: inZoneFx, rmChar, leave, moveOut, release, unsetOne, takeOut, runOps, lvOf, traitsId, traitsOf, bus, fire, kwHas, enterSt, noteEnter, mrEnter, remLeft, ally, faceDown, flipEv, flipPick, evOpts, dynNum, regNumBy, cleanFilter, cleanCond, cleanOps, cleanAb, cleanCost, cx, str, num, opt, queueEvent, abList, setCards, canPayOne, pay, noTarget, fieldPa, setSolved, replaceCheck });
+  const X = require('./fx_ext')({ nameBanned, fieldMax, chosenCheck, useOk, A, D, say, shuf, pull, chk, gain, nm, fcount, cols, fOk, rf, countOf, condOk, regIds, setReg, pickReq, yn, onField, inPa, moveCards, applyG, applyTo, placeCards, inZone: inZoneFx, rmChar, leave, moveOut, release, unsetOne, takeOut, runOps, lvOf, traitsId, traitsOf, bus, fire, kwHas, enterSt, noteEnter, mrEnter, remLeft, ally, faceDown, flipEv, flipPick, evOpts, pickSets, dynNum, regNumBy, cleanFilter, cleanCond, cleanOps, cleanAb, cleanCost, cx, str, num, opt, queueEvent, abList, setCards, canPayOne, pay, noTarget, fieldPa, setSolved, replaceCheck });
   FXX = X;
   // v1.11.0: own 미지정으로 남은 target/triggerSubject 필터를 모은다(검증용). 반환: [{ab, ctx, op}]
   function auditOwn(list) { const out = []; (Array.isArray(list) ? list : []).forEach((a, i) => { AUDIT = []; CUR_OP = ''; try { cleanAb([a]); } finally { const r = AUDIT; AUDIT = null; r.forEach(x => out.push({ ab: i, ctx: x.ctx, op: x.op })); } }); return out; }

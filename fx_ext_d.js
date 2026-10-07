@@ -12,7 +12,7 @@ module.exports = function (K, def) {
     for (let i = 0; i < n; i++) { const hs = fdHolders(R, s, src, scope, hf, ctx); if (!hs.length) break;
       const h = hs.length === 1 ? hs[0] : (yield pickReq(s, `뒷면으로 세트된 카드를 리무브할 캐릭터를 선택 (${i + 1}/${n})`, hs, 1, 1))[0];
       if (h == null || !hs.includes(h)) break; const fds = R.cards[h].fd || [];
-      const x = R.cards[h].o === s && fds.length > 1 ? (yield pickReq(s, '리무브할 뒷면 카드를 선택', fds.slice(), 1, 1))[0] : fds[0];
+      const x = R.cards[h].o === s && fds.length > 1 ? (yield* K.pickSets(R, s, '리무브할 뒷면 카드를 선택', fds.slice(), 1))[0] : fds[0];
       unsetOne(R, h, x); got.push(x); }
     if (got.length) say(R, `[효과] 뒷면 세트 카드 ${got.length}장을 리무브`); return got; }
 
@@ -104,6 +104,6 @@ module.exports = function (K, def) {
   // fdTo: 이 캐릭터에 뒷면으로 세트된 카드 1장을 손패에 가져온다
   def('fdTo', o => ({ op: 'fdTo', to: 'hand' }), function* (R, s, src, o, ctx) {
     ctx.done = false; const h = R.cards[src]; if (!onField(R, src) || !(h.fd || []).length) return;
-    const x = h.fd.length === 1 ? h.fd[0] : (yield pickReq(s, '손패에 넣을 뒷면 카드를 선택', h.fd.slice(), 1, 1))[0]; if (x == null || !h.fd.includes(x)) return;
+    const x = h.fd.length === 1 ? h.fd[0] : (yield* K.pickSets(R, s, '손패에 넣을 뒷면 카드를 선택', h.fd.slice(), 1))[0]; if (x == null || !h.fd.includes(x)) return;
     h.fd = h.fd.filter(y => y !== x); R.cards[x].fdOn = null; R.P[R.cards[x].o].hand.push(x); setReg(ctx, 'moved', [x]); say(R, `[효과] ${D.cn(R, src)}에 세트된 뒷면 카드 1장을 손패에`); ctx.done = true; });
 };

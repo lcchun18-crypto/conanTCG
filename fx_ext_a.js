@@ -54,9 +54,12 @@ module.exports = function (K, def) {
   def('setToEvid', o => ({ op: 'setToEvid' }), function* (R, s, src, o, ctx) {
     ctx.done = false; const holders = [...ally(R, 0), ...ally(R, 1)].filter(h => setCards(R, h, false).length); if (!holders.length) return;
     const h = holders.length === 1 ? holders[0] : (yield pickReq(s, '세트된 카드를 고를 캐릭터를 선택', holders, 1, 1))[0]; if (h == null || !onField(R, h)) return;
-    const cs = setCards(R, h, false), hc = R.cards[h], known = x => !(hc.fd || []).includes(x) || hc.o === s, vis = cs.filter(known), hid = cs.filter(x => !known(x)); const labels = [], map = [];
-    vis.forEach(x => { labels.push(D(R, x).n + ((hc.fd || []).includes(x) ? ' (뒷면 세트)' : '')); map.push(x); }); if (hid.length) { labels.push(`뒷면 세트 카드 (${hid.length}장 중 무작위 1장)`); map.push(-1); }
-    let m; if (map.length === 1) m = map[0]; else m = map[+(yield { who: s, kind: 'opt', msg: '증거로 만들 세트 카드를 선택', labels })]; const x = m === -1 ? pickRandom(hid) : m; if (x == null) return;
+    const cs = setCards(R, h, false), hc = R.cards[h], hid = cs.filter(x => (hc.fd || []).includes(x) && hc.o !== s);   // 상대 캐릭터의 뒷면 세트 카드는 구별 불가 → 무작위 1장(기존 규칙)
+    let x; if (!cs.some(y => (hc.fd || []).includes(y))) { const labels = cs.map(y => D(R, y).n); x = cs.length === 1 ? cs[0] : cs[+(yield { who: s, kind: 'opt', msg: '증거로 만들 세트 카드를 선택', labels })]; }
+    else if (hc.o !== s) { const vis = cs.filter(y => !hid.includes(y)), labels = vis.map(y => D(R, y).n), map = vis.slice(); if (hid.length) { labels.push(`뒷면 세트 카드 (${hid.length}장 중 무작위 1장)`); map.push(-1); }
+      const m = map.length === 1 ? map[0] : map[+(yield { who: s, kind: 'opt', msg: '증거로 만들 세트 카드를 선택', labels })]; x = m === -1 ? pickRandom(hid) : m; }
+    else x = cs.length === 1 ? cs[0] : (yield* K.pickSets(R, s, '증거로 만들 세트 카드를 선택', cs, 1))[0];   // v1.17.1: 내 뒷면 세트 카드는 이름 없이 위치만 보이는 선택
+    if (x == null) return;
     const ow = R.cards[x].o; unsetOne(R, h, x); R.P[ow].rem = R.P[ow].rem.filter(y => y !== x); R.cards[x].up = true; R.P[ow].evid.push(x); setReg(ctx, 'moved', [x]);
     say(R, `[효과] ${D.cn(R, h)}에 세트된 ${D.cn(R, x)}을(를) ${nm(ow)}이(가) 표향 증거로 획득`); bus(R, 'evgain', { s: ow, by: 'effect' }); ctx.done = true; });
 

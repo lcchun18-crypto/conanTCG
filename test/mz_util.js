@@ -13,6 +13,8 @@ const req = R => R.eff && R.eff.req;
 const lateGuard = R => { if (R._ng && R.sub && R.sub.type === 'guard' && !R.eff) { R._ng = false; const e = act(R, R.sub.who, { a: 'guard', id: null }); if (e) throw new Error('guard: ' + e); } };
 const ans = (R, v) => { ok(R.eff, '질의가 와야 함'); const e = act(R, R.eff.req.who, { a: 'ans', v }); if (e) throw new Error('ans: ' + e); lateGuard(R); };
 // 자동 응답: yn → yn 값, pick → pref 우선 선택(없으면 min 만큼 앞에서), opt → optIdx
+// v1.17.1: 세트 카드 선택 응답 — 앞면(pick: 카드 id)이면 카드를 고르고, 뒷면이 섞인 위치 선택(opt+sp)이면 그 카드의 위치 번호로 답한다(서버 내부 sp[i].x 로 번호를 찾음)
+const ansSet = (R, id) => { const q = req(R); ok(q, '질의가 와야 함'); if (q.sp) { const i = q.sp.findIndex(e => e.x === id); ok(i >= 0, '선택지에 그 카드가 있어야 함'); return ans(R, i); } return ans(R, [id]); };
 const auto = (R, o = {}) => { const yn = o.yn !== false, pref = o.pref || [], oi = o.opt || 0; let g = 0, log = [];
   while (R.eff && g++ < 40) { const q = req(R); log.push(q.kind);
     ans(R, q.kind === 'yn' ? (typeof o.yn === 'function' ? o.yn(q) : yn) : q.kind === 'pick' ? (q.ordered ? q.ids : (() => { const w = pref.filter(x => q.sel.includes(x)).slice(0, q.max); return w.length >= q.min ? w : q.sel.slice(0, q.min); })()) : q.kind === 'opt' ? (typeof oi === 'function' ? oi(q) : oi) : q.kind === 'optm' ? (o.optm || []) : q.kind === 'text' ? (o.text || 'x') : null); }
@@ -43,4 +45,4 @@ const T = []; const t = (id, n, f) => T.push([id, n, f]);
 const runAll = (label) => { let pass = 0, fail = 0; const bad = []; const only = process.env.ONLY;
   for (const [id, n, f] of T) { if (only && !id.includes(only)) continue; try { f(); pass++; } catch (e) { fail++; bad.push(`${id} ${n}: ${e.message.split('\n')[0]}`); } }
   console.log(`${label}: ${pass} 통과 / ${fail} 실패`); bad.forEach(b => console.log('  ✗ ' + b)); if (fail) process.exitCode = 1; return { pass, fail }; };
-module.exports = { ...H, S, FX, DB, real, dummy, G, req, ans, auto, fpAuto, filler, fillFile, evid, solve, field, hand, rem, pa, top, has, pump, play, endTurn, ready, toContact, endContact, attack, finishContact, T, t, runAll, B };
+module.exports = { ...H, ansSet, S, FX, DB, real, dummy, G, req, ans, auto, fpAuto, filler, fillFile, evid, solve, field, hand, rem, pa, top, has, pump, play, endTurn, ready, toContact, endContact, attack, finishContact, T, t, runAll, B };
