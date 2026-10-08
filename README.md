@@ -827,3 +827,12 @@ python tools/make_web_images.py --prune      # 원본이 없어진 최적화본 
 - id_0885 선언의 「손패가 2장이 될 때까지 리무브」: 손패가 이미 2장 이하(0장 포함)여도 사용 가능(리무브 0장). 3장 이상이면 초과분만 선택해 리무브.
 - 모바일 가로 화면: 브라우저 주소/내비게이션 바 때문에 `100vh`가 실제 보이는 높이보다 커서 하단 행동 버튼(추리/어시스트/선택 해제)이 화면 밖으로 밀리던 문제 → `100dvh` 사용, visualViewport 변화 시 카드 크기 재계산, 우측 패널 세로 스크롤 허용(짧은 화면에서 미리보기 영역 축소).
 - 테스트: `test/id_0885_test.js`(`npm run test:id0885`), `test/landscape_fit_test.js`.
+
+## v1.17.8 — 신규 카드 id_1222 赤井秀一 / 슬립 가드 UI 표시
+- 신규 카드 **id_1222 赤井秀一(薬客)** 추가: Lv6 · 赤 · AP6000 · LP1 · 특징 FBI/赤井家 · 시리즈 P11. 이미지 `CardImageWeb/id_1222.webp`(원본 `CardImage/id_1222.png` 기준 생성).
+  - 突撃[キャラ] (static kw)
+  - 【自分ターン中】【登場時】/【発動時】 상대 현장 캐릭터 1장까지 선택 → 턴 종료 시까지 레벨-1 (`onplay` / `ondisguise`, cond `turn:self`)
+  - 【起殺】【事件(赤)】【FILE6】 손패에서 컨택트 중인 캐릭터와 교체, 교체된 캐릭터는 덱 아래로 → 엔진의 변장(`disguise`, cond `ccolor:red,fileMin:6`)과 같은 방식으로 처리. 한국어 명칭은 「기살」로 적어 두었습니다(Excel `extra` 에서 수정 가능).
+  - `data/cards.xlsx`(Cards/Abilities/Ops)와 `data/cards.json` 에 반영.
+- **슬립 가드 표시**: 슬립 가드를 가진 캐릭터는 현장 카드 위에 `💤가드` 배지(버프 표시와 같은 위치)와 오른쪽 미리보기 chip `💤 슬립 가드` 로 표시. (서버 view 의 카드 정보에 `sg` 추가)
+- 테스트: `npm run test:id1222`, `npm run test:sleepguardui`.
