@@ -14,6 +14,7 @@ const mkR = code => ({ code, ws: [null, null], defs: {}, cards: {}, q: [], eff: 
 // v1.17.0: 로그 줄에 나온 카드 이름의 위치와 카드(정의) 키를 함께 저장한다. 이름으로 카드를 추측하지 않고, 로그를 만드는 쪽이 D.cn(R, 카드ID) 로 이름을 넣을 때 그 카드의 정의 키(R.cards[id].d)를 기록 → 같은 이름의 다른 카드도 정확히 구분
 const say = (R, t) => { R.log.push(t); const p = R._lp; if (!p) return; R._lp = null; const refs = []; let cur = 0; for (const r of p) { const i = t.indexOf(r.n, cur); if (i < 0) continue; refs.push([i, i + r.n.length, r.d]); cur = i + r.n.length; } if (refs.length) (R.lr || (R.lr = {}))[R.log.length - 1] = refs; };
 const D = (R, id) => R.defs[R.cards[id].d];
+D.nms = (R, ids) => (ids || []).map(x => D.cn(R, x)).join(', ');   // v1.17.2: 공개 영역으로 나온 카드 여러 장의 이름 목록(로그용, 각 이름은 hover 링크 예약). 비공개 정보에는 쓰지 말 것
 D.cn = (R, id) => { const c = R.cards[id], n = D(R, id).n; (R._lp || (R._lp = [])).push({ n, d: c.d }); return n; };   // say(R, `…${D.cn(R, id)}…`) 에서만 사용: 이름 문자열을 돌려주면서 로그 링크용 (이름, 정의 키) 를 예약
 const tok = d => { const k = String(d.kw || '').toLowerCase(), n = re => { const m = re.exec(k); return m ? +m[1] : 0; };
   return { rapid: /rapid/.test(k), asC: /assault(?!-case)/.test(k), asE: /assault(?!-char)/.test(k), bullet: /bullet/.test(k),

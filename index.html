@@ -5,7 +5,7 @@
  --ch:120px;--cw:86px;--sw:215px;--lw:148px;--logw:230px;--sidew:clamp(270px,21vw,400px);--r:8px;
  --font:'Noto Sans KR','Pretendard','Apple SD Gothic Neo','Malgun Gothic','Noto Sans CJK KR','Noto Sans CJK JP',system-ui,sans-serif}
 *{box-sizing:border-box}
-body{margin:0;font-family:var(--font);font-size:13px;line-height:1.45;background:var(--bg);color:var(--txt);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+body{margin:0;font-family:var(--font);font-size:13px;line-height:1.45;background:var(--bg);color:var(--txt);height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden}
 /* ── 공통 버튼/입력 (브라우저 기본 모양 제거) ── */
 button{font-family:var(--font);font-size:13px;font-weight:600;color:var(--txt);cursor:pointer;border:1px solid #3a4c62;border-radius:9px;padding:7px 14px;background:linear-gradient(#26364a,#1c2a3b);box-shadow:0 2px 0 #0a1017,inset 0 1px 0 #ffffff14;transition:transform .08s,filter .12s,box-shadow .12s;line-height:1.2}@media(hover:hover){button:hover:not(:disabled){filter:brightness(1.18);transform:translateY(-1px)}}
 button:active:not(:disabled){transform:translateY(1px);box-shadow:0 0 0 #0a1017,inset 0 2px 4px #0006;filter:brightness(.95)}
@@ -170,7 +170,7 @@ body.m #effp{width:54%;max-height:46%;top:4px;right:4px}body.m #effp .fxh .fxi{w
 #effp #btns{margin-top:10px}#effp label{color:#dfe8f2;font-size:14px}
 .ab{font-size:11px;color:#f2bd4b}
 /* ── 우측 패널 ── */
-#side{width:var(--sidew);flex:none;padding:10px;background:linear-gradient(#111a24,#0d141c);border-left:1px solid var(--line);display:flex;flex-direction:column;gap:8px;min-height:0}
+#side{width:var(--sidew);flex:none;padding:10px;background:linear-gradient(#111a24,#0d141c);border-left:1px solid var(--line);display:flex;flex-direction:column;gap:8px;min-height:0;overflow-y:auto;overflow-x:hidden}
 #pv{flex:1 1 0;min-height:120px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;overflow:auto;display:flex;flex-direction:column;gap:8px}
 #pv .hintx{color:var(--mut);text-align:center;margin:auto;font-size:12px;padding:12px}
 #pv img{width:100%;max-height:min(42vh,520px);min-height:110px;flex:0 1 auto;object-fit:contain;display:block;margin:0 auto;border-radius:9px;filter:drop-shadow(0 8px 14px #000b)}
@@ -253,7 +253,7 @@ body.m #effp{width:54%;max-height:46%;top:4px;right:4px}body.m #effp .fxh .fxi{w
 /* ── 카드/덱 관리 ── */
 #mg{display:none;position:fixed;inset:0;background:#000d;z-index:20;padding:14px;gap:12px}#mg>div{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;overflow:auto;flex:1;min-width:0}
 #mg input,#mg textarea,#mg select{width:100%;margin:3px 0}.row{display:flex;justify-content:space-between;align-items:center;padding:5px 6px;border-bottom:1px solid #ffffff14;cursor:pointer;border-radius:6px}@media(hover:hover){.row:hover{background:#243447}}
-@media(max-height:820px){#side{gap:6px;padding:8px}#act{padding:8px;gap:5px}#act button{padding:8px 10px;font-size:14px}#act .ah{font-size:11px}#pv{padding:8px}.z-field::after{display:none}}
+@media(max-height:820px){#pv{min-height:60px}#side{gap:6px;padding:8px}#act{padding:8px;gap:5px}#act button{padding:8px 10px;font-size:14px}#act .ah{font-size:11px}#pv{padding:8px}.z-field::after{display:none}}
 @media(max-width:700px){body{overflow:auto;height:auto;min-height:100vh}#main{flex-direction:column}#logc{width:auto;max-height:180px}#board{overflow:visible}#side{width:auto}#top{flex-wrap:wrap;height:auto;padding:6px}}
 .dberr{display:none;background:#3a1418;border:1px solid #ff6a6a;color:#ffd0d0;border-radius:8px;padding:12px 14px;margin:10px auto;max-width:520px;text-align:center}#db.err>*:not(.dberr){pointer-events:none;opacity:.35}#cdbErrB{position:absolute;z-index:5;left:50%;top:14px;transform:translateX(-50%)}
 #botList{display:flex;flex-direction:column;gap:6px;max-height:34vh;overflow:auto}#botList .bsh{font-size:12px;color:var(--mut,#9aa);margin-top:4px}#botList button.bsi{text-align:left;display:flex;flex-direction:column;gap:2px;padding:8px 10px;border:1px solid var(--line);background:transparent;color:inherit;border-radius:8px;cursor:pointer}#botList button.bsi small{opacity:.75}#botList button.bsi.sel{border-color:#6ab0ff;background:#6ab0ff22}#botList button.bsi:disabled{opacity:.45;cursor:not-allowed}#botFixed{font-size:13px;padding:6px 8px;border:1px dashed var(--line);border-radius:8px}
@@ -492,7 +492,7 @@ body.m #dbErr>div{max-width:94vw}
   <div class="dbr"><button class="ghost" onclick="bDel()">덱 삭제</button><button onclick="bClose()">닫기</button></div></div>
  <div id="dbPv" class="dbbox"><div id="dbPvImg"><span>카드에 마우스를 올리면<br>크게 표시됩니다</span></div><div id="dbCardName"></div><div id="dbChips"></div><div id="dbTx"></div></div></div>
  <div id="dbR"><div id="dbDeck" class="dbbox"><div id="dbStat"></div><div id="dbToast"></div><div id="dbSlots"><div class="dbslot" id="dbCase"></div><div class="dbslot" id="dbPart"></div></div><div id="dbMain"></div></div>
-  <div id="dbFil" class="dbbox"><div id="dbCols"></div><input id="dbQ" type="search" placeholder="검색: ap2000 · lp2 · event · 5 (등장 FILE 코스트) · P11 / D01 (시리즈)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search"><span id="dbCnt"></span></div>
+  <div id="dbFil" class="dbbox"><div id="dbCols"></div><input id="dbQ" type="search" placeholder="검색: ap2000 · lp2 · event · 5 (코스트: 캐릭터·이벤트) · P11 / D01 (시리즈)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search"><span id="dbCnt"></span></div>
   <div id="dbGrid"></div></div>
  <div id="dbBar"><span id="dbBarImg"></span><div id="dbBarTx"><b id="dbBarN"></b><small id="dbBarC"></small></div><button id="dbBarM" aria-label="1장 빼기">−</button><button class="pri" id="dbBarP" aria-label="1장 넣기">＋</button><button class="t" id="dbBarI">상세</button></div>
  <div id="dbErr"><div><b>덱 파일을 적용하지 않았습니다</b><ul id="dbErrL"></ul><button class="pri" onclick="$('dbErr').style.display='none'">확인</button></div></div></div>
@@ -813,7 +813,7 @@ function sizesPC(){const w=innerWidth,h=innerHeight,side=w>700?Math.min(400,Math
 function toggleLog(){if(M){document.body.classList.remove('logopen');return}SNAP=null;LOGCOL=!LOGCOL;$('logc').classList.toggle('col',LOGCOL);$('logt').textContent=LOGCOL?'펼치기':'접기';sizes();V&&render()}
 if(innerWidth<1200){LOGCOL=true;$('logc').classList.add('col');$('logt').textContent='펼치기'}
 vvFix();sizes();let rzT=0;const onRz=()=>{cancelAnimationFrame(rzT);rzT=requestAnimationFrame(()=>{vvFix();mScale=1;mFit=0;closeSheet();sizes();V&&render()})};
-addEventListener('resize',onRz);addEventListener('orientationchange',()=>setTimeout(onRz,150));window.visualViewport&&visualViewport.addEventListener('resize',vvFix);
+addEventListener('resize',onRz);addEventListener('orientationchange',()=>setTimeout(onRz,150));window.visualViewport&&visualViewport.addEventListener('resize',onRz);
 let esel=[],effKey='',EP=null;
 // 지금 처리 중인 효과의 한국어 설명 (카드의 extra 에서, 능력 순서가 맞으면 해당 줄을 강조)
 function effText(E){const f=DEFS[E.srcD]||{},kr=String(f.extra||'').split('\n').map(x=>x.trim()).filter(Boolean);if(!kr.length&&!E.abLab)return '';
@@ -828,8 +828,8 @@ function effPick(id){const E=V.eff;if(!E||E.kind!=='pick')return;if(E.max===1){A
  const i=esel.indexOf(id);if(i>=0)esel.splice(i,1);else if(E.ordered||esel.length<E.max)esel.push(id);else $('err').textContent=E.max+'장까지 선택할 수 있습니다';render()}
 function effUI(b,B){const E=V.eff;if(E.wait)return E.msg;
  const box=document.createElement('div');box.className='box';{let sf=DEFS[E.srcD]||{};if(!sf.n&&E.src){const k=Object.keys(DEFS).find(k=>DEFS[k]&&DEFS[k].n===E.src);if(k)sf=DEFS[k]}
-  const cid0=E.srcD?cardId(sf,{d:E.srcD}):'',img=sf.img||(DB.cards[cid0]||{}).img||'',im=img&&!BADIMG.has(img)?`<img class="fxi" src="${esc(img)}" alt="${esc(sf.n||E.src||'')}">`:`<div class="fxi noimg">${esc(sf.n||E.src||'')}</div>`,cid=cid0;
-  box.innerHTML=`<div class="fxh">${im}<div class="fxm"><b>효과 · ${esc(sf.n||E.src||'효과')}</b>${cid?`<span class="fxid">${esc(cid)}</span>`:''}<div class="fxq">${esc(E.msg||'')}</div>${effText(E)}</div></div>`;
+  const cid0=E.srcD?cardId(sf,{d:E.srcD}):'',img=sf.img||(DB.cards[cid0]||{}).img||'',im=E.itK==='ord'?'':img&&!BADIMG.has(img)?`<img class="fxi" src="${esc(img)}" alt="${esc(sf.n||E.src||'')}">`:`<div class="fxi noimg">${esc(sf.n||E.src||'')}</div>`,cid=cid0;
+  box.innerHTML=`<div class="fxh">${im}<div class="fxm"><b>${E.itK==='ord'?'발동 순서 선택':'효과 · '+esc(sf.n||E.src||'효과')}</b>${cid?`<span class="fxid">${esc(cid)}</span>`:''}<div class="fxq">${esc(E.msg||'')}</div>${effText(E)}</div></div>`;
   { const fi=box.querySelector('.fxi'),pc={d:E.srcD}; if(fi&&(sf.n||sf.img)){ const ff=sf.img?sf:{...sf,img:(DB.cards[cid0]||{}).img}; fi._pv=[ff,pc]; fi.onmouseenter=()=>pv(ff,pc); } } }   // v1.12.5: 효과 팝업 카드 이미지도 일반 카드와 같은 preview 경로(_pv)
  $('effp').appendChild(box);
  const tray=$('etray');tray.innerHTML='';const TH=t=>{const h=document.createElement('div');h.className='th';h.textContent=t;tray.appendChild(h)};
@@ -1063,11 +1063,11 @@ function openDB(){if(cdbErr){$('db').classList.add('on');dbBanner();bIx=[];retur
 function bClose(){$('db').classList.remove('on');decks();if(curDeck&&$('dsel')&&DB.decks[curDeck])$('dsel').value=curDeck}
 function bSel(){$('dbSel').innerHTML=Object.entries(DB.decks).map(([k,d])=>`<option value="${k}">${esc(d.name)} (${Object.values(d.cards||{}).reduce((a,b)=>a+b,0)})</option>`).join('')||'<option value="">(저장된 덱 없음)</option>';if(W.id&&DB.decks[W.id])$('dbSel').value=W.id;$('dbName').value=W.name}
 function bToast(m){const t=$('dbToast');t.textContent=m;t.classList.add('on');clearTimeout(bToastT);bToastT=setTimeout(()=>t.classList.remove('on'),2400)}
-// ── 검색: ap2000 / lp2 / event / 숫자(등장 FILE 코스트, 캐릭터만) · 공백으로 여러 조건(AND) · 그 외 글자는 효과/특징 텍스트 검색
+// ── 검색: ap2000 / lp2 / event / 숫자(FILE 코스트 Lv: 캐릭터·이벤트. 사건·파트너 제외 — v1.17.6 이벤트 포함) · 공백으로 여러 조건(AND) · 그 외 글자는 효과/특징 텍스트 검색
 function bPred(tok){let m;tok=tok.toLowerCase();
  if(m=/^ap(\d+)$/.exec(tok)){const n=+m[1];return c=>c.ap!==''&&c.ap!=null&&+c.ap===n}
  if(m=/^lp(\d+)$/.exec(tok)){const n=+m[1];return c=>c.lp!==''&&c.lp!=null&&+c.lp===n}
- if(/^\d+$/.test(tok)){const n=+tok;return c=>c.type==='char'&&c.lv!==''&&c.lv!=null&&+c.lv===n}
+ if(/^\d+$/.test(tok)){const n=+tok;return c=>(c.type==='char'||c.type==='event')&&c.lv!==''&&c.lv!=null&&+c.lv===n}
  if(['event','char','case','partner'].includes(tok))return c=>c.type===tok;
  if(/^[pd]\d{2}$/.test(tok))return c=>String(c.series||'').toLowerCase()===tok;   // v1.13.2: 시리즈/상품 코드 (P11 / D01) — 카드 이미지 오른쪽 아래 코드 기준 series 필드
  return c=>(String(c.n)+' '+c.id+' '+(c.kw||'')+' '+(c.trait||'')+' '+(c.extra||'')+' '+(c.fx||'')).toLowerCase().includes(tok)}

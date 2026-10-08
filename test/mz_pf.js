@@ -69,7 +69,7 @@ t('id_0233', '선언(슬립): 捜査X (X=내 현장의 [警察] 수) → 발견�
     const c = field(R, s, 'c'); if (nPol > 1) field(R, s, 'p1'); if (nPol > 2) field(R, s, 'p2'); field(R, s, 'j'); const k1 = top(R, o, 'k1'); const k2 = top(R, o, 'k2'); const a = field(R, o, 'a'), b = field(R, o, 'b'), cc = field(R, o, 'cc'); return { R, s, o, c, k1, k2, a, b, cc }; };
   let r = run(2, 3, 4); decl(r.R, r.s, r.c); eq(r.R.cards[r.c].st, 's', '슬립 코스트'); let q = req(r.R); eq(q.kind, 'ack', '수사 결과 확인'); eq(q.ids.length, 2, 'X=2 (자기 자신 + [警察] 1장)'); ok(q.ids.includes(r.k1) && q.ids.includes(r.k2), '상대 덱 위 2장'); ans(r.R, null);
   q = req(r.R); eq(q.who, r.o, '상대가 순서를 정함'); ok(q.ordered, '순서 지정'); ans(r.R, q.ids); q = req(r.R); eq(q.who, r.s, '캐릭터 선택은 나'); ok(q.sel.includes(r.a) && q.sel.includes(r.cc) && !q.sel.includes(r.b), 'Lv 7 이하(합계 7)만'); rej(r.R, [r.b]); ans(r.R, [r.a]); pump(r.R); ok(has(r.R, r.o, 'rem', r.a), '리무브');
-  const dk = r.R.P[r.o].deck; ok(dk.slice(0, 2).includes(r.k1) && dk.slice(0, 2).includes(r.k2), '발견된 카드는 덱 아래'); ok(!dk.slice(-2).includes(r.k1), '덱 위에서 사라짐'); ok(r.R.P[r.s].hand.length > 0 && !logOf(r.R, r.s).includes('K1'), '로그에 카드 이름 노출 없음');
+  const dk = r.R.P[r.o].deck; ok(dk.slice(0, 2).includes(r.k1) && dk.slice(0, 2).includes(r.k2), '발견된 카드는 덱 아래'); ok(!dk.slice(-2).includes(r.k1), '덱 위에서 사라짐'); ok(r.R.P[r.s].hand.length > 0 && logOf(r.R, r.s).includes('K1'), '로그에 공개된 카드 이름이 남음 (v1.17.2: 상대가 공개하는 카드는 로그에 기록)');
   r = run(1, 0, 2); decl(r.R, r.s, r.c); q = req(r.R); eq(q.ids.length, 1, 'X=1'); ans(r.R, null); q = req(r.R); ok(q.sel.includes(r.cc) && !q.sel.includes(r.a) && !q.sel.includes(r.b), '합계 2: Lv2 이하만'); ans(r.R, []); ok(has(r.R, r.o, 'field', r.cc), '0장 선택 가능(まで)');
   r = run(2, 3, 4); decl(r.R, r.s, r.c); auto(r.R); r.R.cards[r.c].st = 'a'; ok(chk(r.R, r.s, r.c), '턴 1회'); });
 t('id_0248', '등장 시: 상대 캐릭터에 세트된 카드 1장까지 리무브 → 리무브하면 이번 턴 突撃[キャラ] / 세트 카드가 없으면 발동 안 함', () => {
@@ -106,7 +106,7 @@ t('id_0264', '등장 시: 리무브 에리어의 카드명이 다른 [少年探�
 
 t('id_0281', '내 턴 [毛利探偵事務所] 캐릭터 등장 시(턴1): 상대 덱 위 1장 공개(덱 변화 없음) / 다른 특징·상대 턴·2번째는 발동 안 함', () => {
   const run = (trait, myTurn = true) => { const R = mk({ c: rc('id_0281'), m: dm('M', { trait }), m2: dm('M2', { trait: '毛利探偵事務所' }), kk: dm('KK') }, ['c', 'm', 'm2'], ['kk'], 'blue'); const s = R.turn, o = 1 - s; field(R, s, 'c'); const m = hand(R, s, 'm'); const k = top(R, o, 'kk'); const dl = R.P[o].deck.length; if (!myTurn) { R.turn = o; R.fl = {}; } return { R, s, o, m, k, dl }; };
-  let r = run('毛利探偵事務所'); play(r.R, r.s, r.m); let q = req(r.R); ok(q && q.kind === 'ack' && q.who === r.s && q.ids.length === 1 && q.ids[0] === r.k, '상대 덱 맨 위 1장 공개'); ans(r.R, null); pump(r.R); eq(r.R.P[r.o].deck.length, r.dl, '덱 변화 없음'); eq(r.R.P[r.o].deck[r.dl - 1], r.k, '그대로 맨 위'); ok(!ctxLog(r.R).includes('KK'), '로그에 공개 카드 이름 없음');
+  let r = run('毛利探偵事務所'); play(r.R, r.s, r.m); let q = req(r.R); ok(q && q.kind === 'ack' && q.who === r.s && q.ids.length === 1 && q.ids[0] === r.k, '상대 덱 맨 위 1장 공개'); ans(r.R, null); pump(r.R); eq(r.R.P[r.o].deck.length, r.dl, '덱 변화 없음'); eq(r.R.P[r.o].deck[r.dl - 1], r.k, '그대로 맨 위'); ok(ctxLog(r.R).includes('KK'), '로그에 공개 카드 이름이 남음 (v1.17.2)');
   const m2 = hand(r.R, r.s, 'm2'); r.R.fl = {}; play(r.R, r.s, m2); ok(!req(r.R), '턴 1회: 두 번째는 발동 안 함');
   r = run('高校生'); play(r.R, r.s, r.m); ok(!req(r.R), '다른 특징: 발동 안 함');
   r = run('毛利探偵事務所', false); const m3 = hand(r.R, r.o, 'm'); play(r.R, r.o, m3); ok(!req(r.R), '상대 캐릭터 등장/상대 턴: 발동 안 함'); });

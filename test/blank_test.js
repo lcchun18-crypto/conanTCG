@@ -14,4 +14,5 @@ const a = info(); ok(a.ap === 3000 && !a.rapid && !a.ac && a.abs === 0 && !a.mr,
 const vw = JSON.parse(JSON.stringify(S.view(R, o))); const vc = vw.P[o].field.find(c => c.id === v); ok(vc && vc.bl === 1, '뷰에 효과 무효 표시(bl) 포함');
 const hand0 = R.P[o].hand.length; FX.rmChar(R, v, 'effect', null); pump(R); ok(R.P[o].hand.length === hand0, `효과 무효 캐릭터가 리무브돼도 【현장 리무브 시】가 발동하지 않음 (손패 ${hand0}→${R.P[o].hand.length})`);
 ok(!R.cards[v].lkiBlank, '임시 무효 표시 정리');
+ok(R.P[o].pa.includes(v) && !R.P[o].rem.includes(v) && !R.P[o].field.includes(v), 'v1.17.4: 효과 무효 상태의 MR 도 상대 턴에 리무브되면 파트너 에리어로 이동');
 console.log(`blank_test: ${pass} 통과, ${fail} 실패`); process.exit(fail ? 1 : 0);

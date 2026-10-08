@@ -109,8 +109,8 @@ module.exports = function (K, def) {
   // ── 코스트(또는 효과)로 표향이 된 【!】히라메키 카드를 1장까지 고르고, 그 효과를 발동시켜도 된다
   def('flashPickOne', o => ({ op: 'flashPickOne', bang: o.bang !== false, filter: cleanFilter(o.filter) }), function* (R, s, src, o, ctx, it) {
     const f = rf(R, o.filter, ctx); ctx.done = false;
-    const ids = [...((ctx.cost && ctx.cost.flip) || []), ...(ctx.flipped || [])].filter((x, i, a) => a.indexOf(x) === i && R.cards[x] && fOk(R, s, x, f, src, true) && (D(R, x).ab || []).some(a => a.ic === 'flash' && !!a.bang === !!o.bang && condOk(R, s, x, a)));
+    const ids = [...((ctx.cost && ctx.cost.flip) || []), ...(ctx.flipped || [])].filter((x, i, a) => a.indexOf(x) === i && R.cards[x] && fOk(R, s, x, f, src, true) && (D(R, x).ab || []).some(a => a.ic === 'flash' && (o.bang || !a.bang) && condOk(R, s, x, a)));
     if (!ids.length) return; const x = (yield pickReq(s, `표향이 된 ${o.bang ? '【!】' : ''}히라메키 카드를 1장까지 선택 (고르지 않으면 발동하지 않음)`, ids, 0, 1, { reveal: 1 }))[0]; if (x == null || !ids.includes(x)) return;
     if (!(yield yn(s, `「${D(R, x).n}」의 ${o.bang ? '【!】' : ''}히라메키를 발동할까요?`))) return;
-    const abs = (D(R, x).ab || []).filter(a => a.ic === 'flash' && !!a.bang === !!o.bang && condOk(R, s, x, a)); say(R, `▶ 히라메키 발동(표향): ${D.cn(R, x)}`); const c2 = { done: true, t: {}, cost: {}, src: x }; for (const ab of abs) yield* runOps(R, s, x, ab.ops, c2, it); ctx.done = true; });
+    const abs = (D(R, x).ab || []).filter(a => a.ic === 'flash' && (o.bang || !a.bang) && condOk(R, s, x, a)); say(R, `▶ 히라메키 발동(표향): ${D.cn(R, x)}`); const c2 = { done: true, t: {}, cost: {}, src: x }; for (const ab of abs) yield* runOps(R, s, x, ab.ops, c2, it); ctx.done = true; });
 };

@@ -164,9 +164,9 @@ t('id_1046', '【解決編】【宣言】【ターン①】덱 전부 리무브(
   ok(R.P[s].evid.every(x => R.cards[x].up), '증거 전부 표향'); eq(R.phase, 'over', '게임 종료'); eq(R.winner, s, '내가 승리(상대 패배)'); ok(dl > 0, '덱이 있었음');
   ({ R, s, k } = mkr(7)); U.solve(R, s); eq(declare(R, s, k), '', '선언'); auto(R); pump(R); ok(R.P[s].evid.every(x => R.cards[x].up), '증거 전부 표향'); eq(R.phase, 'play', '犯人 7장: 승부 안 남'); ok(R.P[s].deck.length > 0, '리프레시로 덱 재구성'); ok(declare(R, s, k), '【ターン①】 두 번째 선언 불가'); });
 
-t('id_1086', '登場時: !ヒラメキ Lv7 緑 이벤트가 나올 때까지 1장씩 공개 → 손패 / 나머지는 덱 아래 → 셔플 / 파트너(緑)면 突撃', () => {
+t('id_1086', '登場時: ヒラメキ(【!】)를 가진 Lv7 緑 이벤트가 나올 때까지 1장씩 공개 → 손패 / 나머지는 덱 아래 → 셔플 / 파트너(緑)면 突撃', () => {
   const EVT = (n, color, lv, bang) => ({ n, type: 'event', color, lv: String(lv), ab: [{ ic: 'flash', bang, ops: [{ op: 'draw', n: 1 }] }] });
-  const R = mk({ c: real('id_1086', { color: 'green', lv: '0' }), t: EVT('T', 'green', 7, true), nb: EVT('NB', 'green', 7, false), l6: EVT('L6', 'green', 6, true), bl: EVT('BL', 'blue', 7, true) }, ['c'], ['c'], BS('green')); const s = R.turn, o = 1 - s;
+  const R = mk({ c: real('id_1086', { color: 'green', lv: '0' }), t: EVT('T', 'green', 7, undefined), nb: { n: 'NB', type: 'event', color: 'green', lv: '7', ab: [] }, l6: EVT('L6', 'green', 6, true), bl: EVT('BL', 'blue', 7, true) }, ['c'], ['c'], BS('green')); const s = R.turn, o = 1 - s;
   const c = hand(R, s, 'c'); const tt = top(R, s, 't'); const bl = top(R, s, 'bl'), l6 = top(R, s, 'l6'), nb = top(R, s, 'nb'); const dl = R.P[s].deck.length, h0 = R.P[s].hand.length;
   play(R, s, c); ok(FX.hasKwTk(R, c, 'assault'), '【パートナー(緑)】 突撃'); let q = req(R); eq(q.kind, 'ack', '공개 확인(본인)'); sameSet(q.ids, [nb, l6, bl, tt], '조건에 맞는 카드가 나올 때까지의 카드 전부'); ans(R, null); q = req(R); eq(q.who, o, '상대에게도 공개'); ans(R, null); pump(R);
   ok(has(R, s, 'hand', tt), '발견한 카드는 손패'); eq(R.P[s].hand.length, h0 - 1 + 1, '손패 +1(등장으로 -1)'); eq(R.P[s].deck.length, dl - 1, '발견한 1장만 덱에서 빠짐'); ok([nb, l6, bl].every(x => has(R, s, 'deck', x)), '나머지는 덱에 있음(아래→셔플)'); ok(!R.eff, '질의 종료'); });

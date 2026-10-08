@@ -30,7 +30,7 @@ module.exports = function (K, def) {
     const T = R.P[s]; ctx.done = false; ctx.lvSum = 0; const k = T.hand.length - o.n; if (k <= 0) return;
     const ids = yield pickReq(s, `손패가 ${o.n}장이 되도록 ${k}장 리무브`, T.hand.slice(), k, k);
     for (const x of ids) ctx.lvSum += lvOf(R, x);
-    T.hand = T.hand.filter(x => !ids.includes(x)); T.rem.push(...ids); setReg(ctx, 'removed', ids); say(R, `[효과] ${nm(s)} 손패 ${ids.length}장 리무브`);
+    T.hand = T.hand.filter(x => !ids.includes(x)); T.rem.push(...ids); setReg(ctx, 'removed', ids); say(R, `[효과] ${nm(s)} 손패 ${ids.length}장 리무브: ${D.nms(R, ids)}`);
     ids.forEach(x => bus(R, 'handRem', { s, ent: x, cz: s, by: 'effect' })); ctx.done = true; });
 
   // selLvSum: 기록한 레벨 합계(ctx.lvSum) 이하가 되도록 캐릭터를 n장까지 선택하여 리무브
@@ -42,5 +42,5 @@ module.exports = function (K, def) {
     const T = R.P[s]; ctx.done = false; if (!T.deck.length) return;
     if (o.opt && !(yield yn(s, `덱 위 ${Math.min(o.n, T.deck.length)}장을 리무브할까요?`))) return;
     const got = []; for (let i = 0; i < o.n && T.deck.length; i++) { const x = T.deck.pop(); T.rem.push(x); got.push(x); }
-    ctx.remd = got; setReg(ctx, 'removed', got); K.chk(R, s); say(R, `[효과] ${nm(s)} 덱 위 ${got.length}장 리무브`); ctx.done = got.length > 0; });
+    ctx.remd = got; setReg(ctx, 'removed', got); K.chk(R, s); say(R, `[효과] ${nm(s)} 덱 위 ${got.length}장 리무브: ${D.nms(R, got)}`); ctx.done = got.length > 0; });
 };

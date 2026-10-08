@@ -172,6 +172,7 @@ module.exports = function (A) {
   const hasTrDef = R => { if (R.phase === 'setup') return false; if (R._trD === undefined) R._trD = Object.values(R.defs || {}).some(d => (d.ab || []).some(a => a.tr)); return R._trD; };
   const traitsId = (R, id) => { const c = R.cards[id]; let l = traitsOf(D(R, id)).concat(c && R.tt ? R.tt[c.o] || [] : []);
     if (!_inTr && c && hasTrDef(R)) { _inTr = 1; try { const g = stat(R, id).tr; if (g) l = l.concat(g.split(/\s+/).filter(Boolean)); } finally { _inTr = 0; } } if (c && c.tmod) l = l.filter(x => !c.tmod.lose.includes(x)).concat(c.tmod.add); return l; };
+  const hasMrAb = (R, id) => (D(R, id).ab || []).some(a => a.ic === 'mr');   // 무효 여부와 관계없이 카드에 MR 능력이 있는가
   const isMR = (R, id) => { const c = R.cards[id]; return !(c && (c.blank || c.lkiBlank)) && (D(R, id).ab || []).some(a => a.ic === 'mr'); };   // 효과 무효인 캐릭터는 MR 도 무효
   const inPa = (R, id) => !!R.cards[id] && R.P[R.cards[id].o].pa.includes(id);
   const onField = (R, id) => !!R.cards[id] && R.P[R.cards[id].o].field.includes(id);
@@ -292,7 +293,7 @@ module.exports = function (A) {
       if (rn != null) { if (!nameHit({ n: rn }, f)) return false; } else if (!nameHit(d, f) && !aliasHit(R, id, f)) return false; if (f.nameNot && (rn != null ? rn : d.n).includes(f.nameNot)) return false; }
     if (f.hasIc) { if (f.hasIc === 'cutin' ? !(/cutin/.test(cardKw(R, id)) || (d.ab || []).some(a => a.ic === 'cutin')) : !(d.ab || []).some(a => a.ic === f.hasIc)) return false; }
     if (f.hasKw && !cardKw(R, id).includes(f.hasKw)) return false;
-    if (f.bang && !(d.ab || []).some(a => a.ic === 'flash' && a.bang)) return false;
+    if (f.bang && !(d.ab || []).some(a => a.ic === 'flash')) return false;   // v1.17.5: 【!】ヒラメキ = 카드에 인쇄된 히라메키 아이콘(모든 ヒラメキ 에 붙어 있음) → 히라메키 능력이 있는 카드면 모두 해당
     if (f.plain && !((d.ab || []).every(a => a.ic === 'cutin' || a.ic === 'flash') && !/[a-z]/.test(cardKw(R, id).replace(/cutin[:=]?\d*/g, '')))) return false;
     if (f.acting && R.actor !== id && !(R.sub && (R.sub.type === 'contact' || R.sub.type === 'guard') && R.sub.atk === id)) return false; if (f.contacting && !(R.sub && (R.sub.atk === id || R.sub.def === id))) return false;
     if (f.st) { const st = (!R.P[c.o].field.includes(id) && c.pst) ? c.pst : (c.st || 'a'); if (f.st === 'sx' ? !(st === 's' || st === 'x') : st !== f.st) return false; }
@@ -387,7 +388,7 @@ module.exports = function (A) {
     c.st = 'a'; c.apm = c.cm = c.lpm = c.lvm = 0; c.sum = 0; c.tkw = ''; c.tab = []; c.bAp = c.bLp = null; c.nx = null; c.lose = ''; c.hold = null; c.ckw = ''; c.blank = 0; c.tmod = null; };
   // 현장을 떠난 카드를 목적지로: MR 은 상대 턴에 떠나면 (어디로 가든) 파트너 에리어로 이동(룰: 대체 효과가 아님)
   function moveOut(R, id, to) { const c = R.cards[id], o = c.o, P = R.P[o]; const was = P.field.includes(id); leave(R, id);
-    let z = to; if (was && isMR(R, id) && R.turn !== o) z = 'pa';
+    let z = to; if (was && hasMrAb(R, id) && R.turn !== o) z = 'pa';   // v1.17.4: 효과 무효(blank)여도 MR 의 파트너 에리어 이동은 유지(떠나는 처리에서는 무효 여부를 보지 않는다)
     if (z === 'pa') { P.pa.push(id); say(R, `${D.cn(R, id)}: 상대 턴에 현장을 떠나 파트너 에리어로 이동`); }
     else if (z === 'hand') P.hand.push(id); else if (z === 'deckTop') P.deck.push(id); else if (z === 'deckBottom') P.deck.unshift(id); else P.rem.push(id);
     return z; }
@@ -569,12 +570,12 @@ module.exports = function (A) {
         if (o.rand) { ids = pool.slice(); shuf(ids); ids = ids.slice(0, n); }
         else if (o.opt || o.any || pool.length > n) ids = yield pickReq(t, `손패 ${o.any ? '원하는 만큼' : n + '장'}을 리무브${o.opt || o.any ? ' (선택, 0장이면 하지 않음)' : ''}`, pool, o.opt || o.any ? 0 : n, n);
         else ids = pool.slice();
-        if (!ids.length) { ctx.done = false; return; } T.hand = T.hand.filter(x => !ids.includes(x)); T.rem.push(...ids); setReg(ctx, 'removed', ids); say(R, `[효과] ${nm(t)} 손패 ${ids.length}장 리무브`); ids.forEach(x => bus(R, 'handRem', { s: t, ent: x, cz: s, by: 'effect' })); ctx.done = true; return; }
+        if (!ids.length) { ctx.done = false; return; } T.hand = T.hand.filter(x => !ids.includes(x)); T.rem.push(...ids); setReg(ctx, 'removed', ids); say(R, `[효과] ${nm(t)} 손패 ${ids.length}장 리무브: ${D.nms(R, ids)}`); ids.forEach(x => bus(R, 'handRem', { s: t, ent: x, cz: s, by: 'effect' })); ctx.done = true; return; }
       case 'deckrem': { const t = tg(o.who), T = R.P[t]; let nn = dynNum(R, s, src, o, ctx); if (nn <= 0) { ctx.done = false; return; }
         if (o.upto) { const i = yield { who: s, kind: 'opt', msg: `덱 위에서 리무브할 장수를 정하세요 (최대 ${nn}장)`, labels: Array.from({ length: Math.min(nn, T.deck.length) + 1 }, (_, j) => `${j}장`) }; nn = Math.min(nn, +i); if (!nn) { ctx.done = false; return; } }
         if (o.opt) { if (T.deck.length < nn) { ctx.done = false; return; }
           if (!(yield { who: s, kind: 'yn', msg: `${o.who === 'opp' ? '상대 ' : ''}덱 위 ${nn}장을 리무브할까요?` })) { ctx.done = false; return; } }
-        let k = 0; const got = []; for (let i = 0; i < nn && T.deck.length; i++) { const x = T.deck.pop(); T.rem.push(x); got.push(x); k++; } ctx.remd = got; setReg(ctx, 'removed', got); chk(R, t); say(R, `[효과] ${nm(t)} 덱 위 ${k}장 리무브`); ctx.done = k > 0; return; }
+        let k = 0; const got = []; for (let i = 0; i < nn && T.deck.length; i++) { const x = T.deck.pop(); T.rem.push(x); got.push(x); k++; } ctx.remd = got; setReg(ctx, 'removed', got); chk(R, t); say(R, `[효과] ${nm(t)} 덱 위 ${k}장 리무브: ${D.nms(R, got)}`); ctx.done = k > 0; return; }
       case 'selfEvid': { const c = R.cards[src]; if (inZoneFx(R, src) || R.cards[src].setOn != null) { ctx.done = false; return; } ctx.moved = true; c.up = true; c.setOn = null; R.P[s].evid.push(src); say(R, `[효과] ${D.cn(R, src)}: 표향 그대로 증거로 획득`); ctx.done = true; return; }
       case 'selfTo': { const c = R.cards[src]; if (inZoneFx(R, src) || R.cards[src].setOn != null) { ctx.done = false; return; } ctx.moved = true; c.up = false; c.st = 'a'; if (o.to === 'pa') R.P[s].pa.push(src); else R.P[s].hand.push(src); say(R, `[효과] ${D.cn(R, src)}: ${o.to === 'pa' ? '파트너 에리어' : '손패'}로 이동`); ctx.done = true; return; }
       case 'flipDown': { const ids = (o.who === 'any' ? [0, 1] : [s]).flatMap(t => R.P[t].evid.filter(x => R.cards[x].up)); if (!ids.length) { ctx.done = false; return; }
@@ -588,7 +589,7 @@ module.exports = function (A) {
         if (o.max > 0 && ok.length) chosen = yield { ...pickReq(ch, `${o.by === 'opp' ? '상대의 ' : ''}덱 ${o.from === 'bottom' ? '아래' : '위'} ${n}장 확인 — 최대 ${o.max}장 선택 (가능한 카드만 선택 가능)`, ids, 0, Math.min(o.max, ok.length), { sel: ok }), reveal: 1 };
         else yield { who: ch, kind: 'ack', msg: `덱 ${o.from === 'bottom' ? '아래' : '위'} ${n}장 확인`, ids };
         chosen = chosen.filter(x => ok.includes(x)); T.deck = T.deck.filter(x => !chosen.includes(x)); setReg(ctx, 'seen', ids); setReg(ctx, 'chosen', chosen); setReg(ctx, 'rest', ids.filter(x => !chosen.includes(x)));
-        if (chosen.length) { say(R, `[효과] ${nm(s)} 덱에서 ${chosen.length}장 선택`);
+        if (chosen.length) { say(R, `[효과] ${nm(s)} 덱에서 ${chosen.length}장 선택·공개: ${D.nms(R, chosen)}`);
           if (o.then === 'hand') T.hand.push(...chosen); else if (o.then === 'rem') T.rem.push(...chosen);
           else yield* placeCards(R, s, src, chosen, o.then === 'fieldSleep' || o.asleep, ctx); }
         const rest = ids.filter(x => !chosen.includes(x)); ctx.found = chosen.length; ctx.done = chosen.length > 0;
@@ -659,20 +660,20 @@ module.exports = function (A) {
         yield { who: s, kind: 'ack', msg: hit != null ? `덱 위에서 ${seen.length}장을 공개 — 「${D(R, hit).n}」 발견` : `덱 위 ${seen.length}장을 공개 — 해당하는 카드가 없었습니다`, ids: seen, reveal: 1, by: s };
         const rest = seen.filter(x => x !== hit); if (hit != null) { if (o.then === 'rem') T.rem.push(hit); else T.hand.push(hit); }
         if (o.rest === 'rem') T.rem.push(...rest); else { const r = rest.slice(); if (o.rest === 'shuffleBottom') shuf(r); r.forEach(x => T.deck.unshift(x)); }
-        if (o.shuffle) shuf(T.deck); say(R, `[효과] ${nm(s)} 덱을 ${seen.length}장 공개` + (hit != null ? ` → 「${D.cn(R, hit)}」을(를) 손패에` : ' (해당 카드 없음)')); ctx.done = hit != null; ctx.found = hit != null ? 1 : 0; chk(R, s); return; }
+        if (o.shuffle) shuf(T.deck); say(R, `[효과] ${nm(s)} 덱을 ${seen.length}장 공개` + (seen.length ? ` (${D.nms(R, seen)})` : '') + (hit != null ? ` → 「${D.cn(R, hit)}」을(를) 손패에` : ' (해당 카드 없음)')); ctx.done = hit != null; ctx.found = hit != null ? 1 : 0; chk(R, s); return; }
       case 'revealTop': { const T = P, n = Math.min(o.n, T.deck.length); if (!n) { ctx.done = false; return; } const seen = []; for (let i = 0; i < n; i++) seen.push(T.deck.pop());
         const f = rf(R, o.filter, ctx), hits = seen.filter(x => fOk(R, s, x, f, src, true)), miss = seen.filter(x => !hits.includes(x));
         yield { who: s, kind: 'ack', msg: `덱 위 ${n}장을 공개 — ` + (hits.length ? `조건에 맞는 「${D(R, hits[0]).n}」 → ${o.hit === 'rem' ? '리무브' : '손패'}` : `조건에 맞는 카드 없음 → ${o.miss === 'bottom' ? '덱 아래' : o.miss === 'top' ? '덱 위' : o.miss === 'rem' ? '리무브' : '손패'}`), ids: seen, reveal: 1, by: s };
         if (o.hit === 'rem') T.rem.push(...hits); else T.hand.push(...hits);
         if (o.miss === 'bottom') miss.forEach(x => T.deck.unshift(x)); else if (o.miss === 'top') miss.slice().reverse().forEach(x => T.deck.push(x)); else if (o.miss === 'rem') T.rem.push(...miss); else T.hand.push(...miss);
-        say(R, `[효과] ${nm(s)} 덱 위 ${n}장 공개` + (hits.length ? ` → 「${D.cn(R, hits[0])}」` : ' (해당 없음)')); ctx.done = hits.length > 0; ctx.found = hits.length; chk(R, s); return; }
-      case 'revealHand': { const t = tg(o.who), ids = R.P[t].hand.slice(); yield { who: 1 - t, kind: 'ack', msg: `${nm(t)}의 손패 ${ids.length}장 공개 (확인 후 원래대로)`, ids, reveal: 1, by: t }; say(R, `[효과] ${nm(t)} 손패 공개`); return; }
+        say(R, `[효과] ${nm(s)} 덱 위 ${n}장 공개` + (seen.length ? ` (${D.nms(R, seen)})` : '') + (hits.length ? ` → 「${D.cn(R, hits[0])}」` : ' (해당 없음)')); ctx.done = hits.length > 0; ctx.found = hits.length; chk(R, s); return; }
+      case 'revealHand': { const t = tg(o.who), ids = R.P[t].hand.slice(); yield { who: 1 - t, kind: 'ack', msg: `${nm(t)}의 손패 ${ids.length}장 공개 (확인 후 원래대로)`, ids, reveal: 1, by: t }; say(R, `[효과] ${nm(t)} 손패 ${ids.length}장 공개: ${D.nms(R, ids)}`); return; }
       case 'revealFile': { const t = tg(o.who), T = R.P[t]; const ids = T.file.slice(-o.n).reverse(); if (!ids.length) { ctx.done = false; return; } ids.forEach(x => { R.cards[x].up = true; });
-        yield { who: s, kind: 'ack', msg: `${nm(t)}의 FILE 에리어 위 ${ids.length}장을 표향으로`, ids, reveal: 1, by: t }; say(R, `[효과] ${nm(t)} FILE 위 ${ids.length}장 표향`); ctx.done = true; return; }
+        yield { who: s, kind: 'ack', msg: `${nm(t)}의 FILE 에리어 위 ${ids.length}장을 표향으로`, ids, reveal: 1, by: t }; say(R, `[효과] ${nm(t)} FILE 위 ${ids.length}장 표향: ${D.nms(R, ids)}`); ctx.done = true; return; }
       case 'investigate': { const t = 1 - s, T = R.P[t]; ctx.named = ''; ctx.disc = [];
         if (o.named) { const v = yield { who: s, kind: 'text', msg: '수사할 카드 이름을 지정하세요 (부분 일치)', max: 40 }; ctx.named = String(v || '').slice(0, 40); }
         const n = Math.min(o.n, T.deck.length); const seen = []; for (let i = 0; i < n; i++) seen.push(T.deck.pop()); ctx.disc = seen.slice(); ctx.found = 0;
-        say(R, `[효과] 수사 ${o.n}: 상대 덱 위 ${seen.length}장 공개` + (ctx.named ? ` (지정: ${ctx.named})` : ''));
+        say(R, `[효과] 수사 ${o.n}: 상대 덱 위 ${seen.length}장 공개` + (ctx.named ? ` (지정: ${ctx.named})` : '') + (seen.length ? `: ${D.nms(R, seen)}` : ''));
         if (!n) { ctx.done = false; return; }
         yield { who: s, kind: 'ack', msg: `수사 ${o.n} — 상대 덱 위 ${n}장 발견`, ids: seen, reveal: 1 };
         let ord = seen; if (n > 1) ord = yield pickReq(t, `수사로 공개된 ${n}장을 덱 아래에 놓을 순서대로 클릭`, seen, n, n, { ordered: true, reveal: 1 });
@@ -680,7 +681,7 @@ module.exports = function (A) {
       case 'fetch': { const f = rf(R, o.filter, ctx), pool = [...P.rem, ...(o.from === 'rempa' ? P.pa : [])].filter(x => fOk(R, s, x, f, src, true)); if (!pool.length) { ctx.done = false; return; }
         const ids = (yield pickReq(s, `${o.from === 'rempa' ? '리무브/파트너 에리어' : '리무브 에리어'}에서 손패에 가져올 카드를 최대 ${o.n}장 선택`, pool, 0, Math.min(o.n, pool.length), { reveal: 1 })).filter(x => pool.includes(x));
         if (!ids.length) { ctx.done = false; return; } const fromRem = ids.filter(x => P.rem.includes(x)); P.rem = P.rem.filter(x => !ids.includes(x)); P.pa = P.pa.filter(x => !ids.includes(x)); P.hand.push(...ids); setReg(ctx, 'moved', ids);
-        remLeft(R, s, fromRem); say(R, `[효과] ${nm(s)} ${ids.length}장을 손패에`); ctx.done = true; return; }
+        remLeft(R, s, fromRem); say(R, `[효과] ${nm(s)} ${ids.length}장을 손패에: ${D.nms(R, ids)}`); ctx.done = true; return; }
       case 'fileToHand': { const k = Math.min(o.n, P.file.length); if (!k) { ctx.done = false; return; }
         if (o.opt && !(yield { who: s, kind: 'yn', msg: `FILE 에리어의 카드를 위에서 ${k}장 손패에 가져올까요?` })) { ctx.done = false; return; }
         for (let i = 0; i < k; i++) P.hand.push(P.file.pop()); say(R, `[효과] ${nm(s)} FILE 에리어 ${k}장을 손패에`); bus(R, 'fileHand', { s, by: 'effect' }); ctx.done = true; return; }
@@ -708,8 +709,8 @@ module.exports = function (A) {
         const ids = (yield pickReq(s, `리무브 에리어에서 이 캐릭터 아래에 겹칠 카드를 최대 ${o.n}장 선택` + (o.distinct ? ' (카드 이름이 서로 달라야 함)' : ''), cand, 0, Math.min(o.n, cand.length), { distinct: o.distinct, reveal: 1 })).filter(x => cand.includes(x));
         if (!ids.length) { ctx.done = false; return; } P.rem = P.rem.filter(x => !ids.includes(x)); const h = R.cards[src]; (h.under = h.under || []).push(...ids); setReg(ctx, 'moved', ids); remLeft(R, s, ids); say(R, `[효과] ${D.cn(R, src)} 아래에 ${ids.length}장을 겹침`); ctx.done = true; return; }
       case 'flip': { const t = tg(o.who); if (o.opt && faceDown(R, t).length && !(yield { who: s, kind: 'yn', msg: `뒷면 증거 ${o.n}장을 표향으로 할까요?` })) { ctx.done = false; return; } const ids = yield* flipPick(R, s, t, o.n); ctx.flipped = ids; if (ids.length) say(R, `[효과] ${nm(t)}의 뒷면 증거 ${ids.length}장을 표향으로` + ids.map(x => ` (${D.cn(R, x)})`).join('')); ctx.done = ids.length > 0; return; }
-      case 'flashFlipped': { const f = rf(R, o.filter, ctx), ids = [...(ctx.cost && ctx.cost.flip || []), ...(ctx.flipped || [])].filter(x => fOk(R, s, x, f, src, true) && (D(R, x).ab || []).some(a => a.ic === 'flash' && !!a.bang === !!o.bang));
-        for (const x of ids) { const abs = (D(R, x).ab || []).filter(a => a.ic === 'flash' && !!a.bang === !!o.bang && condOk(R, s, x, a)); if (!abs.length) continue;
+      case 'flashFlipped': { const f = rf(R, o.filter, ctx), ids = [...(ctx.cost && ctx.cost.flip || []), ...(ctx.flipped || [])].filter(x => fOk(R, s, x, f, src, true) && (D(R, x).ab || []).some(a => a.ic === 'flash' && (o.bang || !a.bang)));
+        for (const x of ids) { const abs = (D(R, x).ab || []).filter(a => a.ic === 'flash' && (o.bang || !a.bang) && condOk(R, s, x, a)); if (!abs.length) continue;
           if (!(yield { who: s, kind: 'yn', msg: `표향이 된 「${D(R, x).n}」의 ${o.bang ? '【!】' : ''}히라메키를 발동할까요?` })) continue;
           say(R, `▶ 히라메키 발동(표향): ${D.cn(R, x)}`); const c2 = { done: true, t: {}, cost: {} }; for (const ab of abs) yield* runOps(R, s, x, ab.ops, c2, it); }
         return; }
@@ -730,13 +731,13 @@ module.exports = function (A) {
         yield* doActs(R, s, src, ids, oo, ctx); say(R, `[효과] 앞서 처리한 캐릭터 ${ids.length}장에 적용`); ctx.done = true; return; }
       case 'mv': { let ids = regIds(R, ctx, o.ref); if (o.filter) { const f = rf(R, o.filter, ctx); ids = ids.filter(x => fOk(R, s, x, f, src, true)); }
         if (!ids.length) { ctx.done = false; return; } if (o.opt && !(yield yn(s, '이동시킬까요?'))) { ctx.done = false; return; }
-        const moved = yield* moveCards(R, s, src, ids, o.to, o, ctx); if (o.ref !== 'rest') { setReg(ctx, 'moved', moved); ctx.done = moved.length > 0; } if (moved.length) say(R, `[효과] 카드 ${moved.length}장을 ${o.to}(으)로 이동`); return; }
+        const moved = yield* moveCards(R, s, src, ids, o.to, o, ctx); if (o.ref !== 'rest') { setReg(ctx, 'moved', moved); ctx.done = moved.length > 0; } if (moved.length) say(R, `[효과] 카드 ${moved.length}장을 ${o.to}(으)로 이동` + (o.to === 'rem' ? `: ${D.nms(R, moved)}` : '')); return; }
       case 'peek': { const dt = o.deck === 'opp' ? 1 - s : s, T = R.P[dt], viewer = o.viewer === 'opp' ? 1 - s : s; let seen = [], hit = null;
         if (o.until) { const f = rf(R, o.until, ctx); const cap = Math.min(o.cap, T.deck.length);
           for (let k = 0; k < cap; k++) { const x = o.from === 'bottom' ? T.deck[k] : T.deck[T.deck.length - 1 - k]; seen.push(x); if (fOk(R, s, x, f, src, true)) { hit = x; break; } } }
         else { const n = Math.max(0, Math.min(dynNum(R, s, src, o, ctx), T.deck.length)); seen = n <= 0 ? [] : o.from === 'bottom' ? T.deck.slice(0, n) : T.deck.slice(-n).reverse(); }
         setReg(ctx, 'seen', seen); setReg(ctx, 'hit', hit != null ? [hit] : []); setReg(ctx, 'rest', seen.filter(x => x !== hit)); setReg(ctx, 'revealed', o.reveal ? seen : []); ctx.found = hit != null ? 1 : 0; ctx.done = seen.length > 0;
-        say(R, `[효과] ${nm(dt)} 덱 ${o.from === 'bottom' ? '아래' : '위'} ${seen.length}장 ${o.reveal ? '공개' : '확인'}` + (o.until ? (hit != null ? (o.reveal ? ` → 「${D.cn(R, hit)}」 발견` : ' → 해당하는 카드를 찾음') : ' (해당 카드 없음)') : ''));
+        say(R, `[효과] ${nm(dt)} 덱 ${o.from === 'bottom' ? '아래' : '위'} ${seen.length}장 ${o.reveal ? '공개' : '확인'}` + (o.reveal && seen.length ? `: ${D.nms(R, seen)}` : '') + (o.until ? (hit != null ? (o.reveal ? ` → 「${D.cn(R, hit)}」 발견` : ' → 해당하는 카드를 찾음') : ' (해당 카드 없음)') : ''));
         if (seen.length) yield { who: viewer, kind: 'ack', msg: `${nm(dt)}의 덱 ${o.from === 'bottom' ? '아래' : '위'} ${seen.length}장${o.reveal ? ' 공개' : ' 확인'}` + (o.until ? (hit != null ? ` — 「${D(R, hit).n}」 발견` : ' — 해당하는 카드 없음') : ''), ids: seen, reveal: o.reveal ? 1 : 0, by: o.reveal ? s : null };
         return; }
       case 'pick': { const who = o.chooser === 'opp' ? 1 - s : s; const isReg = REGS_RT.includes(o.from); let pool;
@@ -750,7 +751,7 @@ module.exports = function (A) {
             if (!c2.length) continue; const r = (yield pickReq(who, `${g.n}장까지 선택 (해당하는 카드가 없으면 0장)`, c2, 0, Math.min(g.n, c2.length), { reveal: isReg ? 1 : 0 })).filter(x => c2.includes(x)); chosen = chosen.concat(r); } }
         else { const mx = Math.min(dynNum(R, s, src, o, ctx), cand.length); if (mx > 0) chosen = (yield pickReq(who, `${o.msg || '카드'}를 ${o.min && o.min === mx ? mx : '최대 ' + mx}장 선택` + (o.sumLv != null ? ` (레벨 합계 ${o.sumLv} 이하)` : ''), cand, Math.min(o.min, mx), mx, { distinct: o.distinct, reveal: isReg || o.reveal ? 1 : 0, ...cap })).filter(x => cand.includes(x)); }
         setReg(ctx, o.as, chosen); if (isReg) setReg(ctx, 'rest', pool.filter(x => !chosen.includes(x))); ctx.found = chosen.length; ctx.done = chosen.length > 0;
-        if (chosen.length) { if (o.reveal) { setReg(ctx, 'revealed', chosen); yield { who: 1 - who, kind: 'ack', msg: `${nm(who)}이(가) 공개: ${chosen.map(x => D(R, x).n).join(', ')}`, ids: chosen, reveal: 1, by: who }; } say(R, `[효과] ${nm(who)}이(가) ${chosen.length}장 선택`); }
+        if (chosen.length) { if (o.reveal) { setReg(ctx, 'revealed', chosen); yield { who: 1 - who, kind: 'ack', msg: `${nm(who)}이(가) 공개: ${chosen.map(x => D(R, x).n).join(', ')}`, ids: chosen, reveal: 1, by: who }; } say(R, `[효과] ${nm(who)}이(가) ${chosen.length}장 선택` + (o.reveal || o.from === 'rem' || o.from === 'rempa' ? `${o.reveal ? '·공개' : ''}: ${D.nms(R, chosen)}` : '')); }
         return; }
       case 'turnPk': { if (o.until === 'action' && !R.sub) { ctx.done = false; return; }   // 액션이 이미 끝났다면(사건 액션이 가드 없이 끝난 뒤 큐 처리 등) 적용하지 않음
         R.fl.pk = R.fl.pk || [{}, {}]; R.fl.pkA = R.fl.pkA || [{}, {}]; (o.until === 'action' ? R.fl.pkA : R.fl.pk)[s][o.key] = 1; say(R, `[효과] ${o.until === 'action' ? '이 액션이 끝날 때까지' : '이번 턴 동안'} 제한 적용: ${o.key}`); ctx.done = true; return; }
@@ -759,7 +760,7 @@ module.exports = function (A) {
       case 'hayIgn': { R.fl.hayIgn = R.fl.hayIgn || [0, 0]; R.fl.hayIgn[s] = 1; say(R, '[효과] 이번 턴 다음에 등장하는 캐릭터는 【疾風】 조건을 무시'); ctx.done = true; return; }
       case 'handTo': { const T = P; ctx.done = false;
         if (o.mode === 'draw') { const got = []; while (T.hand.length < o.n) { const x = pull(R, s); if (x == null) break; T.hand.push(x); got.push(x); } setReg(ctx, 'drawn', got); ctx.done = got.length > 0; say(R, `[효과] ${nm(s)} 손패가 ${o.n}장이 될 때까지 드로우`); return; }
-        const k = T.hand.length - o.n; if (k <= 0) return; const ids = yield pickReq(s, `손패가 ${o.n}장이 되도록 ${k}장 리무브`, T.hand.slice(), k, k); T.hand = T.hand.filter(x => !ids.includes(x)); T.rem.push(...ids); setReg(ctx, 'removed', ids); ctx.done = true; say(R, `[효과] ${nm(s)} 손패 ${ids.length}장 리무브`); return; }
+        const k = T.hand.length - o.n; if (k <= 0) return; const ids = yield pickReq(s, `손패가 ${o.n}장이 되도록 ${k}장 리무브`, T.hand.slice(), k, k); T.hand = T.hand.filter(x => !ids.includes(x)); T.rem.push(...ids); setReg(ctx, 'removed', ids); ctx.done = true; say(R, `[효과] ${nm(s)} 손패 ${ids.length}장 리무브: ${D.nms(R, ids)}`); return; }
       case 'solve': setSolved(R, s); return;
       default: if (X.has(o.op)) return yield* X.run(R, s, src, o, ctx, it); if (!doOp._w) doOp._w = new Set(); if (!doOp._w.has(o.op)) { doOp._w.add(o.op); console.warn(`[fx] 미지원 효과 op '${o.op}' 건너뜀 (${D(R, src).n}) — 카드 DB를 재변환하세요`); } return; } }  // 사용자에게 수동 처리를 요구하지 않는다(DB 검증 test/check_db.js 가 0건임을 보증)
   function* runOps(R, s, src, ops, ctx, it) { for (const o of ops) { if (R.phase !== 'play') return; yield* doOp(R, s, src, o, ctx, it); } }
@@ -787,7 +788,7 @@ module.exports = function (A) {
       case 'either': return (k.alts || []).some(alt => alt.every(x => !canPayOne(R, s, src, x))) ? '' : '어느 코스트도 지불할 수 없습니다';
       case 'lpSelf': return A.lpOf(R, src) < Math.abs(k.v) ? 'LP가 부족합니다' : '';
       case 'handDeckTop': return P.hand.filter(x => fOk(R, s, x, f, src, true)).length < k.n ? '공개해 덱 위로 보낼 손패가 부족합니다' : '';
-      case 'discardTo': return P.hand.length <= k.n ? '손패를 더 줄일 수 없습니다' : '';
+      case 'discardTo': return '';   // v1.17.7: 「손패가 N장이 될 때까지 리무브」는 이미 N장 이하여도(0장 포함) 지불 가능 — 리무브할 장수가 0장일 뿐 조건은 충족
       default: return X.hasCost(k.c) ? X.costCan(R, s, src, k) : ''; } }
   const sleepPool = (R, s, src, k) => { const cs = k.scope === 'any' ? [...ally(R, 0), ...ally(R, 1)] : ally(R, s);
     return cs.filter(x => (R.cards[x].st || 'a') === 'a' && ((k.orSelf && x === src) || fOk(R, s, x, k.filter, src, true))); };
@@ -795,8 +796,8 @@ module.exports = function (A) {
   function* pay(R, s, src, k, ctx) { const P = R.P[s], c = R.cards[src]; ctx = ctx || { cost: {} }; const co = ctx.cost = ctx.cost || {}, f = k.filter;
     if (k.c === 'sleepSelf') { c.st = 's'; bus(R, 'sleepEv', { s, ent: src, by: 'cost' }); }
     else if (k.c === 'discard') { const cand = P.hand.filter(x => fOk(R, s, x, f, src, true)); const ids = cand.length === k.n ? cand : yield pickReq(s, `코스트: 손패 ${k.n}장을 리무브`, cand, k.n, k.n);
-      P.hand = P.hand.filter(x => !ids.includes(x)); P.rem.push(...ids); co.disc = ids; co.lv = ids.length ? (+D(R, ids[0]).lv || 0) : 0; }
-    else if (k.c === 'deckrem') { const got = []; const kn = k.per ? k.n * countOf(R, s, src, k.per) : k.n; for (let i = 0; i < kn && P.deck.length; i++) { const x = P.deck.pop(); P.rem.push(x); got.push(x); } co.rem = (co.rem || []).concat(got); chk(R, s); }
+      P.hand = P.hand.filter(x => !ids.includes(x)); P.rem.push(...ids); co.disc = ids; co.lv = ids.length ? (+D(R, ids[0]).lv || 0) : 0; if (ids.length) say(R, `코스트: 손패 ${ids.length}장 리무브: ${D.nms(R, ids)}`); }
+    else if (k.c === 'deckrem') { const got = []; const kn = k.per ? k.n * countOf(R, s, src, k.per) : k.n; for (let i = 0; i < kn && P.deck.length; i++) { const x = P.deck.pop(); P.rem.push(x); got.push(x); } co.rem = (co.rem || []).concat(got); chk(R, s); if (got.length) say(R, `코스트: 덱 위 ${got.length}장 리무브: ${D.nms(R, got)}`); }
     else if (k.c === 'selfBottom') { moveOut(R, src, 'deckBottom'); }
     else if (k.c === 'selfRem') { rmChar(R, src, 'cost'); }
     else if (k.c === 'selfPa') { leave(R, src); P.pa.push(src); say(R, `${D.cn(R, src)}: 파트너 에리어로 이동`); }
@@ -806,15 +807,15 @@ module.exports = function (A) {
     else if (k.c === 'fieldBottom') { const cand = [...ally(R, 0), ...ally(R, 1)].filter(x => fOk(R, s, x, f, src, true)); const ids = cand.length === k.n ? cand : yield pickReq(s, `코스트: 덱 아래로 보낼 현장의 캐릭터 ${k.n}장`, cand, k.n, k.n);
       ids.forEach(x => moveOut(R, x, 'deckBottom')); }
     else if (k.c === 'unset') { const cs = unsetPool(R, s, src, k).filter(x => fOk(R, s, x, f, src, true)); const ids = cs.length === k.n ? cs : yield* pickSets(R, s, `코스트: 리무브할 세트 카드 ${k.n}장`, cs, k.n); ids.forEach(x => unsetOne(R, R.cards[x].fdOn != null ? R.cards[x].fdOn : R.cards[x].setOn != null ? R.cards[x].setOn : src, x)); }
-    else if (k.c === 'unstack') { const under = c.under || [], ids = under.slice(0, k.n); c.under = under.slice(k.n); ids.forEach(x => R.P[R.cards[x].o].rem.push(x)); co.rem = (co.rem || []).concat(ids); say(R, `코스트: 겹쳐진 카드 ${ids.length}장을 리무브`); }
+    else if (k.c === 'unstack') { const under = c.under || [], ids = under.slice(0, k.n); c.under = under.slice(k.n); ids.forEach(x => R.P[R.cards[x].o].rem.push(x)); co.rem = (co.rem || []).concat(ids); say(R, `코스트: 겹쳐진 카드 ${ids.length}장을 리무브: ${D.nms(R, ids)}`); }
     else if (k.c === 'remBottom') { const cand = P.rem.filter(x => fOk(R, s, x, f, src, true)); const ids = cand.length === k.n ? cand : yield pickReq(s, `코스트: 리무브 에리어에서 덱 아래로 보낼 카드 ${k.n}장`, cand, k.n, k.n, { reveal: 1 });
       const ord = k.order && ids.length > 1 ? yield pickReq(s, `덱 아래에 놓을 순서대로 클릭 (${ids.length}장)`, ids, ids.length, ids.length, { ordered: true }) : ids;
-      P.rem = P.rem.filter(x => !ids.includes(x)); ord.forEach(x => P.deck.unshift(x)); remLeft(R, s, ids); }
+      P.rem = P.rem.filter(x => !ids.includes(x)); ord.forEach(x => P.deck.unshift(x)); remLeft(R, s, ids); if (ids.length) say(R, `코스트: 리무브 에리어 ${ids.length}장을 덱 아래로: ${D.nms(R, ord)}`); }
     else if (k.c === 'revealHand') { const cand = P.hand.filter(x => fOk(R, s, x, f, src, true)); const ids = cand.length === k.n ? cand : yield pickReq(s, `코스트: 공개할 손패 ${k.n}장 선택`, cand, k.n, k.n);
-      yield { who: 1 - s, kind: 'ack', msg: `${nm(s)}이(가) 손패를 공개: ${ids.map(x => D(R, x).n).join(', ')}`, ids, reveal: 1, by: s, hby: 'cost' }; co.rev = (co.rev || []).concat(ids); co.lv = ids.length ? (+D(R, ids[0]).lv || 0) : co.lv; say(R, `코스트: 손패 ${ids.length}장 공개`); }
-    else if (k.c === 'fileRem') { const got = []; for (let i = 0; i < k.n && P.file.length; i++) { const x = P.file.pop(); R.cards[x].up = false; P.rem.push(x); got.push(x); } co.rem = (co.rem || []).concat(got); say(R, `코스트: FILE 에리어 ${got.length}장 리무브`); }
+      yield { who: 1 - s, kind: 'ack', msg: `${nm(s)}이(가) 손패를 공개: ${ids.map(x => D(R, x).n).join(', ')}`, ids, reveal: 1, by: s, hby: 'cost' }; co.rev = (co.rev || []).concat(ids); co.lv = ids.length ? (+D(R, ids[0]).lv || 0) : co.lv; say(R, `코스트: 손패 ${ids.length}장 공개: ${D.nms(R, ids)}`); }
+    else if (k.c === 'fileRem') { const got = []; for (let i = 0; i < k.n && P.file.length; i++) { const x = P.file.pop(); R.cards[x].up = false; P.rem.push(x); got.push(x); } co.rem = (co.rem || []).concat(got); say(R, `코스트: FILE 에리어 ${got.length}장 리무브: ${D.nms(R, got)}`); }
     else if (k.c === 'paRem') { const cand = P.pa.filter(x => fOk(R, s, x, f, src, true)); const ids = cand.length === k.n ? cand : yield pickReq(s, `코스트: 파트너 에리어에서 리무브할 카드 ${k.n}장`, cand, k.n, k.n, { reveal: 1 });
-      P.pa = P.pa.filter(x => !ids.includes(x)); P.rem.push(...ids); co.rem = (co.rem || []).concat(ids); say(R, `코스트: 파트너 에리어 ${ids.length}장 리무브`); }
+      P.pa = P.pa.filter(x => !ids.includes(x)); P.rem.push(...ids); co.rem = (co.rem || []).concat(ids); say(R, `코스트: 파트너 에리어 ${ids.length}장 리무브: ${D.nms(R, ids)}`); }
     else if (k.c === 'sleepAny') { const cand = sleepPool(R, s, src, k); const ids = cand.length === k.n ? cand : yield pickReq(s, `코스트: ${k.to === 'stun' ? '스턴' : '슬립'}시킬 캐릭터 ${k.n}장`, cand, k.n, k.n); ids.forEach(x => { const was = R.cards[x].st; R.cards[x].st = k.to === 'stun' ? 'x' : 's'; if ((was || 'a') === 'a') bus(R, 'sleepEv', { s, ent: x, by: 'cost' }); }); co.slept = (co.slept || []).concat(ids); }
     else if (k.c === 'fieldRem') { const cand = [...ally(R, 0), ...ally(R, 1)].filter(x => fOk(R, s, x, f, src, true)); const ids = cand.length === k.n ? cand : yield pickReq(s, `코스트: 리무브할 현장 캐릭터 ${k.n}장`, cand, k.n, k.n); ids.forEach(x => rmChar(R, x, 'cost')); co.rem = (co.rem || []).concat(ids); }
     else if (k.c === 'stackCost') { const cand = k.from === 'hand' ? P.hand.filter(x => fOk(R, s, x, f, src, true)) : P.field.filter(x => x !== src && fOk(R, s, x, f, src, true)); const ids = cand.length === k.n ? cand : yield pickReq(s, `코스트: 겹칠 카드 ${k.n}장 선택`, cand, k.n, k.n, { reveal: k.from === 'hand' ? 1 : 0 });
@@ -826,7 +827,7 @@ module.exports = function (A) {
     else if (k.c === 'handDeckTop') { const cand = P.hand.filter(x => fOk(R, s, x, f, src, true)); const ids = cand.length === k.n ? cand : yield pickReq(s, `코스트: 공개해 덱 위로 보낼 손패 ${k.n}장 선택`, cand, k.n, k.n, { reveal: 1 });
       yield { who: 1 - s, kind: 'ack', msg: `${nm(s)}이(가) 손패를 공개하고 덱 위로: ${ids.map(x => D(R, x).n).join(', ')}`, ids, reveal: 1, by: s, hby: 'cost' }; P.hand = P.hand.filter(x => !ids.includes(x)); ids.forEach(x => P.deck.push(x)); co.rev = (co.rev || []).concat(ids); say(R, `코스트: 손패 ${ids.length}장을 공개하고 덱 위로`); }
     else if (k.c === 'lpSelf') { c.lpm = (c.lpm || 0) + k.v; say(R, `코스트: ${D.cn(R, src)} LP${k.v}`); }
-    else if (k.c === 'discardTo') { const n = P.hand.length - k.n; const ids = yield pickReq(s, `코스트: 손패가 ${k.n}장이 되도록 ${n}장 리무브`, P.hand.slice(), n, n); P.hand = P.hand.filter(x => !ids.includes(x)); P.rem.push(...ids); co.disc = (co.disc || []).concat(ids); }
+    else if (k.c === 'discardTo') { const n = P.hand.length - k.n; const ids = n > 0 ? yield pickReq(s, `코스트: 손패가 ${k.n}장이 되도록 ${n}장 리무브`, P.hand.slice(), n, n) : []; P.hand = P.hand.filter(x => !ids.includes(x)); P.rem.push(...ids); co.disc = (co.disc || []).concat(ids); if (ids.length) say(R, `코스트: 손패 ${ids.length}장 리무브: ${D.nms(R, ids)}`); }
     else if (X.hasCost(k.c)) yield* X.costPay(R, s, src, k, ctx); }
 
   function* killG(R, it) { const { atk, victim, s } = it; if (!onField(R, victim)) return; const rep = yield* replaceCheck(R, victim, s, 'contact');
@@ -841,6 +842,8 @@ module.exports = function (A) {
       if (!altUsed) for (const k of it.ab.cost || []) if (it.declared) yield* pay(R, s, src, k, ctx);
       say(R, `▶ 효과 발동: ${D.cn(R, src)}` + (it.ab.lab ? ` — ${it.ab.lab}` : '')); ctx.done = true; yield* runOps(R, s, src, it.ab.ops, ctx, it); }
     else if (it.kind === 'kill') yield* killG(R, it);
+    else if (it.kind === 'ord') { const labels = it.items.map(x => `${D(R, x.src).n} — ${String((x.ab && (x.ab.lab || x.ab.txt)) || '효과').replace(/\s+/g, ' ').slice(0, 44)}`);
+      const k = yield { who: s, kind: 'opt', msg: `동시에 발동하는 효과 ${it.items.length}개 — 먼저 처리할 효과를 고르세요`, labels }; const x = it.items[+k] || it.items[0]; x.pick = true; say(R, `[발동 순서] ${nm(s)}: ${D.cn(R, x.src)} 먼저 처리`); }
     else if (it.kind === 'cb') it.fn();
     else if (it.kind === 'event') { say(R, `▶ 이벤트 효과: ${D.cn(R, src)}`);
       for (const ab of it.abs) { if (!condOk(R, s, src, ab, cx(ctx))) { say(R, '(조건 미충족 — 아무 일도 일어나지 않음)'); continue; } yield* runOps(R, s, src, ab.ops, ctx, it); }
@@ -857,9 +860,16 @@ module.exports = function (A) {
     if (r.done) { R.eff = null; return; } R.eff = { it, req: r.value };
     const q = r.value; if (q && q.kind === 'ack' && q.reveal && q.ids && q.ids.length) revealHrev(R, it, q);
     if (q && q.kind === 'ack' && q.reveal && q.by != null && q.ids && q.ids.length) (R.rv = R.rv || []).push({ by: q.by, ids: q.ids.slice(), msg: q.msg, src: it.src != null ? it.src : null, ack: q.who }); }  // v1.9.0: 명시적으로 '공개'하는 효과만 공개 이벤트를 만든다
+  // v1.17.3: 동시 발동 순서 선택. 다음에 처리될 항목(기존 규칙 그대로: 고정(first) > 턴 플레이어 > 상대)이 ab(트리거)이고, 같은 플레이어의 ab 트리거가 연속해서 2개 이상(서로 다른 카드/능력) 대기 중이면 그 목록을 돌려준다.
+  const ordNext = R => { let i = R.q.findIndex(x => x.pick); if (i >= 0) return -1; if (R.q.some(x => x.first)) return -1; i = R.q.findIndex(x => x.s === R.turn && !x.last); if (i < 0) i = R.q.findIndex(x => !x.last); return i; };
+  function orderGroup(R) { const i0 = ordNext(R); if (i0 < 0) return null; const h = R.q[i0]; if (!h || h.kind !== 'ab' || h.declared || h.first) return null;
+    const items = []; for (let j = i0; j < R.q.length; j++) { const x = R.q[j]; if (x.s !== h.s || x.last) continue; if (x.kind !== 'ab' || x.declared || x.first) break; items.push(x); }
+    if (items.length < 2) return null; const sig = x => `${R.cards[x.src] ? R.cards[x.src].d : x.src}|${abList(R, x.src).indexOf(x.ab)}`;
+    if (new Set(items.map(sig)).size < 2) return null; return { s: h.s, items }; }
   function pump(R) { let g = 0;
     while (!R.eff && (!R.sub || R.sub.type === 'contact' || R.sub.type === 'guard') && R.phase === 'play' && R.q.length && g++ < 500) {   // v1.16.2: 액션 선언(act)으로 생긴 효과는 상대가 가드(블록)를 고르기 전에 바로 처리한다 (이전: 가드 대기 중에는 큐가 멈춰 있다가 가드 후에야 발동)
-      let i = R.q.findIndex(x => x.first); if (i < 0) i = R.q.findIndex(x => x.s === R.turn && !x.last); if (i < 0) i = R.q.findIndex(x => !x.last); if (i < 0) i = 0; const it = R.q.splice(i, 1)[0]; it.g = gen(R, it); step(R, it); } }
+      { const og = orderGroup(R); if (og) { const it0 = { kind: 'ord', s: og.s, items: og.items }; it0.g = gen(R, it0); step(R, it0); continue; } }   // v1.17.3: 같은 플레이어의 효과가 동시에 2개 이상 대기 중이면 처리 순서를 그 플레이어가 고른다
+      let i = R.q.findIndex(x => x.pick); if (i < 0) i = R.q.findIndex(x => x.first); if (i < 0) i = R.q.findIndex(x => x.s === R.turn && !x.last); if (i < 0) i = R.q.findIndex(x => !x.last); if (i < 0) i = 0; const it = R.q.splice(i, 1)[0]; it.g = gen(R, it); step(R, it); } }
   function answer(R, s, m) { const E = R.eff; if (!E || E.req.who !== s) return '지금 응답할 차례가 아닙니다'; const q = E.req; let v = m.v;
     if (q.kind === 'yn') v = !!v; else if (q.kind === 'ack') v = null;
     else if (q.kind === 'opt') { if (typeof v === 'string' && /^\d+$/.test(v)) v = +v; if (!Number.isInteger(v) || !(v >= 0 && v < q.labels.length)) return '잘못된 선택'; }   // null/배열/객체가 +v 로 0 번 선택지가 되지 않게 엄격히 검증

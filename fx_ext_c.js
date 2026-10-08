@@ -42,7 +42,7 @@ module.exports = function (K, def) {
   // rhand: 상대가 손패를 공개한다(내가 본다). 그 중 조건에 맞는 카드를 최대 n장 내가 골라, 상대가 리무브한다(상대의 손패 리무브 = handRem 이벤트, 원인은 나)
   def('rhand', o => ({ op: 'rhand', filter: cleanFilter(o.filter), n: clampN(o.n, 1, 3) }), function* (R, s, src, o, ctx) {
     ctx.done = false; const t = 1 - s, T = R.P[t], f = rf(R, o.filter, ctx), all = T.hand.slice(); if (!all.length) return;
-    yield { who: s, kind: 'ack', msg: `${nm(t)}의 손패 ${all.length}장 공개 (확인 후 원래대로)`, ids: all, reveal: 1 }; say(R, `[효과] ${nm(t)} 손패 공개`);
+    yield { who: s, kind: 'ack', msg: `${nm(t)}의 손패 ${all.length}장 공개 (확인 후 원래대로)`, ids: all, reveal: 1 }; say(R, `[효과] ${nm(t)} 손패 ${all.length}장 공개: ${D.nms(R, all)}`);
     const cand = all.filter(x => fOk(R, t, x, f, src, true)); if (!cand.length) return;
     const ids = (yield pickReq(s, `공개된 손패에서 상대가 리무브할 카드를 최대 ${o.n}장 선택`, all, 0, Math.min(o.n, cand.length), { sel: cand, reveal: 1 })).filter(x => cand.includes(x)); if (!ids.length) return;
     T.hand = T.hand.filter(x => !ids.includes(x)); T.rem.push(...ids); setReg(ctx, 'removed', ids); say(R, `[효과] ${nm(t)} 손패 ${ids.length}장 리무브: ${ids.map(x => D.cn(R, x)).join(', ')}`);

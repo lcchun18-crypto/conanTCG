@@ -61,10 +61,11 @@ const DF = chars[5].id; cards[DF].ab = [{ ic: 'deckfree' }];
   ok(eq(await q('AP2000'), ALL.filter(c => c.ap === '2000').map(c => c.id)), '대소문자 무시(AP2000)');
   for (const n of [0, 1, 2, 3]) ok(eq(await q('lp' + n), ALL.filter(c => c.lp === String(n)).map(c => c.id)) && ALL.some(c => c.lp === String(n)), 'lp' + n + ': 카드 LP 스탯 정확히 ' + n);
   ok(eq(await q('event'), ofT('event').map(c => c.id)) && eq(await q('EVENT'), ofT('event').map(c => c.id)), 'event / EVENT: 이벤트 카드만 (' + ofT('event').length + '장)');
-  for (const n of [3, 5, 6, 8]) { const w = chars.filter(c => c.lv === String(n)); const g = await q(String(n)); ok(eq(g, w.map(c => c.id)) && w.length > 5 && g.every(i => cards[i].type === 'char'), `숫자 ${n}: FILE 코스트 ${n} 캐릭터만 (${g.length}장, 이벤트/사건/파트너 제외)`); }
-  ok(ALL.some(c => c.type !== 'char' && c.lv === '5') && !(await q('5')).some(i => cards[i].type !== 'char'), '숫자 검색에서 lv 가 같아도 이벤트/사건은 제외');
+  for (const n of [3, 5, 6, 7, 8]) { const w = ALL.filter(c => (c.type === 'char' || c.type === 'event') && c.lv === String(n)); const g = await q(String(n)); ok(eq(g, w.map(c => c.id)) && w.length > 5 && g.every(i => cards[i].type === 'char' || cards[i].type === 'event'), `숫자 ${n}: 코스트 ${n} 캐릭터+이벤트 (${g.length}장, 사건/파트너 제외)`); }
+  ok(ALL.some(c => c.type === 'event' && c.lv === '7') && (await q('7')).some(i => cards[i].type === 'event'), 'v1.17.6: 숫자 7 검색에 Lv7 이벤트가 포함된다');
+  ok(ALL.some(c => (c.type === 'case' || c.type === 'partner') && c.lv === '5') ? !(await q('5')).some(i => cards[i].type === 'case' || cards[i].type === 'partner') : true, '숫자 검색에서 lv 가 같아도 사건/파트너는 제외') ;
   await colBtn('red').click(); ok(eq(await q('ap5000'), AP5.filter(c => has(c, 'red')).map(c => c.id)), `적색 + ap5000 (${(await ids()).length}장)`); await colBtn('red').click();
-  await colBtn('blue').click(); ok(eq(await q('5'), chars.filter(c => c.lv === '5' && has(c, 'blue')).map(c => c.id)), `청색 + 5 (${(await ids()).length}장)`); await colBtn('blue').click();
+  await colBtn('blue').click(); ok(eq(await q('5'), ALL.filter(c => (c.type === 'char' || c.type === 'event') && c.lv === '5' && has(c, 'blue')).map(c => c.id)), `청색 + 5 (${(await ids()).length}장)`); await colBtn('blue').click();
   ok(eq(await q('ap5000 lp1'), AP5.filter(c => c.lp === '1').map(c => c.id)), '여러 조건(공백) AND'); ok((await q('zzzz없는카드')).length === 0 && /결과 0장/.test(await cnt()) && await pg.locator('#dbEmpty').count() === 1, '결과 없음 표시'); await q('');
   ok(eq(await allIds(), ALL.map(c => c.id)), '검색 비우면 전체 복귀');
   // 5) 덱 규칙
