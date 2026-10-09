@@ -7,7 +7,7 @@ module.exports = function (A) {
 
   // ───────────── 데이터 정리(서버가 클라이언트 입력을 신뢰하지 않음) ─────────────
   const IC = ['onplay', 'onremoved', 'flash', 'declare', 'static', 'cutin', 'onact', 'oncontact', 'onreason', 'event', 'onend', 'ondisguise', 'disguise', 'deckfree', 'ontrig', 'usecond', 'ignorecolor', 'onhint', 'onkill', 'onally', 'enter', 'hand', 'grant',
-    'onchosen', 'onsolve', 'onmain', 'onallyremoved', 'onallykill', 'onallycontact', 'onremleave', 'replace', 'mr', 'winalt', 'manual'];
+    'onchosen', 'onsolve', 'onmain', 'onmainopp', 'onallyremoved', 'onallykill', 'onallycontact', 'onremleave', 'replace', 'mr', 'winalt', 'manual'];
   const str = (x, n = 60) => String(x == null ? '' : x).slice(0, n);
   const num = (x, d = 0) => { x = Math.trunc(+x); return Number.isFinite(x) ? Math.max(-99999, Math.min(99999, x)) : d; };
   const opt = (x, arr, d = '') => arr.includes(x) ? x : d;
@@ -98,6 +98,7 @@ module.exports = function (A) {
       case 'nameSel': return p;
       case 'gain': case 'loseEvid': return { ...p, n: n(), who: who(), opt: !!o.opt };
       case 'selfEvid': return p;
+      case 'paEnter': return { ...p };   // v1.17.9: 「このキャラをパートナーエリアから登場させてもよい。そうしなかった場合、リムーブエリアに移す」
       case 'selfTo': return { ...p, to: opt(o.to, ['pa', 'hand'], 'hand') };
       case 'flipDown': return { ...p, n: n(), who: opt(o.who, ['self', 'any'], 'self') };
       case 'shuffle': return { ...p, who: opt(o.who, ['self', 'opp', 'both'], 'self') };
@@ -341,7 +342,7 @@ module.exports = function (A) {
       if (ab.hay) { R.fl.hayFired = R.fl.hayFired || {}; R.fl.hayFired[id] = 1; R.fl.hayAny = R.fl.hayAny || [0, 0]; R.fl.hayAny[s] = 1; }
       R.q.push({ kind: 'ab', s, src: id, ab, ctx }); }); if (ic === 'onremoved') c.lkiAb = null; }
   function noteEnter(R, s, id) { R.fl.entCnt = R.fl.entCnt || [0, 0]; R.fl.entN = R.fl.entN || {}; R.fl.entCnt[s]++; let n = R.fl.entCnt[s]; if (R.fl.hayIgn && R.fl.hayIgn[s]) { R.fl.hayIgn[s] = 0; n = 1; } R.fl.entN[id] = n; }
-  function carry(R, s) { Object.values(R.cards).forEach(c => { c.bAp = c.bLp = null; c.lose = ''; }); Object.entries(R.cards).forEach(([id, c]) => { const nx = c.nx; c.nx = null; if (!nx) return; for (const e of nx) if (e.t === s && onField(R, +id)) { const keep = R.turn; applyTo(R, s, +id, +id, e.d, e.v, 'turn', e.g); } }); }
+  function carry(R, s) { Object.values(R.cards).forEach(c => { c.bAp = c.bLp = null; c.lose = ''; }); Object.entries(R.cards).forEach(([id, c]) => { const nx = c.nx; c.nx = null; if (!nx) return; for (const e of nx) if (e.t === s && (onField(R, +id) || (e.d === 'gab' && inPa(R, +id)))) { const keep = R.turn; applyTo(R, s, +id, +id, e.d, e.v, 'turn', e.g); } }); }
   // 범용 이벤트 버스: 게임 중 일어난 사건(ev)을 현장·사건·파트너·파트너 에리어의 ic:'ontrig' 능력에 알린다
   function bus(R, ev, ctx = {}) { if (R.phase !== 'play') return; const seen = new Set();
     if (ev === 'guard' && ctx.tid != null) (R.fl.guarded = R.fl.guarded || {})[ctx.tid] = 1;   // 이 턴에 이 캐릭터의 액션이 가드되었다(조건 guarded)
@@ -372,7 +373,7 @@ module.exports = function (A) {
   const fireAlly = (R, s, ent, ctx) => fieldPa(R, s).forEach(x => fire(R, 'onally', x, { ...ctx, ent }));
   const fireAllyKill = (R, s, ent, victim) => fieldPa(R, s).forEach(x => fire(R, 'onallykill', x, { by: 'contact', ent, victim }));
   const fireAllyContact = (R, s, ent) => fieldPa(R, s).forEach(x => fire(R, 'onallycontact', x, { ent }));
-  const fireMain = (R, s) => fieldPa(R, s).forEach(x => fire(R, 'onmain', x, {}));
+  const fireMain = (R, s) => { fieldPa(R, s).forEach(x => fire(R, 'onmain', x, {})); fieldPa(R, 1 - s).forEach(x => fire(R, 'onmainopp', x, {})); };   // onmainopp: 「相手のターンのメインフェイズ開始時」(v1.17.9)
   const remLeft = (R, s, ids) => ids.forEach(e => fieldPa(R, s).forEach(x => fire(R, 'onremleave', x, { ent: e })));
   function queueEvent(R, s, id) { const d = D(R, id); const abs = (d.ab || []).filter(a => a.ic === 'event' || a.ic === 'manual');
     R.q.push({ kind: 'event', s, src: id, abs }); }
@@ -431,7 +432,7 @@ module.exports = function (A) {
       mrEnter(R, s, id); noteEnter(R, s, id);
       const cxt = { by: 'effect', stype: D(R, src).type, slv: lvOf(R, src), scol: cols(D(R, src)) }; fire(R, 'onplay', id, cxt); fireAlly(R, s, id, cxt); bus(R, 'enter', { s, ent: id, by: 'effect' }); } }
   function applyTo(R, s, src, id, d, v, until, g) { const c = R.cards[id]; if (!c) return;
-    if (until === 'oppEnd' && ['ap', 'lp', 'lv', 'kw', 'lpBase', 'apBase', 'gab'].includes(d) && onField(R, id)) (c.nx = c.nx || []).push({ d, v, g, t: R.turn });
+    if (until === 'oppEnd' && ['ap', 'lp', 'lv', 'kw', 'lpBase', 'apBase', 'gab'].includes(d) && (onField(R, id) || (d === 'gab' && inPa(R, id)))) (c.nx = c.nx || []).push({ d, v, g, t: R.turn });
     switch (d) {
       case 'lpBase': c.bLp = +v || 0; break; case 'apBase': c.bAp = +v || 0; break;
       case 'evid': case 'evidUp': { const o = c.o; moveOut(R, id, 'rem'); R.P[o].rem = R.P[o].rem.filter(x => x !== id); c.up = d === 'evidUp'; R.P[o].evid.push(id); bus(R, 'evgain', { s: o, by: 'effect' }); break; }
@@ -725,7 +726,12 @@ module.exports = function (A) {
       case 'set': { const f = rf(R, o.filter, ctx); const cand = P.field.filter(x => x !== src && fOk(R, s, x, f, src, true)); if (!cand.length || it.kind !== 'event' || R.cards[src].setOn != null || ['evid', 'rem', 'pa', 'hand', 'deck', 'file'].some(z => P[z].includes(src))) { ctx.done = false; return; } // 이벤트 효과 해결 중에만 세트 가능
         const ids = cand.length === 1 ? cand : yield pickReq(s, '이 이벤트를 세트할 내 캐릭터를 1장 선택', cand, 1, 1); const tid = ids[0], t = R.cards[tid], e = R.cards[src];
         if (t && R.P[s].field.includes(tid)) { (t.sets = t.sets || []).push(src); e.setOn = tid; setReg(ctx, 'sel', [tid]); say(R, `[효과] ${D.cn(R, src)}을(를) ${D.cn(R, tid)}에 세트`); ctx.done = true; bus(R, 'setOn', { s: t.o, ent: src, holder: tid }); } return; }
-      case 'ref': { const ids = regIds(R, ctx, o.ref).filter(x => onField(R, x)); if (!ids.length) { ctx.done = false; return; }
+      case 'paEnter': { if (!P.pa.includes(src)) { ctx.done = false; return; }
+        P.pa = P.pa.filter(x => x !== src);
+        if (yield yn(s, `「${D(R, src).n}」을(를) 파트너 에리어에서 등장시킬까요? (아니오 = 리무브 에리어로 이동)`)) { yield* placeCards(R, s, src, [src], false, ctx); if (!P.field.includes(src)) { P.rem.push(src); say(R, `${D.cn(R, src)}: 등장하지 못해 리무브 에리어로 이동`); } }
+        else { P.rem.push(src); say(R, `${D.cn(R, src)}: 등장하지 않고 파트너 에리어에서 리무브 에리어로 이동`); }
+        ctx.done = true; return; }
+      case 'ref': { const ids = regIds(R, ctx, o.ref).filter(x => onField(R, x) || (inPa(R, x) && (o.acts || []).some(a => a.do === 'gab'))); if (!ids.length) { ctx.done = false; return; }
         if (o.opt && !(yield yn(s, '이 효과를 처리할까요?'))) { ctx.done = false; return; }
         let oo = o; if (o.mul) { const m = regNumBy(R, regIds(R, ctx, o.mul.ref), o.mul.by); oo = { ...o, acts: o.acts.map(a => ['ap', 'lp', 'lv'].includes(a.do) ? { ...a, v: String((+a.v || 0) * m) } : a) }; }
         yield* doActs(R, s, src, ids, oo, ctx); say(R, `[효과] 앞서 처리한 캐릭터 ${ids.length}장에 적용`); ctx.done = true; return; }

@@ -836,3 +836,11 @@ python tools/make_web_images.py --prune      # 원본이 없어진 최적화본 
   - `data/cards.xlsx`(Cards/Abilities/Ops)와 `data/cards.json` 에 반영.
 - **슬립 가드 표시**: 슬립 가드를 가진 캐릭터는 현장 카드 위에 `💤가드` 배지(버프 표시와 같은 위치)와 오른쪽 미리보기 chip `💤 슬립 가드` 로 표시. (서버 view 의 카드 정보에 `sg` 추가)
 - 테스트: `npm run test:id1222`, `npm run test:sleepguardui`.
+
+## v1.17.9 — 신규 카드 5장 추가 + id_1222 이미지 교체
+- 신규: **id_1226 ジェイムズ・ブラック**, **id_1233 宮本由美**, **id_1246 バーボン**, **id_1247 スコッチ**, **id_P091 宮本由美(파트너)**. id_1222 는 이미지를 `id_1222.jpg` 로 교체(Excel `image_file` 갱신, webp 재생성). 모두 시리즈 P11, `data/cards.xlsx`(Cards/Abilities/Ops)·`data/cards.json` 반영, manual 능력 0.
+- 엔진: id_1247 의 「相手のターンのメインフェイズ開始時、このキャラをパートナーエリアから登場させてもよい。そうしなかった場合、リムーブエリアに移す」 지원을 위해
+  - 새 트리거 `onmainopp`(상대 턴 메인 페이즈 시작 시 — 파트너 에리어/현장 카드), 새 op `paEnter`(파트너 에리어에서 등장 여부 질의, 아니오/등장 불가 = 리무브 에리어).
+  - 파트너 에리어에 있는 카드에 `gab`(until 상대 턴 종료 시)를 부여할 수 있도록 확장(`oppEnd`/`carry`/`ref`).
+- id_P091 은 기존 파트너와 같은 표준 해결/어시스트(엔진 내장)라 `ab` 가 비어 있습니다.
+- 테스트: `npm run test:new6`.
