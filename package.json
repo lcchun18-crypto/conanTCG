@@ -1,6 +1,6 @@
 {
   "name": "conan-sim",
-  "version": "1.17.9",
+  "version": "1.17.10",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -77,6 +77,7 @@
     "test:id0885": "node test/id_0885_test.js",
     "test:id1222": "node test/id_1222_test.js",
     "test:new6": "node test/new6_test.js",
+    "test:new4": "node test/new4_test.js",
     "test:sleepguardui": "node test/sleepguard_ui_test.js"
   },
   "engines": {
