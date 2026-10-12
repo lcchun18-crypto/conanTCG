@@ -181,6 +181,7 @@ body.m #effp{width:54%;max-height:46%;top:4px;right:4px}body.m #effp .fxh .fxi{w
 #pv .dot{width:9px;height:9px;border-radius:50%;display:inline-block;border:1px solid #fff6}
 #pv .nm{font-size:14px;line-height:1.35;color:var(--mut);overflow-wrap:anywhere;word-break:break-word;min-width:0}#pv .nm b{color:#fff;font-size:15px}#pv .nm .nml{font-size:11px;font-weight:700;margin-right:2px}
 #pv .fx,#pv .meta,#pv .nm,#pv .nofx{flex:none}#pv .fx{white-space:pre-wrap;font-size:13px;line-height:1.6;color:#e6edf5;background:#0d151dcc;border:1px solid #ffffff14;border-radius:9px;padding:9px 11px}
+#pv .fx mark.hl{display:block;background:#f2bd4b2e;color:#fff2c9;border-left:3px solid var(--gold);border-radius:4px;padding:2px 6px;margin:2px 0;box-shadow:0 0 10px #f2bd4b33}#effp button.ordb{text-align:left;white-space:normal;max-width:640px}
 #pv .fx em{font-style:normal;color:var(--gold);font-weight:700}
 #pv .nofx{color:var(--mut);font-size:12px;font-style:italic}
 #logc{flex:none;width:var(--logw);display:flex;flex-direction:column;background:linear-gradient(#111a24,#0d141c);border-right:1px solid var(--line);min-height:0;transition:width .15s}
@@ -846,6 +847,7 @@ function effUI(b,B){const E=V.eff;if(E.wait)return E.msg;
   TH(`세트 카드 선택 — 선택 가능 ${E.sp.length}장 (뒷면은 위치만 보입니다)`);
   E.sp.forEach((e,i)=>tray.appendChild(evoBtn(e.fd?null:e.c,E.labels[i],()=>A('ans',{v:i}))));
   E.labels.forEach((l,i)=>{if(i>=E.sp.length)B(l,()=>A('ans',{v:i}),'ghost')})}
+ else if(E.kind==='opt'&&E.ord)E.labels.forEach((l,i)=>{const o=E.ord[i]||{},f=DEFS[o.d]||{},tx=o.d?abText(o.d,o.i):null,lab=tx?(f.n||'')+' — '+(tx.length>70?tx.slice(0,70)+'…':tx):(/[぀-ヿ一-鿿]/.test(l)?(f.n||l.split(' — ')[0])+' — 효과':l);B(lab,()=>A('ans',{v:i}));const bt=b.lastChild;bt.classList.add('ordb');bt.title=tx||'';const sh=()=>{if(o.d)pvHi(o.d,o.c,o.i)};bt.onmouseenter=sh;bt.onfocus=sh;if(i===0)setTimeout(sh,0)});
  else if(E.kind==='opt')E.labels.forEach((l,i)=>B(l,()=>A('ans',{v:i})));
  else if(E.kind==='optm'){TH('선택');
   E.labels.forEach((l,i)=>{const x=document.createElement('label');const c=document.createElement('input');c.type='checkbox';c.checked=esel.includes(i);c.onchange=()=>{const j=esel.indexOf(i);if(j>=0)esel.splice(j,1);else if(esel.length<E.max)esel.push(i);else{c.checked=false;$('err').textContent=E.max+'개까지 선택할 수 있습니다'}};x.appendChild(c);x.append(' '+(i+1)+'. '+l);tray.appendChild(x)});
@@ -862,11 +864,16 @@ function effUI(b,B){const E=V.eff;if(E.wait)return E.msg;
 function selCard(id){const P=V.P[V.me];if(id==='p')return P.partner;return P.field.find(c=>c.id===id)||(P.pa||[]).find(c=>c.id===id)||(P.kase&&P.kase.id===id?P.kase:null)}
 // 오른쪽 아래: 선택한 카드로 "지금 실제로 가능한" 행동 (서버가 계산한 V.acts 만 사용)
 // 능력 버튼 문구: 카드의 한국어 효과 텍스트를 능력 단위(【…】로 시작하는 줄이 새 능력)로 나눠 i 번째 능력의 전체 텍스트를 쓴다. 능력 수와 맞지 않으면 null(기존 문구 사용).
-function abText(d,i){const f=DEFS[d]||{},ab=f.ab||[],n=ab.length,lines=String(f.extra||'').split('\n').map(x=>x.trim()).filter(Boolean),bl=[];
+function abBlocks(d){const f=DEFS[d]||{},lines=String(f.extra||'').split('\n').map(x=>x.trim()).filter(Boolean),bl=[];
  for(const l of lines){if(l.startsWith('【')||/^\[[^\]]{1,10}\]\[/.test(l)||!bl.length)bl.push(l);else bl[bl.length-1]+=' '+l}
+ return bl}
+// v1.17.12: 발동 순서 선택창 — 효과에 마우스를 올리면 오른쪽 상세에 그 카드를 띄우고, 해당 효과(한글) 줄을 하이라이트한다
+function pvHi(d,c,i){const f=DEFS[d];if(!f)return;pv(f,c);const tx=i>=0?abText(d,i):null,el=document.querySelector('#pv .fx');if(!tx||!el)return;el.innerHTML=abBlocks(d).map(b=>b===tx?`<mark class="hl">${fxHtml(b)}</mark>`:fxHtml(b)).join('\n');const m=el.querySelector('mark');if(m&&m.scrollIntoView)try{m.scrollIntoView({block:'nearest'})}catch(e){}}
+function abText(d,i){const f=DEFS[d]||{},ab=f.ab||[],n=ab.length,bl=abBlocks(d);
  if(bl.length&&(!n||bl.length===n))return bl[i]||null;
  // 줄 수가 능력 수와 안 맞는 카드: 선언 능력끼리 순서로 대응 (선언 능력 수 = 【선언】 블록 수일 때)
  if(ab[i]&&ab[i].ic==='declare'){const di=ab.map((a,j)=>a.ic==='declare'?j:-1).filter(j=>j>=0),db=bl.filter(x=>/선언/.test(x.slice(0,14)));if(di.length&&di.length===db.length)return db[di.indexOf(i)]||null}
+ {const kw={onplay:/^【등장 시】/,declare:/^【선언】/}[ab[i]&&ab[i].ic];if(kw){const m=bl.filter(x=>kw.test(x));if(m.length===1&&ab.filter(a=>a.ic===ab[i].ic).length===1)return m[0]}}   // 줄 수 불일치 보정: 등장 시/선언은 종류가 하나뿐일 때만 대응
  return null}
 const abFs=t=>t.length<=34?15:t.length<=70?13:t.length<=120?12:t.length<=190?11:10;
 function actUI(){const a=$('act');a.innerHTML='';const H=t=>{const d=document.createElement('div');d.className='ah';d.textContent=t;a.appendChild(d)},N=t=>{const d=document.createElement('div');d.className='hint';d.textContent=t;a.appendChild(d)};

@@ -709,7 +709,7 @@ module.exports = function (A) {
       case 'stack': { const f = rf(R, o.filter, ctx), cand = P.rem.filter(x => D(R, x).type === 'char' && fOk(R, s, x, f, src, true)); if (!cand.length || !onField(R, src)) { ctx.done = false; return; }
         const ids = (yield pickReq(s, `리무브 에리어에서 이 캐릭터 아래에 겹칠 카드를 최대 ${o.n}장 선택` + (o.distinct ? ' (카드 이름이 서로 달라야 함)' : ''), cand, 0, Math.min(o.n, cand.length), { distinct: o.distinct, reveal: 1 })).filter(x => cand.includes(x));
         if (!ids.length) { ctx.done = false; return; } P.rem = P.rem.filter(x => !ids.includes(x)); const h = R.cards[src]; (h.under = h.under || []).push(...ids); setReg(ctx, 'moved', ids); remLeft(R, s, ids); say(R, `[효과] ${D.cn(R, src)} 아래에 ${ids.length}장을 겹침`); ctx.done = true; return; }
-      case 'flip': { const t = tg(o.who); if (o.opt && faceDown(R, t).length && !(yield { who: s, kind: 'yn', msg: `뒷면 증거 ${o.n}장을 표향으로 할까요?` })) { ctx.done = false; return; } const ids = yield* flipPick(R, s, t, o.n); ctx.flipped = ids; if (ids.length) say(R, `[효과] ${nm(t)}의 뒷면 증거 ${ids.length}장을 표향으로` + ids.map(x => ` (${D.cn(R, x)})`).join('')); ctx.done = ids.length > 0; return; }
+      case 'flip': { const t = tg(o.who); if (o.opt && faceDown(R, t).length < o.n) { ctx.done = false; return; } if (o.opt && !(yield { who: s, kind: 'yn', msg: `뒷면 증거 ${o.n}장을 표향으로 할까요?` })) { ctx.done = false; return; } const ids = yield* flipPick(R, s, t, o.n); ctx.flipped = ids; if (ids.length) say(R, `[효과] ${nm(t)}의 뒷면 증거 ${ids.length}장을 표향으로` + ids.map(x => ` (${D.cn(R, x)})`).join('')); ctx.done = ids.length > 0; return; }
       case 'flashFlipped': { const f = rf(R, o.filter, ctx), ids = [...(ctx.cost && ctx.cost.flip || []), ...(ctx.flipped || [])].filter(x => fOk(R, s, x, f, src, true) && (D(R, x).ab || []).some(a => a.ic === 'flash' && (o.bang || !a.bang)));
         for (const x of ids) { const abs = (D(R, x).ab || []).filter(a => a.ic === 'flash' && (o.bang || !a.bang) && condOk(R, s, x, a)); if (!abs.length) continue;
           if (!(yield { who: s, kind: 'yn', msg: `표향이 된 「${D(R, x).n}」의 ${o.bang ? '【!】' : ''}히라메키를 발동할까요?` })) continue;
@@ -849,7 +849,7 @@ module.exports = function (A) {
       say(R, `▶ 효과 발동: ${D.cn(R, src)}` + (it.ab.lab ? ` — ${it.ab.lab}` : '')); ctx.done = true; yield* runOps(R, s, src, it.ab.ops, ctx, it); }
     else if (it.kind === 'kill') yield* killG(R, it);
     else if (it.kind === 'ord') { const labels = it.items.map(x => `${D(R, x.src).n} — ${String((x.ab && (x.ab.lab || x.ab.txt)) || '효과').replace(/\s+/g, ' ').slice(0, 44)}`);
-      const k = yield { who: s, kind: 'opt', msg: `동시에 발동하는 효과 ${it.items.length}개 — 먼저 처리할 효과를 고르세요`, labels }; const x = it.items[+k] || it.items[0]; x.pick = true; say(R, `[발동 순서] ${nm(s)}: ${D.cn(R, x.src)} 먼저 처리`); }
+      const k = yield { who: s, kind: 'opt', msg: `동시에 발동하는 효과 ${it.items.length}개 — 먼저 처리할 효과를 고르세요`, labels, ord: it.items.map(x => ({ id: x.src, i: x.ab ? abList(R, x.src).indexOf(x.ab) : -1 })) }; const x = it.items[+k] || it.items[0]; x.pick = true; say(R, `[발동 순서] ${nm(s)}: ${D.cn(R, x.src)} 먼저 처리`); }
     else if (it.kind === 'cb') it.fn();
     else if (it.kind === 'event') { say(R, `▶ 이벤트 효과: ${D.cn(R, src)}`);
       for (const ab of it.abs) { if (!condOk(R, s, src, ab, cx(ctx))) { say(R, '(조건 미충족 — 아무 일도 일어나지 않음)'); continue; } yield* runOps(R, s, src, ab.ops, ctx, it); }
