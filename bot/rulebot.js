@@ -129,6 +129,10 @@ function contactChoice(R, seat, moves) {
   if (best) return pick(best.m, '5', `상대 컷인 → 내 AP ${a}→${best.na} (상대 ${b} 이상)`);
   return pick(pass, '5', `컷인으로 AP ${b} 이상을 만들 수 없음 → 패스`);
 }
+// v1.17.14: 효과 처리 중에는 상태를 복제할 수 없으므로(제너레이터) 제거 효과의 필터(apMax/lvMax)만 정적으로 대조해 "지금 제거할 수 있는 상대 카드"를 센다. 모르는 필터 키는 합법으로 간주(비용을 아끼지 않는다).
+function legalRemovalCount(R, seat, ab) { const opp = 1 - seat, { filters } = removeFilters(ab); if (!filters.length) return 0;
+  const fileN = R.P[seat].file.length; const num = v => v === 'file' ? fileN : numOf(v);
+  return R.P[opp].field.filter(id => D(R, id).type === 'char' && filters.some(f => (f.apMax == null || f.apMax === '' || num(f.apMax) == null || ap(R, id) <= num(f.apMax)) && (f.lvMax == null || f.lvMax === '' || num(f.lvMax) == null || lv(R, id) <= num(f.lvMax)))).length; }
 function effChoice(R, seat, moves, val_) {
   const q = R.eff.req, ans = (v, rule, why) => pick({ seat, m: { t: 'act', a: 'ans', v }, tag: 'ans' }, rule, why);
   if (q.kind === 'yn') return pick(moves.find(m => m.m.v === true) || moves[0], 'eff', '효과 사용(예)');
@@ -137,6 +141,10 @@ function effChoice(R, seat, moves, val_) {
   if (q.kind === 'pick') { const sel = (q.sel || q.ids || []).slice(), mx = Math.min(q.max == null ? sel.length : q.max, sel.length), mn = Math.min(q.min || 0, mx);
     const isOpp = id => R.cards[id] && R.cards[id].o !== seat, opp = sel.filter(isOpp), own = sel.filter(id => !isOpp(id));
     const remAb = R.eff && R.eff.it && R.eff.it.ab && removeFilters(R.eff.it.ab).is ? R.eff.it.ab : null;   // v1.17.11: 제거 효과면 효과 기준(AP/코스트)에 맞춰 합법 후보 중 가치가 높은 것
+    if (remAb && !opp.length && mn === 0 && own.length) {   // v1.17.14: "손패를 리무브해도 좋다. 그렇게 한 경우 … 제거" 같은 선택 비용 — 복제 상태에서 비용을 내 보고 실제로 상대 카드가 제거되면 반드시 지불
+      const cand = own.slice().sort((a, b) => val(R, a) - val(R, b)).slice(0, Math.max(1, Math.min(mx, 1)));
+      const gain = legalRemovalCount(R, seat, remAb); if (gain > 0) return ans(cand, 'eff', `선택 비용을 내고 제거 효과 사용: ${cand.map(id => nm(R, id)).join(', ')} 리무브 → 제거 가능한 상대 ${gain}장`);
+      return ans([], 'eff', '비용을 내도 제거할 상대 카드가 없음 → 비용 지불 안 함'); }
     if (remAb && !opp.length) { const v = mn > 0 ? own.slice().sort((a, b) => val(R, a) - val(R, b)).slice(0, mn) : []; return ans(v, 'eff', v.length ? '제거 대상이 내 카드뿐(강제) → 가치 낮은 카드' : '제거 대상이 상대에게 없음 → 고르지 않음'); }   // 제거 효과로 내 카드를 고르지 않는다
     if (remAb) { const n = Math.max(mn, mx), v = rankRemoval(R, opp, remAb).slice(0, n), md = removeMode(remAb).mode;
       return ans(v, 'eff', `제거 대상(${md === 'ap' ? 'AP 기준' : md === 'both' ? '코스트+AP 기준' : '코스트 기준'}) 합법 후보 중 최선: ${v.map(id => nm(R, id) + '(Lv' + lv(R, id) + ' AP' + (D(R, id).type === 'char' ? ap(R, id) : 0) + ')').join(', ') || '없음'}`); }

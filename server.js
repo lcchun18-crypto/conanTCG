@@ -61,7 +61,7 @@ function turnRestart(R, seat) {
   const prot = protSet(R); for (const k of Object.keys(R)) if (!SNAP_SKIP.has(k) && !(k in S.data)) delete R[k];
   for (const [k, v] of Object.entries(S.data)) R[k] = k === 'q' ? v.map(it => ({ ...it })) : dclone(v, prot);   // 스냅샷은 그대로 두고 복사본을 적용 → 같은 턴에 여러 번 눌러도 항상 원래 턴 시작 상태
   R.rv = []; say(R, `↩ ${nm(seat)}이(가) 이번 턴을 다시 시작했습니다 (턴 시작 상태로 복원)`);
-  withCur(R, () => { FX.pump(R); settle(R); if (R.ending && !R.eff && !R.q.length && !R.sub && R.phase === 'play') doEnd(R); }); return null; }
+  withCur(R, () => { FX.pump(R); settle(R); if (R.ending && !R.eff && !R.q.length && !R.sub && R.phase === 'play') { doEnd(R); FX.pump(R); settle(R); } }); return null; }
 // ── v1.9.0 다시하기: 같은 방 코드·연결을 유지한 채 게임 상태 전체를 처음(덱 등록 전)으로 되돌린다. 이전 덱은 재사용하지 않는다.
 function resetRoom(R, seat) { const keep = { code: R.code, ws: R.ws, tok: R.tok, gt: R.gt, spec: R.spec, noSpec: R.noSpec }; for (const k of Object.keys(R)) delete R[k];
   Object.assign(R, mkR(keep.code)); R.ws = keep.ws; if (keep.tok) R.tok = keep.tok; if (keep.gt) R.gt = keep.gt; if (keep.spec) R.spec = keep.spec; if (keep.noSpec) R.noSpec = true; R.rng = (Math.random() * 4294967296) >>> 0;
@@ -146,7 +146,7 @@ function subact(R, s, m) { const S = R.sub, P = R.P[s];
 function doEnd(R) { const s = R.turn; R.ending = 0; Object.values(R.cards).forEach(c => { c.apm = 0; c.lpm = 0; c.cm = 0; c.lvm = 0; c.tab = []; c.tkw = ''; c.sum = 0; c.blank = 0; }); R.tt = [[], []]; R.actor = null; FX.carry(R, s);
   say(R, `${nm(s)} 턴 종료`); R.turn = 1 - s; startTurn(R); }
 function settle(R) { let g = 0; while (R.sub && R.sub.fin && !R.eff && !R.q.length && R.phase === 'play' && g++ < 5) { endContact(R); FX.pump(R); } }
-function act(R, s, m) { return withCur(R, () => { const e = act0(R, s, m); if (!e) { FX.pump(R); settle(R); if (R.ending && !R.eff && !R.q.length && !R.sub && R.phase === 'play') doEnd(R); } return e; }); }
+function act(R, s, m) { return withCur(R, () => { const e = act0(R, s, m); if (!e) { FX.pump(R); settle(R); if (R.ending && !R.eff && !R.q.length && !R.sub && R.phase === 'play') { doEnd(R); FX.pump(R); settle(R); } } return e; }); }
 // 손패 카드 사용 가능 검사(상태를 바꾸지 않음): 서버 검증·행동 목록·봇 이동 생성이 같은 규칙을 쓴다. 가능하면 null
 function playCheck(R, s, id) { const P = R.P[s], d = D(R, id);
   const lvUsed = FX.lvOf(R, id); if (lvUsed > fcount(R, s)) return `레벨 ${lvUsed}: FILE 에리어 카드가 부족합니다 (현재 ${fcount(R, s)}장)`;

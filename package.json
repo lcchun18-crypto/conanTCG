@@ -1,6 +1,6 @@
 {
   "name": "conan-sim",
-  "version": "1.17.13",
+  "version": "1.17.15",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -61,6 +61,8 @@
     "test:v18": "node test/ui_v18_test.js",
     "test:ordhover": "node test/ord_hover_test.js",
     "test:id1260flip": "node test/id_1260_flip_test.js",
+    "test:optcost": "node test/optcost_removal_test.js",
+    "test:turnpump": "node test/turnstart_pump_test.js",
     "test:declare": "node test/declare_recheck_test.js",
     "test:rulebot": "node test/rulebot_test.js --quiet",
     "test:v17": "node test/evidence_pick_test.js && node test/cost_has_test.js && node test/evid_hand_test.js && node test/leave_room_test.js && node test/ui_v17_test.js",
