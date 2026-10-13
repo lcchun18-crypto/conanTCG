@@ -70,7 +70,15 @@ class BotCtl {
         this.log.push({ n: this.decisions, at: new Date().toISOString(), kind: d2.kind, training: true, chosen: { desc: t.desc, move: t.mv.m }, error: e || undefined });
         if (e) { this.illegal++; this.training = false; R.log.push('[TRAINING] 연습 행동이 거부되어 평소 Expert 로 진행합니다: ' + e); this.fallback('illegal: ' + e); } else if (t.commit) t.commit();
         this.deps.bc(R); return; } }
-    if (this.assist && !this.training && R.bot === this) { try { require('./assist.js').next(this, d); } catch (e) { console.error('assist error:', e && e.stack || e); this.assist = false; } }   // v1.17.19: 연습용 베스트 전개 보조(평소 Expert)
+    if (this.assist && !this.training && R.bot === this) { let a = null;   // v1.17.20: 항상 어시스트 → 최고 코스트 전개(평소 Expert)
+      try { a = require('./assist.js').next(this, d); } catch (e) { console.error('assist error:', e && e.stack || e); this.assist = false; }
+      const d2 = who(R); if (!d2 || d2.seat !== this.seat) { this.deps.bc(R); return; }
+      if (a && a.mv) { const ver0 = this.tr.ver, wait0 = this.cfg.delayMs - (Date.now() - t0); if (wait0 > 0) await new Promise(r => setTimeout(r, wait0));
+        if (this.stopped || ver0 !== this.tr.ver || R.phase === 'over') return;
+        const e = this.deps.dispatch(R, a.mv.seat, a.mv.m); this.decisions++;
+        this.log.push({ n: this.decisions, at: new Date().toISOString(), kind: d2.kind, assist: true, chosen: { desc: a.desc, move: a.mv.m }, error: e || undefined });
+        if (e) { this.illegal++; this.assist = false; R.log.push('[ASSIST] 행동이 거부되어 평소 Expert 로 진행합니다: ' + e); this.fallback('illegal: ' + e); }
+        this.deps.bc(R); return; } }
     const ver = this.tr.ver, sum = summary(R), snap = d.kind === 'main' ? require('./snapshot.js').snapshot(R) : undefined;; /* snap: 실전 피드백 → 회귀 테스트 재현용(게임 종료 후 로그로만 공개) */  let res = this.planned(R, d);
     if (!res) {
       this.snapshotIfNeeded(); if (!this.tr.base) throw new Error('no base snapshot');

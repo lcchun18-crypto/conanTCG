@@ -899,3 +899,9 @@ python tools/make_web_images.py --prune      # 원본이 없어진 최적화본 
 - 엔진 규칙은 지킨다: 사건 색·FILE 장수(`lvOf ≤ FILE`, FILE 에서 꺼내면 줄어든 FILE 기준)·`playCheck` 를 통과하는 카드만. 카드는 만들거나 복제하지 않고 한 구역에서만 이동. 손패 사용 기회가 남은 메인 결정(카드 사용/힌트 전)에서만 동작하며, 게임 로그에 `[ASSIST] …` 로 남는다.
 - 평소 Expert 방에서 기본 켜짐. 연습 스크립트(Training)·전문 봇은 영향 없음. 끄기: 방 생성 메시지 `assist:false` 또는 환경변수 `BOT_ASSIST=0`.
 - 파일: `bot/assist.js`(신규), `bot/controller.js`, `bot/training.js`(detach export). 테스트: `npm run test:assist` (14건).
+
+## v1.17.20 — AI 전(범용 Expert): 항상 어시스트 → 최고 코스트 전개
+- 범용 Expert 봇은 매 턴 카드를 쓰기 전에 **무조건 파트너를 어시스트**하고(액티브 파트너가 있고, 어시스트 후 낼 수 있는 캐릭터가 있을 때), 어시스트로 늘어난 FILE 로 **낼 수 있는 가장 높은 코스트**를 낸다. 예) FILE 8 → 어시스트 → 9코스트, FILE 7 → 어시스트 → 8코스트.
+- 손패에 그 코스트가 없어도 v1.17.19 의 보조(덱/리무브/증거/파트너 에리어/FILE)로 가져와 낸다.
+- 같은 코스트일 때의 선택은 기존 Expert 규칙(상대 제거 효과 > 캐릭터 > 가치). 연습 스크립트·전문 봇은 영향 없음. 끄기: `assist:false` / `BOT_ASSIST=0`.
+- 변경: `bot/assist.js`(`next` = 어시스트/사용 수 반환, `fetch` = 가져오기), `bot/controller.js`, `test/assist_test.js`(24건).
