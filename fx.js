@@ -44,7 +44,7 @@ module.exports = function (A) {
     o.names = (Array.isArray(f.names) ? f.names : []).slice(0, 5).map(x => str(x, 40)).filter(Boolean);
     o.st = opt(f.st, ['a', 's', 'x', 'sx']); o.notSelf = !!f.notSelf; o.self = !!f.self; o.type = opt(f.type, ['char', 'event']);
     o.hasIc = opt(f.hasIc, IC, ''); o.hasKw = str(f.hasKw, 20).toLowerCase(); o.acting = !!f.acting; o.contacting = !!f.contacting;
-    o.plain = !!f.plain; o.bang = !!f.bang; o.nameCtx = !!f.nameCtx; o.lvIn = opt(f.lvIn, ['disc'], ''); o.traitOf = opt(f.traitOf, ['ent'], '');
+    o.plain = !!f.plain; o.bang = !!f.bang; o.nameCtx = !!f.nameCtx; o.nameOfRef = opt(f.nameOfRef, ['played'], ''); o.lvIn = opt(f.lvIn, ['disc'], ''); o.traitOf = opt(f.traitOf, ['ent'], '');
     o.apGt = f.apGt === 'self' ? 'self' : '';
     o.apLowSelf = f.apLowSelf == null || f.apLowSelf === '' ? null : num(f.apLowSelf); o.notMr = !!f.notMr;   // apLowSelf: 이 카드(src)보다 AP 가 N 이상 낮다 / notMr: MR 이외
     o.any = depth < 1 ? (Array.isArray(f.any) ? f.any : []).slice(0, 4).map(x => cleanFilter(x, depth + 1, ctx)) : [];
@@ -239,7 +239,7 @@ module.exports = function (A) {
     if (c.cnot && !cols(D(R, P.kase)).some(k => k !== c.cnot)) return false;
     if (c.fileMin && fcount(R, s) < c.fileMin) return false;
     if (c.cstate === 'kase' && R.cards[P.kase].solved) return false; if (c.cstate === 'solve' && !R.cards[P.kase].solved) return false;
-    if (c.bond && !P.field.some(y => y !== id && effN(R, y).includes(c.bond))) return false;
+    if (c.bond && !((R.cards[id].tkw || '').includes('bondany')) && !P.field.some(y => y !== id && effN(R, y).includes(c.bond))) return false;   // v1.17.17: 'bondany' = 「このキャラの絆は指定のカード名のキャラが自分の現場にいるものとして扱う」(ターン終了時まで)
     if (c.trace === 'found' && !P.tr) return false; if (c.trace === 'unfound' && P.tr) return false;
     if (c.selfApMin) { const gd = (condOk._g = condOk._g || new Set()); if (gd.has(id)) return false; gd.add(id); let v; try { v = A.ap(R, id); } finally { gd.delete(id); } if (v < c.selfApMin) return false; }  // AP 조건부 상시 능력이 자기 AP 계산을 다시 부르는 무한 재귀 방지(조건 평가 중에는 자기 자신을 제외한 AP 로 판정)
     if (c.killed && !(R.fl.kills && R.fl.kills[id])) return false;
@@ -305,11 +305,12 @@ module.exports = function (A) {
   function regNum(R, ctx, spec) { const [, ref, agg] = spec.split(':'); const ids = regIds(R, ctx, ref); const lvs = ids.map(x => +D(R, x).lv || 0);
     return agg === 'count' ? ids.length : agg === 'sum' ? lvs.reduce((a, b) => a + b, 0) : agg === 'max' ? Math.max(0, ...lvs) : (lvs[0] || 0); }
   function rf(R, f, ctx) { if (!f) return f; const t = ctx.t || {};
-    if (f.lvMax !== 'used' && f.lvMin !== 'used' && f.lvMax !== 'costLv' && f.lvMin !== 'costLv' && f.apMax !== 'costAp' && f.apMin !== 'costAp' && !isRegS(f.lvMax) && !isRegS(f.lvMin) && !f.lvIn && !f.traitOf && !f.nameCtx && !(f.any && f.any.length)) return f;
+    if (f.lvMax !== 'used' && f.lvMin !== 'used' && f.lvMax !== 'costLv' && f.lvMin !== 'costLv' && f.apMax !== 'costAp' && f.apMin !== 'costAp' && !isRegS(f.lvMax) && !isRegS(f.lvMin) && !f.lvIn && !f.traitOf && !f.nameCtx && !f.nameOfRef && !(f.any && f.any.length)) return f;
     const g = { ...f };
     for (const k of ['lvMax', 'lvMin']) { if (g[k] === 'used') g[k] = t.lv || 0; else if (g[k] === 'costLv') g[k] = (ctx.cost && ctx.cost.lv) || 0; else if (isRegS(g[k])) g[k] = regNum(R, ctx, g[k]); }
     for (const k of ['apMax', 'apMin']) if (g[k] === 'costAp') g[k] = (ctx.cost && ctx.cost.ap) || 0;   // 코스트로 스턴/슬립시킨 캐릭터의 AP 이하
     if (g.nameCtx) { g.name = ctx.named || '\u0000'; g.nameCtx = false; }
+    if (g.nameOfRef) { const pl = (ctx.reg && ctx.reg[g.nameOfRef]) || [], last = pl[pl.length - 1]; g.name = last != null && R.cards[last] ? D(R, last).n : '\u0000'; g.nameOfRef = ''; }   // v1.17.17: 「登場させたキャラと同じカード名」
     if (g.lvIn === 'disc') { g.lvSet = (ctx.disc || []).map(x => +D(R, x).lv || 0); g.lvIn = ''; }
     if (g.traitOf === 'ent') { g.traitAny = t.ent != null && R.cards[t.ent] ? traitsId(R, t.ent) : []; g.traitOf = ''; }
     if (g.any && g.any.length) g.any = g.any.map(a => rf(R, a, ctx));
