@@ -74,7 +74,7 @@ module.exports = function (A) {
   const regN = x => opt(x, REGS, '');
   const dynN = o => ({ nref: o.nref && typeof o.nref === 'object' ? { ref: opt(o.nref.ref, REGS, 'removed'), by: opt(o.nref.by, ['count', 'lv', 'ap1000'], 'count') } : null,
     ncnt: o.ncnt && typeof o.ncnt === 'object' ? { src: opt(o.ncnt.src, SRC, 'field'), f: o.ncnt.f && typeof o.ncnt.f === 'object' ? cleanFilter(o.ncnt.f, 0, 'condition') : null } : null, nmul: o.nmul ? Math.max(1, Math.min(num(o.nmul), 20)) : null });
-  function cleanActs(o) { const list = Array.isArray(o.acts) && o.acts.length ? o.acts : [{ do: o.do, v: o.v, until: o.until, per: o.per, g: o.g }];
+  function cleanActs(o) { const base = { do: o.do, v: o.v, until: o.until, per: o.per, g: o.g }, list = Array.isArray(o.acts) && o.acts.length ? (o.do && !o.acts.some(x => x && x.do === o.do) ? [base, ...o.acts] : o.acts) : [base];   // v1.17.18: acts 에 기본 do 가 빠져 있으면(예: AP+2000 + 突撃) 기본 효과를 앞에 붙인다
     return list.slice(0, 4).map(a => { const g = a && a.g && a.g.ic !== 'grant' ? cleanAb([a.g])[0] : null; return { do: opt(a && a.do, DO, 'sleep'), v: str(a && a.v, 40), until: opt(a && a.until, UNTIL, 'turn'), per: opt(a && a.per, ['flip'], ''), g: g || null }; }); }
   function cleanOps(a, depth = 0) { if (!Array.isArray(a) || depth > 6) return []; return a.slice(0, 14).map(o => cleanOp(o, depth)).filter(Boolean); }
   function cleanOp(o, depth) { if (!o || typeof o !== 'object') return null; const ctx = OP_CTX[o.op] || 'target', prev = FCTX, pop = CUR_OP; FCTX = ctx; CUR_OP = String(o.op);

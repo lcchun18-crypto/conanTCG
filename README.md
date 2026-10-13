@@ -888,3 +888,8 @@ python tools/make_web_images.py --prune      # 원본이 없어진 최적화본 
 - **id_1168 이벤트** (Lv6, 白&黄): Lv7 이하 리무브 / 解決編이면 리무브의 Lv2 이하 캐릭터를 슬립 등장 + 리무브 에리어의 같은 카드명 1장을 덱 아래로.
 - 엔진 추가(`fx.js`): 필터 `nameOfRef:'played'`(방금 등장시킨 캐릭터와 같은 카드명), kw `bondany`.
 - `cards.xlsx`/`cards.json`(1353장)·`CardImageWeb/id_1165~1168.webp` 반영. 테스트: `npm run test:new4b`.
+
+## v1.17.18 — id_0872 工藤有希子: AP+2000 이 적용되지 않던 문제 수정
+- 원인: Ops 시트의 선언 효과 `select` 가 `acts` 에 突撃[キャラ] 만 담고 있어, `acts` 가 있으면 기본 `do`(ap +2000)를 무시하는 엔진 규칙 때문에 AP 가 오르지 않았다. 데이터를 `acts: [ap +2000(턴 종료까지), kw assault-char]` 로 수정(`cards.xlsx`/`cards.json`).
+- 엔진 보정(`fx.js` `cleanActs`): `acts` 에 기본 `do` 가 없으면 기본 효과를 앞에 붙여 같은 실수가 AP 효과를 삼키지 않게 함. DB 전체에서 같은 형태의 카드는 id_0872 뿐임을 확인.
+- 테스트: `npm run test:id0872`.
