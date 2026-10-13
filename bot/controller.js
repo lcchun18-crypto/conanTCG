@@ -70,6 +70,7 @@ class BotCtl {
         this.log.push({ n: this.decisions, at: new Date().toISOString(), kind: d2.kind, training: true, chosen: { desc: t.desc, move: t.mv.m }, error: e || undefined });
         if (e) { this.illegal++; this.training = false; R.log.push('[TRAINING] 연습 행동이 거부되어 평소 Expert 로 진행합니다: ' + e); this.fallback('illegal: ' + e); } else if (t.commit) t.commit();
         this.deps.bc(R); return; } }
+    if (this.assist && !this.training && R.bot === this) { try { require('./assist.js').next(this, d); } catch (e) { console.error('assist error:', e && e.stack || e); this.assist = false; } }   // v1.17.19: 연습용 베스트 전개 보조(평소 Expert)
     const ver = this.tr.ver, sum = summary(R), snap = d.kind === 'main' ? require('./snapshot.js').snapshot(R) : undefined;; /* snap: 실전 피드백 → 회귀 테스트 재현용(게임 종료 후 로그로만 공개) */  let res = this.planned(R, d);
     if (!res) {
       this.snapshotIfNeeded(); if (!this.tr.base) throw new Error('no base snapshot');
@@ -112,7 +113,7 @@ function createRoom({ rooms, mkR, ready, dispatch, loadCards, say, cl, ws, m, se
   const R = rooms[c] = mkR(c); R.ws[0] = ws; R.firstPref = m.first === 'first' ? 0 : m.first === 'second' ? 1 : undefined;
   const fake = { readyState: 1, bot: true, send() {}, close() {} }; R.ws[1] = fake;
   const defs = {}; for (const id of [...new Set(list), bd.partner, bd.kase]) defs[id] = DB[id];
-  const ctl = new BotCtl(R, 1, { dispatch, bc }); R.bot = ctl; ctl.name = botName; ctl.specialist = specId; ctl.training = m.training === true && !specId && !legacy; if (specId) ctl.cfg.specialist = specId; else if (!legacy) ctl.cfg.specialist = 'pro';   // v1.2.0: 범용 Expert 는 PRO 전략 정책(bot/pro.js)을 쓴다. 'classic' 은 이전 방식
+  const ctl = new BotCtl(R, 1, { dispatch, bc }); R.bot = ctl; ctl.name = botName; ctl.specialist = specId; ctl.training = m.training === true && !specId && !legacy; ctl.assist = !specId && !legacy && m.assist !== false && process.env.BOT_ASSIST !== '0'; if (specId) ctl.cfg.specialist = specId; else if (!legacy) ctl.cfg.specialist = 'pro';   // v1.2.0: 범용 Expert 는 PRO 전략 정책(bot/pro.js)을 쓴다. 'classic' 은 이전 방식
   const e = dispatch(R, 1, { t: 'ready', defs, list, partner: bd.partner, kase: bd.kase }); if (e) { delete rooms[c]; throw new Error('봇 덱이 규칙에 맞지 않습니다: ' + e); }
   say(R, '🤖 ' + botName + ' 와의 대전입니다. 내 덱을 등록하면 시작합니다.'); return R;
 }

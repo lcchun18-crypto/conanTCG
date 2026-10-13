@@ -893,3 +893,9 @@ python tools/make_web_images.py --prune      # 원본이 없어진 최적화본 
 - 원인: Ops 시트의 선언 효과 `select` 가 `acts` 에 突撃[キャラ] 만 담고 있어, `acts` 가 있으면 기본 `do`(ap +2000)를 무시하는 엔진 규칙 때문에 AP 가 오르지 않았다. 데이터를 `acts: [ap +2000(턴 종료까지), kw assault-char]` 로 수정(`cards.xlsx`/`cards.json`).
 - 엔진 보정(`fx.js` `cleanActs`): `acts` 에 기본 `do` 가 없으면 기본 효과를 앞에 붙여 같은 실수가 AP 효과를 삼키지 않게 함. DB 전체에서 같은 형태의 카드는 id_0872 뿐임을 확인.
 - 테스트: `npm run test:id0872`.
+
+## v1.17.19 — Expert 전개 보조: 손패에 없어도 다른 구역에서 가져와 베스트 전개 (연습용)
+- 평소(범용) Expert 봇이, 이번 턴 낼 수 있는 **최고 코스트 캐릭터**가 손패에 없으면 AI 소유 카드를 **덱 → 리무브 → 증거 → 파트너 에리어 → FILE → (상대 구역)** 순으로 찾아 손패로 가져온 뒤 평소 Expert 로직으로 낸다. 예: FILE 9장인데 손패에 9코스트가 없어도 다른 구역의 9코스트를 가져와 전개.
+- 엔진 규칙은 지킨다: 사건 색·FILE 장수(`lvOf ≤ FILE`, FILE 에서 꺼내면 줄어든 FILE 기준)·`playCheck` 를 통과하는 카드만. 카드는 만들거나 복제하지 않고 한 구역에서만 이동. 손패 사용 기회가 남은 메인 결정(카드 사용/힌트 전)에서만 동작하며, 게임 로그에 `[ASSIST] …` 로 남는다.
+- 평소 Expert 방에서 기본 켜짐. 연습 스크립트(Training)·전문 봇은 영향 없음. 끄기: 방 생성 메시지 `assist:false` 또는 환경변수 `BOT_ASSIST=0`.
+- 파일: `bot/assist.js`(신규), `bot/controller.js`, `bot/training.js`(detach export). 테스트: `npm run test:assist` (14건).

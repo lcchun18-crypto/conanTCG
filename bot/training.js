@@ -97,4 +97,4 @@ function next(ctl, d) {
   }
   return null;
 }
-module.exports = { next, plan, ownedCards };
+module.exports = { next, plan, ownedCards, detach };
