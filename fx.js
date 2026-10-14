@@ -118,7 +118,7 @@ module.exports = function (A) {
       case 'optcost': return { ...p, cost: cleanCost(o.cost) };
       case 'ent': return { ...p, do: opt(o.do, ['sleep', 'active', 'ap', 'lp', 'kw', 'remove'], 'active'), v: str(o.v, 40), until: opt(o.until, UNTIL, 'turn') };
       case 'played': return { ...p, do: opt(o.do, ['sleep', 'active', 'ap', 'lp', 'kw'], 'active'), v: str(o.v, 40), until: opt(o.until, UNTIL, 'turn') };
-      case 'reveal': return { ...p, name: str(o.name, 40), filter: cleanFilter(o.filter), then: opt(o.then, ['hand', 'rem'], 'hand'), rest: opt(o.rest, ['bottom', 'shuffleBottom', 'rem'], 'shuffleBottom'), shuffle: !!o.shuffle };
+      case 'reveal': return { ...p, name: str(o.name, 40), filter: cleanFilter(o.filter), alt: (Array.isArray(o.alt) ? o.alt : []).slice(0, 4).map(f => cleanFilter(f)), then: opt(o.then, ['hand', 'rem'], 'hand'), rest: opt(o.rest, ['bottom', 'shuffleBottom', 'rem'], 'shuffleBottom'), shuffle: !!o.shuffle };
       case 'revealTop': return { ...p, n: n(), filter: cleanFilter(o.filter), hit: opt(o.hit, ['hand', 'rem'], 'hand'), miss: opt(o.miss, ['bottom', 'top', 'rem', 'hand'], 'bottom') };
       case 'revealHand': return { ...p, who: who() };
       case 'revealFile': return { ...p, who: who(), n: n() };
@@ -658,7 +658,7 @@ module.exports = function (A) {
       case 'played': { const ids = (ctx.played || []).filter(x => onField(R, x)); if (!ids.length) { ctx.done = false; return; }
         for (const e of ids) { applyTo(R, s, src, e, o.do, o.v, o.until); say(R, `[효과] ${D.cn(R, e)}: ${o.do}${o.v ? ' ' + o.v : ''}`); } ctx.done = true; return; }
       case 'reveal': { const T = P, seen = []; let hit = null;
-        while (T.deck.length) { const x = T.deck.pop(); seen.push(x); if (D(R, x).type && (o.name || Object.values(o.filter || {}).some(v => v && (!Array.isArray(v) || v.length))) && fOk(R, s, x, o.filter, src, true) && (!o.name || D(R, x).n.includes(o.name))) { hit = x; break; } }
+        while (T.deck.length) { const x = T.deck.pop(); seen.push(x); if (D(R, x).type && (o.name || Object.values(o.filter || {}).some(v => v && (!Array.isArray(v) || v.length)) || (o.alt || []).length) && ([o.filter, ...(o.alt || [])].some(f => fOk(R, s, x, f, src, true))) && (!o.name || D(R, x).n.includes(o.name))) { hit = x; break; } }   // v1.17.22 alt: 필터 여러 개 중 하나라도 맞으면 적중(OR) — 「카드명 A 또는 특징 B 의 이벤트」
         yield { who: s, kind: 'ack', msg: hit != null ? `덱 위에서 ${seen.length}장을 공개 — 「${D(R, hit).n}」 발견` : `덱 위 ${seen.length}장을 공개 — 해당하는 카드가 없었습니다`, ids: seen, reveal: 1, by: s };
         const rest = seen.filter(x => x !== hit); if (hit != null) { if (o.then === 'rem') T.rem.push(hit); else T.hand.push(hit); }
         if (o.rest === 'rem') T.rem.push(...rest); else { const r = rest.slice(); if (o.rest === 'shuffleBottom') shuf(r); r.forEach(x => T.deck.unshift(x)); }
