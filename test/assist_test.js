@@ -35,4 +35,8 @@ for (const z of ['rem', 'evid', 'pa']) { const { R, s } = mk({ L5: defs.L5, L8: 
     const a2 = A.next(c, D_), id = a2 && a2.mv.m.id; ok(a2 && a2.mv.m.a === 'play' && R.defs[R.cards[id].d].n === want, `9 FILE ${fl}: 어시스트 후 ${want} 사용 (${a2 && a2.desc})`);
     ok(!SIM.S.act(R, s, a2.mv.m) && R.P[s].field.includes(id), `9 FILE ${fl}: ${want} 가 현장에 등장`); ok(A.next(c, D_) === null, `9 FILE ${fl}: 낸 뒤에는 개입 안 함`); }
 }
+// 10) v1.17.21 넥스트 힌트 사용 기회(R.fl.hw)에서도 최고 코스트: 손패 Lv6, 덱 Lv7, FILE 7 → Lv7 사용 (어시스트는 하지 않음)
+{ const { R, s } = mk(defs, ['L5', 'L7', 'L2', 'L2'], 7); hand(R, s, 'L5'); const P = R.P[s]; R.fl.played = 1; R.fl.hint = 1; R.fl.hw = 1; P.pIn = true; const c = ctl(R, s);
+  const a = A.next(c, { kind: 'hint', seat: s }), id = a && a.mv.m.id; ok(a && a.mv.m.a === 'play' && R.defs[R.cards[id].d].n === 'Lv8', '10 힌트 사용 기회(FILE 7+어시스트분 1=8): 덱의 Lv8 을 가져와 사용 (' + (a && a.desc) + ')');
+  ok(!SIM.S.act(R, s, a.mv.m) && P.field.includes(id), '10 Lv8 현장 등장'); }
 console.log(`\nassist_test: ${pass} 통과 / ${fail} 실패`); process.exit(fail ? 1 : 0);
