@@ -698,10 +698,14 @@ module.exports = function (A) {
         for (let i = 0; i < nn; i++) { const x = pull(R, dt); if (x == null) break; const h = R.cards[tid]; (h.fd = h.fd || []).push(x); R.cards[x].fdOn = tid; ctx.done = true; bus(R, 'setOn', { s: h.o, ent: x, holder: tid, fd: true }); }
         if (ctx.done) say(R, `[효과] ${nm(dt)}의 덱 위 카드를 뒷면으로 ${D.cn(R, tid)}에 세트`); return; }
       case 'unset': { const holders = o.scope === 'self' ? (onField(R, src) ? [src] : []) : o.scope === 'opp' ? ally(R, 1 - s).slice() : o.scope === 'mine' ? ally(R, s).slice() : [...ally(R, 0), ...ally(R, 1)]; const f = rf(R, o.filter, ctx);
-        const okH = holders.filter(h => setCards(R, h, o.fd).some(x => fOk(R, s, x, f, src, true))); if (!okH.length) { ctx.done = false; return; }
-        if (o.opt && !(yield { who: s, kind: 'yn', msg: '세트된 카드를 리무브할까요?' })) { ctx.done = false; return; }
-        const h = okH.length === 1 ? okH[0] : (yield pickReq(s, '세트된 카드를 리무브할 캐릭터를 선택', okH, 1, 1))[0];
-        const cs = setCards(R, h, o.fd).filter(x => fOk(R, s, x, f, src, true)); const x = cs[0]; unsetOne(R, h, x); setReg(ctx, 'removed', [x]); say(R, `[효과] ${D.cn(R, h)}에 세트된 카드를 리무브`); ctx.done = true; return; }
+        const okH0 = () => holders.filter(h => setCards(R, h, o.fd).some(x => fOk(R, s, x, f, src, true))), total = () => holders.reduce((t, h) => t + setCards(R, h, o.fd).filter(x => fOk(R, s, x, f, src, true)).length, 0);
+        if (!okH0().length || (o.n > 1 && total() < o.n)) { ctx.done = false; return; }   // v1.17.23: n 장을 합쳐서 리무브(부족하면 "그렇게 한 경우"를 만족하지 못함 — 1장만 지우고 진행하던 버그)
+        if (o.opt && !(yield { who: s, kind: 'yn', msg: o.n > 1 ? `세트된 카드를 합쳐서 ${o.n}장 리무브할까요?` : '세트된 카드를 리무브할까요?' })) { ctx.done = false; return; }
+        const gone = [];
+        for (let i = 0; i < Math.max(1, o.n); i++) { const okH = okH0(); if (!okH.length) break;
+          const h = okH.length === 1 ? okH[0] : (yield pickReq(s, `세트된 카드를 리무브할 캐릭터를 선택${o.n > 1 ? ` (${i + 1}/${o.n}장째)` : ''}`, okH, 1, 1))[0];
+          const cs = setCards(R, h, o.fd).filter(x => fOk(R, s, x, f, src, true)), x = cs[0]; unsetOne(R, h, x); gone.push(x); say(R, `[효과] ${D.cn(R, h)}에 세트된 카드를 리무브`); }
+        setReg(ctx, 'removed', gone); ctx.done = gone.length > 0; return; }
       case 'moveSet': { const h = R.cards[src], mine = (h && h.fd) || []; const f = rf(R, o.filter, ctx); ctx.done = false; if (!onField(R, src) || !mine.length) return;
         const cand = ally(R, s).filter(x => x !== src && fOk(R, s, x, f, src) && !(o.toEmpty && (R.cards[x].fd || []).length)); if (!cand.length) return;
         const ids = (yield pickReq(s, '裏向きのセットカードを移す先のキャラを最大1枚選択', cand, 0, 1)).filter(x => cand.includes(x)); if (!ids.length) return;
