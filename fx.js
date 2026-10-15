@@ -29,6 +29,8 @@ module.exports = function (A) {
   const FILTER_REQUIRED = new Set(['select', 'selAdv', 'selLvSum', 'blankAb', 'triggerFlash', 'setSelf']);   // 필터가 곧 대상 지정인 op — 필터 자체가 없어도 own 미지정으로 본다(검증)
   let FCTX = 'condition', AUDIT = null, CUR_OP = '';   // FCTX: 지금 정리 중인 필터의 문맥. AUDIT: 검증 수집기(배열이면 own 미지정 target/subject 를 기록)
   const withCtx = (ctx, fn) => { const prev = FCTX; FCTX = ctx; try { return fn(); } finally { FCTX = prev; } };
+  // v1.17.25: 세트 카드 리무브류(unset/unsetPick)의 필터는 own 을 따로 정하지 않으면 '누구의 세트 카드든' — 범위는 scope(홀더)가 정한다. 기본값 self 로 두면 상대 캐릭터에 세트된 상대 소유 카드가 후보에서 빠진다
+  const setF = f => { f = f && typeof f === 'object' ? f : {}; return { ...f, own: ['self', 'opp', 'any'].includes(f.own) ? f.own : 'any' }; };
   const cleanFilter = (f, depth = 0, ctx = FCTX) => { const had = !!f && typeof f === 'object'; f = had ? f : {}; const explicit = ['self', 'opp', 'any'].includes(f.own);
     const unresolved = !explicit && depth === 0 && (ctx === 'target' || ctx === 'triggerSubject') && (had || FILTER_REQUIRED.has(CUR_OP));
     if (unresolved && AUDIT) AUDIT.push({ ctx, op: CUR_OP });
@@ -128,7 +130,7 @@ module.exports = function (A) {
       case 'setDeck': return { ...p, n: n(), deck: opt(o.deck, ['self', 'opp', 'owner'], 'self'), // 세트된 카드의 소유자는 세트한 캐릭터의 소유자와 같아야 한다(실행 시 검사)
          to: opt(o.to, ['self', 'played', 'pick', 'sel'], 'self'), filter: cleanFilter(o.filter), ...dynN(o) };
       case 'moveSet': return { ...p, n: 1, filter: cleanFilter(o.filter), toEmpty: !!o.toEmpty };
-      case 'unset': return { ...p, n: n(), opt: !!o.opt, scope: opt(o.scope, ['self', 'any', 'opp', 'mine'], 'self'), fd: !!o.fd, filter: cleanFilter(o.filter), mode: opt(o.mode, ['', 'evid'], '') };
+      case 'unset': return { ...p, n: n(), opt: !!o.opt, scope: opt(o.scope, ['self', 'any', 'opp', 'mine'], 'self'), fd: !!o.fd, filter: cleanFilter(setF(o.filter)), mode: opt(o.mode, ['', 'evid'], '') };
       case 'stack': return { ...p, n: n(), filter: cleanFilter(o.filter), distinct: !!o.distinct };
       case 'flip': return { ...p, n: n(), who: who(), opt: !!o.opt };
       case 'flashFlipped': return { ...p, bang: !!o.bang, filter: cleanFilter(o.filter) };

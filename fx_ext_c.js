@@ -17,7 +17,7 @@ module.exports = function (K, def) {
 
   // unsetPick: 캐릭터에 세트된 카드(앞면 이벤트·뒷면 카드)를 n장 골라 리무브. scope=세트를 가진 캐릭터의 범위, fd=뒷면 카드만,
   //   upto=0장도 선택 가능(「1枚まで選び、リムーブする」) / opt=먼저 할지 묻고 n장을 전부 리무브(「合わせて2枚リムーブしてもよい」). 전부 리무브했을 때만 성공(done)
-  def('unsetPick', o => ({ op: 'unsetPick', scope: opt(o.scope, ['self', 'any', 'opp', 'mine'], 'any'), fd: !!o.fd, n: clampN(o.n, 1, 3), opt: !!o.opt, upto: !!o.upto, filter: cleanFilter(o.filter) }), function* (R, s, src, o, ctx) {
+  def('unsetPick', o => ({ op: 'unsetPick', scope: opt(o.scope, ['self', 'any', 'opp', 'mine'], 'any'), fd: !!o.fd, n: clampN(o.n, 1, 3), opt: !!o.opt, upto: !!o.upto, filter: cleanFilter(K.setF ? K.setF(o.filter) : { ...(o.filter || {}), own: ['self', 'opp', 'any'].includes((o.filter || {}).own) ? o.filter.own : 'any' }) }), function* (R, s, src, o, ctx) {
     ctx.done = false; const f = rf(R, o.filter, ctx);
     const holders = () => (o.scope === 'self' ? (onField(R, src) ? [src] : []) : o.scope === 'opp' ? R.P[1 - s].field : o.scope === 'mine' ? R.P[s].field : [...R.P[0].field, ...R.P[1].field]).slice();
     const cardsOf = h => setCards(R, h, o.fd).filter(x => fOk(R, s, x, f, src, true));

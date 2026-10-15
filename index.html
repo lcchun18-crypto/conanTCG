@@ -828,7 +828,10 @@ function effSync(){const E=V&&V.eff;if(!E||E.wait){EP=null;effKey='';return}
  EP=null;if(E.kind==='pick'){const board=new Set();V.P.forEach((P,i)=>{[...P.field,...(P.pa||[]),P.partner,P.kase].filter(Boolean).forEach(c=>board.add(c.id));if(i===V.me&&Array.isArray(P.hand))P.hand.forEach(c=>board.add(c.id))});
   EP={ids:new Set((E.cards||[]).map(c=>c.id)),sel:new Set(E.sel||[]),board}}}
 function effPick(id){const E=V.eff;if(!E||E.kind!=='pick')return;if(E.max===1){A('ans',{v:[id]});esel=[];return}
- const i=esel.indexOf(id);if(i>=0)esel.splice(i,1);else if(E.ordered||esel.length<E.max)esel.push(id);else $('err').textContent=E.max+'장까지 선택할 수 있습니다';render()}
+ const i=esel.indexOf(id);
+ const nmOf=x=>{const c=(E.cards||[]).find(y=>y.id===x);return c&&DEFS[c.d]?DEFS[c.d].n:null};   // v1.17.24: 이름이 서로 달라야 하는 선택은 같은 이름을 고르는 순간 바로 알려 준다(확정 후 서버 오류로 선택이 전부 풀리지 않게)
+ if(i>=0)esel.splice(i,1);else if(E.distinct&&nmOf(id)!=null&&esel.some(x=>nmOf(x)===nmOf(id)))$('err').textContent='이미 「'+nmOf(id)+'」을(를) 선택했습니다 — 카드 이름이 서로 달라야 합니다';
+ else if(E.ordered||esel.length<E.max){esel.push(id);$('err').textContent=''}else $('err').textContent=E.max+'장까지 선택할 수 있습니다';render()}
 function effUI(b,B){const E=V.eff;if(E.wait)return E.msg;
  const box=document.createElement('div');box.className='box';{let sf=DEFS[E.srcD]||{};if(!sf.n&&E.src){const k=Object.keys(DEFS).find(k=>DEFS[k]&&DEFS[k].n===E.src);if(k)sf=DEFS[k]}
   const cid0=E.srcD?cardId(sf,{d:E.srcD}):'',img=sf.img||(DB.cards[cid0]||{}).img||'',im=E.itK==='ord'?'':img&&!BADIMG.has(img)?`<img class="fxi" src="${esc(img)}" alt="${esc(sf.n||E.src||'')}">`:`<div class="fxi noimg">${esc(sf.n||E.src||'')}</div>`,cid=cid0;
