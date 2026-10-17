@@ -1,6 +1,6 @@
 {
   "name": "conan-sim",
-  "version": "1.17.27",
+  "version": "1.17.28",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -65,6 +65,7 @@
     "test:turnpump": "node test/turnstart_pump_test.js",
     "test:new4b": "node test/new4b_test.js",
     "test:id0872": "node test/id_0872_test.js",
+    "test:removepopup": "node test/remove_popup_ui_test.js",
     "test:handdeclare": "node test/hand_declare_ui_test.js",
     "test:refreshmv": "node test/refresh_after_mv_test.js",
     "test:id0533": "node test/id_0533_test.js",
