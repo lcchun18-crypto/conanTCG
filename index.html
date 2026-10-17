@@ -884,7 +884,8 @@ function actUI(){const a=$('act');a.innerHTML='';const H=t=>{const d=document.cr
  const hc=hsel&&handTurn()?V.P[V.me].hand.find(x=>x.id===hsel):null;
  if(hc){a.className='on';H('선택한 카드의 행동');const f=DEFS[hc.d]||{},s=V.sub,full=f.type==='char'&&V.P[V.me].field.length>=5;
   if(s&&s.type==='contact'){const dis=/disguise/.test(kw(f))&&f.type==='char';Bt(dis?'변장':'컷인 사용',()=>{A(dis?'dis':'cin',{id:hc.id});hsel=null},'pri')}
-  else{Bt(f.type==='event'?'이벤트 사용':'등장',()=>{if(full)pend=hc.id;else A('play',{id:hc.id});hsel=null},'pri');if(full)N('현장이 가득 찼습니다. 누르면 교체(스위치)할 내 캐릭터를 고릅니다')}
+  else{Bt(f.type==='event'?'이벤트 사용':'등장',()=>{if(full)pend=hc.id;else A('play',{id:hc.id});hsel=null},'pri');if(full)N('현장이 가득 찼습니다. 누르면 교체(스위치)할 내 캐릭터를 고릅니다');
+   ((V.acts||{})[hc.id]||[]).filter(x=>x.k==='ab').forEach(x=>{const tx=abText(hc.d,x.i);Bt(tx||('능력 '+(x.i+1)+' 사용'),()=>{A('ability',{id:hc.id,i:x.i});hsel=null},'',!!tx)})}   // v1.17.27: 손패에서 선언할 수 있는 능력(fromHand: id_0720 ジン 등) 버튼
   Bt('선택 해제',()=>{hsel=null},'ghost');return}
  const c=mode&&canSel()?selCard(mode.id):null;
  if(!c){mode=null;const za=[];Object.entries(V.acts||{}).forEach(([zid,l])=>l.forEach(x=>{if(x.z&&x.k==='ab')za.push({id:+zid,x})}));

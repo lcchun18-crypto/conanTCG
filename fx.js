@@ -538,11 +538,12 @@ module.exports = function (A) {
     if (to === 'deckTopOrBottom') for (const x of list) { const top = yield { who: o.by === 'opp' ? 1 - s : s, kind: 'yn', msg: `${D(R, x).n}을(를) 덱 위로 보낼까요? (아니오 = 아래)`, yes: '위', no: '아래' }; perDest[x] = top ? 'deckTop' : 'deckBottom'; }
     let holder = src; if (to === 'under' && o.tf) { const hc = R.P[s].field.filter(x => fOk(R, s, x, rf(R, o.tf, ctx), src, true)); if (!hc.length) return []; holder = hc.length === 1 ? hc[0] : (yield pickReq(s, '카드를 아래에 겹칠 캐릭터를 선택', hc, 1, 1))[0]; }
     if (to === 'under' && !onField(R, holder)) return [];
+    const refr = new Set();
     for (const id of list) { const c = R.cards[id], ow = byOwn(id), T = R.P[ow]; if (!c) continue; if (to === 'deckTopOrBottom') dest = perDest[id];
       if (T.field.includes(id)) { if (dest === 'rem') { rmChar(R, id, 'effect'); moved.push(id); continue; }
         if (['hand', 'deckTop', 'deckBottom'].includes(dest)) { yield* applyG(R, s, src, id, dest); if (!T.field.includes(id)) moved.push(id); continue; }
         leave(R, id); }
-      else { const z = takeOut(R, id); if (z === 'rem' && dest !== 'rem') remLeft(R, ow, [id]); if (z === 'deck' && !isDeck) chk(R, ow); }   // 덱 안의 위치 이동(덱 위/아래)은 일시적으로 덱이 비어도 리프레시하지 않는다
+      else { const z = takeOut(R, id); if (z === 'rem' && dest !== 'rem') remLeft(R, ow, [id]); if (z === 'deck' && !isDeck) refr.add(ow); }   // v1.17.26: 리프레시는 이동이 전부 끝난 뒤(아래) — 카드를 하나씩 옮기는 도중에 덱이 0장이 되면 아직 리무브에 안 간 카드가 리프레시에서 빠졌다. 덱 안의 위치 이동(덱 위/아래)은 일시적으로 덱이 비어도 리프레시하지 않는다
       c.st = 'a'; c.up = false;
       switch (dest) {
         case 'hand': T.hand.push(id); break; case 'deckTop': T.deck.push(id); break; case 'deckBottom': T.deck.unshift(id); break; case 'rem': T.rem.push(id); break; case 'pa': T.pa.push(id); break;
@@ -552,6 +553,7 @@ module.exports = function (A) {
         default: T.hand.push(id); }
       moved.push(id); }
     if (o.sd && isDeck) { const owners = new Set(list.map(byOwn)); owners.forEach(w => shuf(R.P[w].deck)); }
+    refr.forEach(w => chk(R, w));
     return moved; }
   const yn = (who, msg) => ({ who, kind: 'yn', msg });
   const REGS_RT = ['sel', 'played', 'seen', 'hit', 'chosen', 'chosen2', 'rest', 'revealed', 'removed', 'drawn', 'moved', 'cost', 'costRev', 'costSlept', 'last', 'ent', 'cin'];
