@@ -97,6 +97,8 @@ body.spec #restartBtn,body.spec #rtBtn,body.spec #topmenu,body.spec #botover,bod
 .card.tgt{outline:3px solid #ff8a3d;outline-offset:1px;box-shadow:0 0 20px #ff8a3dbb;animation:pl 1.1s ease-in-out infinite}
 @keyframes pl{50%{box-shadow:0 0 6px #ff8a3d66}}
 .card[data-st=s]{filter:brightness(.66) saturate(.6)}.card[data-st=x]{filter:brightness(.72) sepia(.6) saturate(2) hue-rotate(-30deg)}@media(hover:hover){.card[data-st=s]:hover,.card[data-st=x]:hover{filter:brightness(.9)}}
+.card .udb{position:absolute;left:3px;bottom:3px;z-index:4;font-size:10px;font-weight:800;padding:1px 6px;border-radius:999px;background:#2b6f4fee;color:#eaffef;border:1px solid #7be3a5;line-height:14px}
+#pv .udw{margin-top:8px;padding:8px;border:1px solid #7be3a5aa;border-radius:8px;background:#0e2a1e}#pv .udw b{display:block;font-size:12px;color:#7be3a5;margin-bottom:6px}#pv .udc{display:inline-flex;flex-direction:column;align-items:center;gap:2px;width:58px;margin:0 4px 6px 0;vertical-align:top}#pv .udc img{width:58px;border-radius:4px;box-shadow:0 2px 6px #000a}#pv .udc small{font-size:10px;color:#cfe;text-align:center;line-height:1.15;word-break:break-all}
 .card .chip{position:absolute;left:50%;top:50%;font-style:normal;font-size:11px;font-weight:800;letter-spacing:.5px;padding:2px 9px;border-radius:999px;color:#fff;white-space:nowrap;border:1px solid #fff9;min-width:0;height:auto;line-height:16px;z-index:3}
 .card[data-st=s] .chip{background:#3a5fb8ee;transform:translate(-50%,-50%) rotate(-90deg)}
 .card[data-st=x] .chip{background:#b8322cee;transform:translate(-50%,-50%) rotate(-180deg)}
@@ -578,6 +580,8 @@ const cardId=(f,c)=>String((f&&f.id)||(c&&c.d)||'').replace(/^\d+:/,'');
 function pv(f,c){PVNOW=[f,c];const cols=String(f.color||'').split(/[\/,&]/).map(x=>x.trim().toLowerCase()).filter(Boolean);
  const ch=[`<span class="chipm ty">${esc(TYPE_KO[f.type]||f.type||'')}</span>`];
  if(c&&c.bl)ch.push('<span class="chipm" style="background:#b3261e;border-color:#ff8a80;color:#fff">⛔ 효과 무효 (이번 턴)</span>');
+ if(c&&c.mg)ch.push('<span class="chipm" style="background:#6b2a00;border-color:#ffb066;color:#ffe3c7" title="가드할 수 있으면 이 캐릭터로 반드시 가드해야 합니다">🛡 강제 가드</span>');
+ if(c&&c.fg)ch.push('<span class="chipm" style="background:#6b2a00;border-color:#ffb066;color:#ffe3c7" title="이 캐릭터가 액션하면 상대는 가드할 수 있는 경우 반드시 가드해야 합니다">🛡 상대 강제 가드 유발</span>');
  if(c&&c.sg)ch.push('<span class="chipm" style="background:#1d3a66;border-color:#8fb8ff;color:#dbe9ff" title="슬립 상태에서도 가드할 수 있습니다">💤 슬립 가드</span>');
  {const dl=(b,m)=>m?`${(+b||0)+m} <small style="color:${m>0?'#7be3a5':'#ff9b94'}">(${m>0?'+':''}${m})</small>`:esc(b);
   if(f.lv!==''&&f.lv!=null&&f.type!=='partner'){const lvm=(f.type==='char'&&c&&c.lvx!=null)?c.lvx-(+f.lv||0):0;ch.push(`<span class="chipm">Lv ${f.type==='case'&&f.lv2?esc(f.lv+' / '+f.lv2):(lvm?dl(f.lv,lvm):esc(f.lv))}</span>`)}
@@ -590,6 +594,7 @@ function pv(f,c){PVNOW=[f,c];const cols=String(f.color||'').split(/[\/,&]/).map(
  const kr=String(f.extra||'').trim();
  $('pv').innerHTML=(f.img&&!BADIMG.has(f.img)?`<img src="${esc(f.img)}" alt="" data-n="${esc(f.n||'')}">`:`<div class="noimg">${esc(f.n)}</div>`)+`<div class="nm" title="카드명"><span class="nml">카드명:</span> <b>${esc(f.n||'?')}</b></div><div class="meta">${ch.join('')}</div>`   // v1.12.7: 카드명 텍스트(이미지 바로 아래, 칩 위)
   +(kr?`<div class="fx">${fxHtml(kr)}</div>`:(f.fx?'<div class="nofx">한국어 효과 텍스트가 등록되지 않은 카드입니다.</div>':''))
+  +(c&&c.ud&&c.ud.length?'<div class="udw"><b>겹쳐진 카드 '+c.ud.length+'장</b>'+c.ud.map(d=>{const g=DEFS[d]||{};return `<span class="udc" title="${esc(g.n||'?')}">${g.img&&!BADIMG.has(g.img)?`<img src="${esc(g.img)}" alt="">`:''}<small>${esc(g.n||'?')}${g.lv!==''&&g.lv!=null?' Lv'+esc(g.lv):''}</small></span>`}).join('')+'</div>':'')
   +(M&&c&&c.sl&&c.sl.length?'<div class="sets">세트 카드 '+c.sl.length+'장 (터치해서 보기):'+c.sl.map((x,i)=>{const g=x.d&&DEFS[x.d];return g&&g.img?`<button data-i="${i}" style="background-image:url('${g.img}')"></button>`:`<button data-i="${i}" style="background-image:url(assets/cardback.png)">${g?esc(g.n).slice(0,4):'뒷면'}</button>`}).join('')+'</div>':'')}
 // v1.14.0: 카드 이미지는 서버의 파일(CardImage/<ID>.jpg) — 파일이 없거나 깨지면(404) 카드 이름 텍스트로 안전하게 대체한다 (게임/덱빌더가 멈추지 않는다)
 const BADIMG=new Set(),PROBED=new Set();let badT=0;
@@ -598,16 +603,18 @@ function preloadDefs(){try{const L=Object.values(DEFS||{});if(L.length>120)retur
 function gimg(f){const u=f&&f.img;if(!u)return'';if(BADIMG.has(u))return'';if(!PROBED.has(u)){PROBED.add(u);const im=new Image();im.onerror=()=>{BADIMG.add(u);clearTimeout(badT);badT=setTimeout(()=>{try{V&&render()}catch(e){}},50)};im.src=u}return u}
 document.addEventListener('error',e=>{const t=e.target;if(!t||t.tagName!=='IMG'||t.dataset.fail)return;t.dataset.fail='1';const u=t.getAttribute('src');if(u)BADIMG.add(u);const n=t.dataset.n||t.alt||'',cell=t.dataset.nm?document.createElement('span'):document.createElement('div');cell.className=t.dataset.nm?'nm':'noimg '+(t.className||'');cell.textContent=n;t.replaceWith(cell)},true);
 function mk(c,o={}){const f0=DEFS[c.d]||{n:'?'},f=f0.img?{...f0,img:gimg(f0)}:f0,bk=o.back||c.hidden,d=document.createElement('div');d.className='card'+(bk?' back':'')+(o.land?' land':'')+(o.kase?' kase':'');
- if(c.id!=null)d.dataset.id=c.id;
+ if(c.id!=null)d.dataset.id=c.id;if(V&&V.sub&&V.sub.type==='guard'&&V.sub.who===V.me&&(V.sub.mg||[]).includes(c.id)){d.classList.add('tgt');d.classList.add('fgd')}
  if(!bk){if(f.img){if(o.land)d.style.setProperty('--img',`url("${f.img}")`);else d.style.backgroundImage=`url("${f.img}")`}
   // 카드 위에는 AP/증거/코스트 같은 수치 오버레이를 붙이지 않는다 (카드 이미지 + 오른쪽 상세 패널 + 전투 표시로 확인)
-  d.innerHTML=(f.img?'':`<b>${esc(f.n)}</b>`)+(c.st==='s'||c.st==='x'?`<em class="chip">${c.st==='s'?'슬립':'스턴'}</em>`:'');
+  d.innerHTML=(f.img?'':`<b>${esc(f.n)}</b>`)+(c.st==='s'||c.st==='x'?`<em class="chip">${c.st==='s'?'슬립':'스턴'}</em>`:'')+(c.under?`<span class="udb" title="이 캐릭터 아래에 겹쳐진 카드 ${c.under}장 (카드에 올리면 목록)">겹침 ${c.under}</span>`:'');
   d.onmouseenter=()=>pv(f,c);d._pv=[f,c];}
  if(!bk&&c.bl){d.classList.add('blk');d.insertAdjacentHTML('beforeend','<span class="blkb" title="효과 무효: 이번 턴 동안 이 카드의 텍스트 효과가 모두 발동하지 않습니다">효과 무효</span>')}
  // v1.8.2 효과로 코스트(레벨)/AP/LP 가 오르거나 내려간 캐릭터: 카드에 변화량 표시 + 초록(상승)/빨강(하락) 테두리 빛
  if(!bk&&!o.land&&!o.kase&&(f.type==='char'||f.type==='partner')){const md=[],lvd=(c.lvx!=null&&f.lv!==''&&f.lv!=null&&c.st!==undefined)?c.lvx-(+f.lv||0):0;
   const add=(k,v)=>{if(v)md.push(`<i class="${v>0?'up':'dn'}" title="효과로 ${k} ${v>0?'+':''}${v}">${k} ${v>0?'▲':'▼'}${Math.abs(v)}</i>`)};
   if(f.type==='char'){add('AP',+c.apm||0);add('Lv',lvd)}add('LP',+c.lpm||0);
+  if(c.mg)md.push('<i class="kw" title="강제 가드: 가드할 수 있으면 이 캐릭터로 반드시 가드해야 합니다">🛡강제</i>');
+  if(c.fg)md.push('<i class="kw" title="강제 가드 부여: 이 캐릭터가 액션하면 상대는 가드할 수 있는 경우 반드시 가드해야 합니다">🛡강제유발</i>');
   if(c.sg)md.push('<i class="kw" title="슬립 가드: 슬립 상태에서도 가드할 수 있습니다">💤가드</i>');
   if(md.length){d.insertAdjacentHTML('beforeend',`<span class="mods">${md.join('')}</span>`);const vs=[+c.apm||0,+c.lpm||0,lvd];if(vs.some(v=>v>0))d.classList.add('mup');if(vs.some(v=>v<0))d.classList.add('mdn')}}
  if(c.st)d.dataset.st=c.st;
@@ -922,7 +929,7 @@ function ui(){if(V.spec)return uiSpec();const me=V.me,T=V.turn===me,s=V.sub,b=$(
  else if(V.phase==='mull'){if(V.mull===me){m='교체할 손패를 선택 후 확정 (선택 없이 확정 = 유지)';B(`확정 (${selm.length}장 교체)`,()=>{A('mull',{ids:selm});selm=[]},'pri')}else m='상대가 손패 교체를 결정 중…'}
  else if(s){if(s.who!==me)m='상대의 응답 대기 중 ('+({guard:'가드 선택',contact:'컨택트',mis:'미스리드'}[s.type]||s.type)+')';
   else if(s.type==='mis'){m='미스리드: 슬립시킬 캐릭터를 선택하고 확정';B('확정',()=>{A('mis',{ids:selm});selm=[]},'pri')}
-  else if(s.type==='guard'){m='가드할 액티브 캐릭터를 클릭 (또는 가드 안 함)';B('가드 안 함',()=>A('guard',{id:null}),'ghost')}
+  else if(s.type==='guard'){if(s.mg&&s.mg.length){m='🛡 강제 가드: 반드시 '+(s.mg.length>1?'아래 표시된 캐릭터 중 하나로 ':'표시된 캐릭터로 ')+'가드해야 합니다 (가드 안 함 불가)'}else{m='가드할 액티브 캐릭터를 클릭 (또는 가드 안 함)';B('가드 안 함',()=>A('guard',{id:null}),'ghost')}}
   else{m='컨택트: 손패의 컷인/변장 카드를 선택한 뒤 오른쪽 아래 버튼을 누르거나 패스';B('패스',()=>A('pass'),'pri')}}
  else if(!T)m='상대의 턴';
  else{m=V.fl.hw?'넥스트 힌트: 손패에서 1장 사용(레벨 ≤ FILE 수) 또는 스킵':'메인 페이즈 — 카드를 클릭하면 오른쪽 아래에 행동 버튼이 나옵니다';
