@@ -117,7 +117,7 @@ function cont(R, s, m) { const S = R.sub, P = R.P[s];
       P.hand = P.hand.filter(x => x !== id); P.rem.push(id); say(R, `컷인! ${D.cn(R, id)} → AP+${v}`); FX.cutOps(R, s, id, my); FX.bus(R, 'cutin', { s, ent: id, tid: my, v }); }
     else { if (FX.pk(R, 1 - s, 'nodisguise')) return '카드 효과로 인해 변장을 사용할 수 없습니다'; if ((!t.dis && !FX.disAbs(R, id).length) || d.type !== 'char') return '변장을 가진 캐릭터가 아닙니다'; if (!FX.disguiseOk(R, s, id)) return '변장 조건(사건/FILE 등)을 만족하지 않습니다'; if (!P.field.includes(my)) return '컨택트 중인 내 캐릭터가 현장에 없어 변장할 수 없습니다'; const o = R.cards[my], n = R.cards[id]; const swLp = lpOf(R, my), swCols = cols(D(R, my));
       FX.release(R, my); P.field[P.field.indexOf(my)] = id; P.hand = P.hand.filter(x => x !== id);
-      Object.assign(n, { st: o.st, apm: o.apm, cm: o.cm, lpm: o.lpm, sum: o.sum }); Object.assign(o, { st: 'a', apm: 0, cm: 0, lpm: 0, sum: 0 });
+      Object.assign(n, { st: o.st, apm: o.apm, cm: o.cm, lpm: o.lpm, sum: o.sum, tab: (o.tab || []).slice(), tkw: o.tkw || '', ckw: o.ckw || '' }); Object.assign(o, { st: 'a', apm: 0, cm: 0, lpm: 0, sum: 0, tab: [], tkw: '', ckw: '' });   // v1.17.31: 변장으로 교체되어도 이 턴 동안 부여된 능력/키워드(예: id_1156 의 「コンタクトでリムーブしたとき」)는 새 카드가 이어받는다
       if (FX.isMR(R, my) && R.turn !== s) { P.pa.push(my); say(R, `${D.cn(R, my)}: 상대 턴에 현장을 떠나 파트너 에리어로 이동`); } else P.deck.unshift(my); S[k] = id; say(R, `변장! ${D.cn(R, id)}(으)로 교체 (원래 캐릭터는 덱 아래)`); FX.mrEnter(R, s, id); if (!FX.pk(R, 1 - s, 'nodisev')) FX.fire(R, 'ondisguise', id, { swapped: my, swLp, swCols }); FX.bus(R, 'disguise', { s, ent: id, tid: id, swapped: my }); }
     S.used[s] = 1;
   } else return '컷인/변장/패스 중 선택하세요';

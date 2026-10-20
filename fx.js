@@ -253,7 +253,7 @@ module.exports = function (A) {
     if (c.paHas && !P.pa.some(y => fOk(R, s, y, c.paHas, id, true))) return false;
     if (c.cin && !(x.cin != null && onField(R, x.cin) && fOk(R, s, x.cin, c.cin, id, true))) return false;
     if (c.ftop) { const T = R.P[c.ftop.who === 'opp' ? 1 - s : s], top = T.file[T.file.length - 1]; if (top == null || (c.ftop.type && D(R, top).type !== c.ftop.type)) return false; }
-    if (c.found) { const ds = x.disc || []; if (!ds.some(y => c.found.named ? (x.named && D(R, y).n.includes(x.named)) : fOk(R, s, y, rf(R, c.found.filter, { t: x, cost: x.cost, disc: x.disc }), id, true))) return false; }
+    if (c.found) { const ds = x.disc || []; if (!ds.some(y => c.found.named ? (x.named && D(R, y).n.includes(x.named)) : fOk(R, s, y, { ...rf(R, c.found.filter, { t: x, cost: x.cost, disc: x.disc }), own: 'any' }, id, true))) return false; }   // v1.17.32: 수사로 발견된 카드는 상대 덱 소유 — 필터 own 기본값(self)이면 항상 불발이었다
     return true; }
   // 개수 세기 (조건 cnt / 1枚につき 배율 공용)
   function countOf(R, s, id, d, x) { const P = R.P[s], O = R.P[1 - s], f = d.f, fo = y => !f || fOk(R, s, y, f, id, true), up = t => R.P[t].evid.filter(y => R.cards[y].up).length;
@@ -873,7 +873,7 @@ module.exports = function (A) {
   // v1.12.7: 「손패에서 카드를 공개했을 때」(hrev) 는 공개 경로(효과 op/코스트/확장 효과)와 상관없이 여기 한 곳에서 일으킨다.
   //  공개 ack(reveal:1) 가 나오는 순간 그 카드가 공개한 사람의 손패에 있고, 공개를 일으킨 효과의 주인이 그 사람이면 hrev.
   function revealHrev(R, it, q) { const who = it.s; if (who == null) return; for (const x of q.ids) { const c = R.cards[x]; if (c && c.o === who && R.P[who].hand.includes(x)) bus(R, 'hrev', { s: who, ent: x, by: q.hby || 'effect' }); } }
-  function step(R, it, ans) { let r; R.curS = it.s; try { r = it.g.next(ans); } catch (e) { say(R, '⚠ 효과 처리 오류: ' + e.message); R.eff = null; return; } finally { R.curS = null; }
+  function step(R, it, ans) { let r; R.curS = it.s; try { r = it.g.next(ans); } catch (e) { if (process.env.FXDEBUG) console.error(e.stack); say(R, '⚠ 효과 처리 오류: ' + e.message); R.eff = null; return; } finally { R.curS = null; }
     if (r.done) { R.eff = null; return; } R.eff = { it, req: r.value };
     const q = r.value; if (q && q.kind === 'ack' && q.reveal && q.ids && q.ids.length) revealHrev(R, it, q);
     if (q && q.kind === 'ack' && q.reveal && q.by != null && q.ids && q.ids.length) (R.rv = R.rv || []).push({ by: q.by, ids: q.ids.slice(), msg: q.msg, src: it.src != null ? it.src : null, ack: q.who }); }  // v1.9.0: 명시적으로 '공개'하는 효과만 공개 이벤트를 만든다
