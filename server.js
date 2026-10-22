@@ -67,9 +67,12 @@ function resetRoom(R, seat) { const keep = { code: R.code, ws: R.ws, tok: R.tok,
   Object.assign(R, mkR(keep.code)); R.ws = keep.ws; if (keep.tok) R.tok = keep.tok; if (keep.gt) R.gt = keep.gt; if (keep.spec) R.spec = keep.spec; if (keep.noSpec) R.noSpec = true; R.rng = (Math.random() * 4294967296) >>> 0;
   R.lr = null; R._lp = null; R.log = [seat === 0 || seat === 1 ? `${nm(seat)}이(가) 게임을 초기화했습니다. 두 플레이어 모두 덱을 다시 등록하세요.` : '게임이 초기화되었습니다.']; return R; }
 
-function start(R) { R.phase = 'mull'; R.first = R.firstPref === 0 || R.firstPref === 1 ? R.firstPref : Math.random() < .5 ? 0 : 1; R.mullSeat = R.first;
+function start(R) { R.chooser = undefined;
   R.P.forEach(P => { shuf(P.deck); for (let i = 0; i < 5; i++) P.hand.push(P.deck.pop()); });
-  say(R, `선공: ${nm(R.first)}. 손패 교체(멀리건)는 1회 가능합니다.`); }
+  // v1.17.33: 유저끼리(봇 아님)는 둘 중 한 명이 랜덤으로 '선후공 결정권'을 얻고, 그 사람이 선공/후공을 고른다
+  if (process.env.FIRST_CHOOSE !== '0' && R.ws[0] && R.ws[1] && !R.bot && R.firstPref !== 0 && R.firstPref !== 1) { R.phase = 'choose'; R.first = undefined; R.mullSeat = undefined; R.chooser = Math.random() < .5 ? 0 : 1; say(R, `🎲 추첨 결과: ${nm(R.chooser)}이(가) 선공/후공을 정합니다.`); return; }
+  R.first = R.firstPref === 0 || R.firstPref === 1 ? R.firstPref : Math.random() < .5 ? 0 : 1; beginMull(R); }
+function beginMull(R) { R.phase = 'mull'; R.mullSeat = R.first; say(R, `선공: ${nm(R.first)}. 손패 교체(멀리건)는 1회 가능합니다.`); }
 
 // v1.14.0: 카드 이미지는 파일(CardImage/<파일명>) — 클라이언트가 보내는 img 는 '우리 서버의 CardImage 상대 경로'만 받는다(다른 사이트 URL·경로 이탈 차단). 옛 data URL 은 호환용으로만 허용.
 const IMG_REL = /^CardImage(?:Web)?\/[A-Za-z0-9][A-Za-z0-9_.-]{0,118}\.(jpg|jpeg|png|webp)$/i;
@@ -156,6 +159,8 @@ function act0(R, s, m) { const P = R.P[s], O = R.P[1 - s];
   if (R.phase === 'over') return '게임이 끝났습니다';
   if (m.a === 'resign') return void win(R, 1 - s, `${nm(s)} 항복`);
   if (R.phase === 'setup') return '상대를 기다리는 중입니다';
+  if (R.phase === 'choose') { if (m.a !== 'first') return '선공/후공을 정하는 중입니다'; if (s !== R.chooser) return '상대가 선공/후공을 정하는 중입니다'; if (m.v !== 'first' && m.v !== 'second') return '선공 또는 후공을 선택하세요';
+    R.first = m.v === 'first' ? s : 1 - s; say(R, `${nm(s)}이(가) ${m.v === 'first' ? '선공' : '후공'}을 선택했습니다.`); return void beginMull(R); }
   if (R.phase === 'mull') { if (s !== R.mullSeat || m.a !== 'mull') return '내 멀리건 차례가 아닙니다';
     const ids = (m.ids || []).filter(x => P.hand.includes(x)); P.hand = P.hand.filter(x => !ids.includes(x));
     P.deck.push(...ids); shuf(P.deck); ids.forEach(() => P.hand.push(top(R, s))); say(R, `${nm(s)} 멀리건: ${ids.length}장 교체`);
@@ -240,7 +245,7 @@ const co = (R, id) => { const c = R.cards[id], d = D(R, id); return { id, d: c.d
 function effView(R, s) { const E = R.eff; if (!E) return null; const q = E.req;
   if (q.who !== s) return { wait: 1, msg: '상대가 효과를 처리하는 중입니다…' };
   return { kind: q.kind, msg: q.msg, min: q.min, max: q.max, ordered: q.ordered, distinct: q.distinct, labels: q.labels, ord: q.ord ? q.ord.map(o => ({ i: o.i, d: R.cards[o.id] ? R.cards[o.id].d : '', c: co(R, o.id) })) : null, evp: q.evp || null, yes: q.yes, no: q.no, reveal: q.reveal, cards: (q.ids || []).map(x => co(R, x)), sp: q.sp ? q.sp.map(e => e.fd ? { h: e.h, fd: 1, k: e.k, m: e.m } : { h: e.h, fd: 0, c: co(R, e.x) }) : null, sel: q.sel, src: E.it.src != null ? D(R, E.it.src).n : '', srcD: E.it.src != null && R.cards[E.it.src] ? R.cards[E.it.src].d : '', abI: E.it.src != null && E.it.ab ? (D(R, E.it.src).ab || []).indexOf(E.it.ab) : -1, abN: E.it.src != null ? (D(R, E.it.src).ab || []).length : 0, abLab: (E.it.ab && E.it.ab.lab) || '', itK: E.it.kind || '' }; }
-function view(R, s) { const V = { t: 'v', me: s, code: R.code, phase: R.phase, turn: R.turn, n: R.n, first: R.first, mull: R.mullSeat, winner: R.winner,
+function view(R, s) { const V = { t: 'v', me: s, code: R.code, phase: R.phase, turn: R.turn, n: R.n, first: R.first, chooser: R.chooser, chat: (R.chat || []).slice(-100), mull: R.mullSeat, winner: R.winner,
     acts: actsFor(R, s), bot: R.bot ? 1 : 0, rt: !R.bot && R.phase === 'play' && R.turn === s && R.snap && R.snap.n === R.n && R.snap.turn === R.turn ? 1 : 0, botName: R.bot ? (R.bot.name || 'BOT / EXPERT') : '', fl: R.fl, log: R.log.slice(-60), lr: logRefs(R), eff: effView(R, s), both: R.ws.every(Boolean),
     sub: R.sub && { type: R.sub.type, who: R.sub.who, atk: R.sub.atk, def: R.sub.def, tk: R.sub.tk, tid: R.sub.tid, ms: R.sub.ms, mg: R.sub.type === 'guard' ? mustGuard(R, R.sub.who) : undefined }, P: [] };
   const HS = hiddenSetIds(R, s);
@@ -364,7 +369,7 @@ function main() {
   const dropSpec = (R, ws) => { if (R.spec) R.spec = R.spec.filter(w => w !== ws); ws.R = null; ws.spec = false; };
   const endSeat = (R, seat) => { if (R.gt && R.gt[seat]) { clearTimeout(R.gt[seat]); R.gt[seat] = null; } if (R.ws[seat]) return;   // 그 사이 돌아왔으면 종료하지 않음
     R.ws[seat] = null; if (R.bot) { R.bot.stop(); R.ws[1 - seat] = null; }
-    if (R.phase === 'play' || R.phase === 'mull') { R.phase = 'over'; R.winner = 1 - seat; say(R, '상대가 나가서 게임이 종료되었습니다.'); }
+    if (R.phase === 'play' || R.phase === 'mull' || R.phase === 'choose') { R.phase = 'over'; R.winner = 1 - seat; say(R, '상대가 나가서 게임이 종료되었습니다.'); }
     bc(R); if (!R.ws[0] && !R.ws[1]) { delete rooms[R.code]; closeSpec(R, '방이 종료되었습니다.'); } };
   const resume = (ws, m) => { const R = rooms[cl(m.code, 8).toUpperCase().trim()], seat = +m.seat;
     if (!R || (seat !== 0 && seat !== 1) || !R.tok || !m.token || R.tok[seat] !== m.token) return send(ws, { t: 'resumeFail', msg: '이전 방을 찾을 수 없습니다 (서버가 재시작되었거나 재접속 시간이 지났습니다). 로비로 돌아갑니다.' });
@@ -375,6 +380,13 @@ function main() {
   wss.on('connection', ws => ws.on('message', raw => { let m; try { m = JSON.parse(raw); } catch { return; }
     if (!m || typeof m !== 'object') return;
     // 관전자 소켓은 완전한 읽기 전용: 나가기(leaveRoom) 외의 모든 메시지(act·ready·restartGame·restartTurn·leaveBot·botlog·create·join·resume…)를 서버가 거부한다.
+    // v1.17.34 채팅: 플레이어와 관전자 모두 보낼 수 있다(봇전 제외). 길이·속도 제한, 최근 100개만 보관.
+    if (m.t === 'chat') { const R = ws.R; if (!R || R.bot) return send(ws, { t: 'err', msg: '채팅을 사용할 수 없는 방입니다.' });
+      const txt = String(m.text == null ? '' : m.text).replace(/[\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, 200); if (!txt) return;
+      const now = Date.now(); ws.cts = (ws.cts || []).filter(t => now - t < 4000); if (ws.cts.length >= 5) return send(ws, { t: 'err', msg: '채팅을 너무 빠르게 보내고 있습니다. 잠시 후 다시 시도하세요.' }); ws.cts.push(now);
+      if (ws.spec && !ws.sn) ws.sn = R.specSeq = (R.specSeq || 0) + 1;
+      const e = { id: R.chatSeq = (R.chatSeq || 0) + 1, w: ws.spec ? 2 : ws.seat, n: ws.spec ? '관전자 ' + ws.sn : '플레이어 ' + (ws.seat + 1), t: txt }; (R.chat = R.chat || []).push(e); if (R.chat.length > 100) R.chat.splice(0, R.chat.length - 100);
+      R.ws.forEach(w => send(w, { t: 'chat', m: e })); sendSpec(R, { t: 'chat', m: e }); return; }
     if (ws.spec) { if (m.t === 'leaveRoom') { if (ws.R) dropSpec(ws.R, ws); return send(ws, { t: 'left' }); } return send(ws, { t: 'err', msg: '관전자는 조작할 수 없습니다.' }); }
     if (m.t === 'spectate') { if (ws.R) return send(ws, { t: 'err', msg: '이미 방에 들어가 있습니다.' });
       const R = rooms[cl(m.code, 8).toUpperCase().trim()];

@@ -27,7 +27,7 @@ let WS; for (const m of ['ws', '/tmp/smoke/node_modules/ws']) { try { WS = requi
 if (!chromium || !WS) { console.log('SKIP(브라우저): playwright 또는 ws 없음'); console.log(`\nlog_hover_test: ${pass} 통과 / ${fail} 실패`); process.exit(fail ? 1 : 0); }
 const { spawn } = require('child_process'); const PORT = 9300 + Math.floor(Math.random() * 500);
 const cf = path.join(require('os').tmpdir(), 'loghov_cards_' + process.pid + '.json');
-const srv = spawn('node', [path.join(__dirname, '../server.js')], { env: { ...process.env, PORT, CARDS_JSON: cf, NODE_PATH: path.dirname(path.dirname(WS)) }, stdio: 'ignore' }); process.on('exit', () => srv.kill());
+const srv = spawn('node', [path.join(__dirname, '../server.js')], { env: { ...process.env, FIRST_CHOOSE: '0', PORT, CARDS_JSON: cf, NODE_PATH: path.dirname(path.dirname(WS)) }, stdio: 'ignore' }); process.on('exit', () => srv.kill());
 const mk = (id, n, type, extra = {}) => ({ id, n, type, color: 'blue', lv: '0', lv2: '2', ap: '3000', lp: '1', kw: '', trait: '', fx: '', extra: '', ab: [], img: '', ...extra });
 const cards = { p: mk('p', '파트너', 'partner'), k: mk('k', '사건', 'case', { lv: '1' }) };
 for (let i = 0; i < 7; i++) cards['dup' + i] = mk('dup' + i, '동명이인', 'char', { ap: String(1000 + i * 1000), extra: '효과 텍스트 ' + i });

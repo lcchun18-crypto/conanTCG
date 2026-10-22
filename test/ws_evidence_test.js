@@ -4,7 +4,7 @@ const root = path.resolve(__dirname, '..'); let pass = 0, fail = 0; const ok = (
 const free = () => new Promise(r => { const s = net.createServer().listen(0, () => { const p = s.address().port; s.close(() => r(p)); }); });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const IMG = t => 'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><text y="9">${t}</text></svg>`);
-(async () => { const port = await free(); const c = spawn('node', ['server.js'], { cwd: root, env: { ...process.env, PORT: String(port) } }); await new Promise(r => c.stdout.on('data', d => /listening/.test(String(d)) && r()));
+(async () => { const port = await free(); const c = spawn('node', ['server.js'], { cwd: root, env: { ...process.env, FIRST_CHOOSE: '0', PORT: String(port) } }); await new Promise(r => c.stdout.on('data', d => /listening/.test(String(d)) && r()));
   const mk = () => new Promise((r, j) => { const w = new WS('ws://127.0.0.1:' + port); w.msgs = []; w.on('message', d => w.msgs.push(JSON.parse(d))); w.on('open', () => r(w)); w.on('error', j); }); const last = w => w.msgs.filter(m => m.t === 'v').pop(), snd = (w, m) => w.send(JSON.stringify(m));
   try { const A = await mk(), B = await mk(); snd(A, { t: 'create' }); await sleep(200); const code = last(A).code; snd(B, { t: 'join', code }); await sleep(300);
     const defs = { p: { n: 'P', type: 'partner', color: 'yellow', lp: '1', img: IMG('P') }, k: { n: 'K', type: 'case', color: 'yellow', lv: '2', lv2: '3', img: IMG('K') } }, list = [];

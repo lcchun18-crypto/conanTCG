@@ -9,7 +9,7 @@ const ORIG = process.env.CARD_IMAGE_DIR || path.join(ROOT, 'CardImage'), haveOri
 let pass = 0, fail = 0; const ok = (c, m) => { console.log(c ? '✓' : '✗', m); c ? pass++ : fail++; };
 const get = (port, p, hdr = {}) => new Promise(r => http.get({ host: '127.0.0.1', port, path: p, headers: hdr }, res => { const b = []; res.on('data', d => b.push(d)); res.on('end', () => r({ code: res.statusCode, h: res.headers, body: Buffer.concat(b) })); }).on('error', () => r({ code: 0, h: {}, body: Buffer.alloc(0) })));
 const sleep = ms => new Promise(r => setTimeout(r, ms)); const kids = []; process.on('exit', () => kids.forEach(k => { try { k.kill('SIGKILL'); } catch (e) {} }));
-const start = async (port, env) => { const k = spawn('node', [path.join(ROOT, 'server.js')], { env: { ...process.env, PORT: String(port), NODE_PATH: path.dirname(path.dirname(WSP)), ...env }, stdio: 'ignore' }); kids.push(k); for (let i = 0; i < 60; i++) { if ((await get(port, '/health')).code === 200) return k; await sleep(150); } throw new Error('server'); };
+const start = async (port, env) => { const k = spawn('node', [path.join(ROOT, 'server.js')], { env: { ...process.env, FIRST_CHOOSE: '0', PORT: String(port), NODE_PATH: path.dirname(path.dirname(WSP)), ...env }, stdio: 'ignore' }); kids.push(k); for (let i = 0; i < 60; i++) { if ((await get(port, '/health')).code === 200) return k; await sleep(150); } throw new Error('server'); };
 (async () => {
   const P1 = 9900 + Math.floor(Math.random() * 90), P2 = P1 + 100;
   await start(P1, haveOrig ? { CARD_IMAGE_DIR: ORIG } : {});

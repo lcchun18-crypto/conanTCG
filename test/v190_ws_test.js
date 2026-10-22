@@ -4,7 +4,7 @@ if (!WSP) { console.log('SKIP: ws 없음'); process.exit(0); }
 const WS = require(WSP), { spawn } = require('child_process'), path = require('path'), net = require('net');
 const PORT = 9600 + Math.floor(Math.random() * 300); const sleep = ms => new Promise(r => setTimeout(r, ms));
 let pass = 0, fail = 0; const ok = (c, m) => { console.log(c ? '✓' : '✗', m); c ? pass++ : fail++; };
-const srv = spawn('node', [path.join(__dirname, '../server.js')], { env: { ...process.env, PORT, NODE_PATH: path.dirname(path.dirname(WSP)) }, stdio: 'ignore' }); process.on('exit', () => { try { srv.kill('SIGKILL'); } catch (e) {} });
+const srv = spawn('node', [path.join(__dirname, '../server.js')], { env: { ...process.env, FIRST_CHOOSE: '0', PORT, NODE_PATH: path.dirname(path.dirname(WSP)) }, stdio: 'ignore' }); process.on('exit', () => { try { srv.kill('SIGKILL'); } catch (e) {} });
 const up = async () => { for (let i = 0; i < 80; i++) { if (await new Promise(r => { const c = net.connect(PORT, '127.0.0.1', () => { c.destroy(); r(true); }); c.on('error', () => r(false)); })) return; await sleep(100); } throw new Error('server'); };
 const cli = () => new Promise((res, rej) => { const w = new WS('ws://127.0.0.1:' + PORT); w.msgs = []; w.on('message', d => { const m = JSON.parse(d); w.msgs.push(m); if (m.t === 'v') w.V = m; if (m.t === 'defs') w.defs = m.defs; if (m.t === 'joined') w.seat = m.seat; }); w.on('open', () => res(w)); w.on('error', rej); });
 const send = (w, o) => w.send(JSON.stringify(o)); const waitFor = async (f, ms = 5000) => { const t = Date.now(); while (Date.now() - t < ms) { const v = f(); if (v) return v; await sleep(30); } return null; };

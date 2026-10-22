@@ -9,7 +9,7 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spui-')); fs.mkdirSync(path.j
 const dA = U.makeDeck(41), dB = U.makeDeck(42), dBad = U.makeDeck(43), badJ = X.exportDeck('BadDeck', dBad); badJ.main[0].n = 4;
 const put = (id, name, deckJson, extra = '') => { fs.writeFileSync(path.join(tmp, 'decks', id + '.json'), JSON.stringify(deckJson, null, 1)); fs.writeFileSync(path.join(tmp, id + '.js'), `module.exports={id:'${id}',name:${JSON.stringify(name)},desc:'mock',${extra}deckFile:'decks/${id}.json',profile:{}};`); };
 put('mock_red', '적색 Mock Expert', X.exportDeck('RedMockDeck', dA)); put('mock_two', '둘째 Mock Expert', X.exportDeck('SecondMockDeck', dB), "color:'green',"); put('mock_bad', '깨진 Mock Expert', badJ);
-const srv = spawn('node', [path.join(__dirname, '../server.js')], { env: { ...process.env, PORT, NODE_PATH: path.dirname(path.dirname(WS)), BOT_SPECIALISTS_DIR: tmp, BOT_THINK_MS: '300', BOT_MICRO_MS: '200', BOT_DELAY_MS: '100' }, stdio: 'ignore' }); process.on('exit', () => srv.kill());
+const srv = spawn('node', [path.join(__dirname, '../server.js')], { env: { ...process.env, FIRST_CHOOSE: '0', PORT, NODE_PATH: path.dirname(path.dirname(WS)), BOT_SPECIALISTS_DIR: tmp, BOT_THINK_MS: '300', BOT_MICRO_MS: '200', BOT_DELAY_MS: '100' }, stdio: 'ignore' }); process.on('exit', () => srv.kill());
 const toDeck = (name, d) => ({ name, cards: d.list.reduce((o, id) => (o[id] = (o[id] || 0) + 1, o), {}), partner: d.partner, kase: d.kase });
 const getJson = p => new Promise((res, rej) => http.get(`http://localhost:${PORT}${p}`, r => { let b = ''; r.on('data', c => b += c); r.on('end', () => res({ status: r.statusCode, body: b })); }).on('error', rej));
 (async () => {

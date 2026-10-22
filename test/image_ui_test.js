@@ -11,7 +11,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { console.log(c ? '✓' : '✗', m)
 const get = (port, p, hdr = {}) => new Promise(r => http.get({ host: '127.0.0.1', port, path: p, headers: hdr }, res => { const b = []; res.on('data', d => b.push(d)); res.on('end', () => r({ code: res.statusCode, type: res.headers['content-type'], h: res.headers, len: Buffer.concat(b).length })); }).on('error', () => r({ code: 0 })));
 const pick = (t, f) => Object.values(DBC).filter(c => c.type === t && (!f || f(c)));
 (async () => {
-  const PORT = 9300 + (process.pid % 500); const sv = spawn('node', [path.join(__dirname, '../server.js')], { env: { ...process.env, PORT: String(PORT) }, stdio: 'ignore' }); process.on('exit', () => sv.kill());
+  const PORT = 9300 + (process.pid % 500); const sv = spawn('node', [path.join(__dirname, '../server.js')], { env: { ...process.env, FIRST_CHOOSE: '0', PORT: String(PORT) }, stdio: 'ignore' }); process.on('exit', () => sv.kill());
   for (let i = 0; i < 40; i++) { if ((await get(PORT, '/health')).code === 200) break; await new Promise(r => setTimeout(r, 250)); }
   const br = await chromium.launch(fs.existsSync('/opt/pw-browsers/chromium') ? { executablePath: '/opt/pw-browsers/chromium' } : {});
   try {

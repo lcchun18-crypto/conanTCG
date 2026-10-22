@@ -1,6 +1,6 @@
 {
   "name": "conan-sim",
-  "version": "1.17.32",
+  "version": "1.17.34",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -97,7 +97,11 @@
     "test:stackreveal": "node test/stack_reveal_test.js",
     "test:forcedguard": "node test/forced_guard_ui_test.js",
     "test:grantdisguise": "node test/grant_disguise_test.js",
-    "test:id0703": "node test/id_0703_test.js"
+    "test:id0703": "node test/id_0703_test.js",
+    "test:firstbanner": "node test/first_banner_ui_test.js",
+    "test:firstchoose": "node test/first_choose_test.js",
+    "test:chat": "node test/chat_test.js",
+    "test:chatui": "node test/chat_ui_test.js"
   },
   "engines": {
     "node": ">=18"

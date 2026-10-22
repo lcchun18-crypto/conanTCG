@@ -23,7 +23,7 @@ const DF = chars[5].id; cards[DF].ab = [{ ic: 'deckfree' }];
   await pg.addInitScript(() => { window.__sent = []; window.WebSocket = class { constructor() { this.readyState = 1; window.__ws = this; } send(m) { window.__sent.push(JSON.parse(m)); } close() {} }; });
   // 카드 DB 는 브라우저에 주입하지 않는다: 서버가 data/cards.json(여기선 CARDS_JSON 임시 파일)을 읽어 /api/cards 로 주고, 페이지가 자동으로 받는다.
   const cf = path.join(os.tmpdir(), 'deck_cards_' + process.pid + '.json'); fs.writeFileSync(cf, JSON.stringify({ cards })); const PORT = 8900 + Math.floor(Math.random() * 500);
-  const srv = spawn('node', [path.join(__dirname, '../server.js')], { env: { ...process.env, PORT, CARDS_JSON: cf, NODE_PATH: path.dirname(path.dirname(WSP)) }, stdio: 'ignore' }); process.on('exit', () => { srv.kill(); try { fs.unlinkSync(cf); } catch (e) {} }); await new Promise(r => setTimeout(r, 1200));
+  const srv = spawn('node', [path.join(__dirname, '../server.js')], { env: { ...process.env, FIRST_CHOOSE: '0', PORT, CARDS_JSON: cf, NODE_PATH: path.dirname(path.dirname(WSP)) }, stdio: 'ignore' }); process.on('exit', () => { srv.kill(); try { fs.unlinkSync(cf); } catch (e) {} }); await new Promise(r => setTimeout(r, 1200));
   await pg.goto('http://localhost:' + PORT + '/'); ok(await pg.evaluate(() => dbReady) === true, '서버 DB 자동 로딩(파일 선택/주입 없음)'); ok(await pg.evaluate(() => Object.keys(DB.cards).length) === 1251, '서버에서 받은 카드 1,251장');
   await pg.evaluate(() => { DB.decks = {}; decks(); });
   const t0 = Date.now(); await pg.evaluate(() => openDB()); const tOpen = Date.now() - t0;

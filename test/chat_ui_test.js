@@ -1,0 +1,21 @@
+// v1.17.34 채팅(화면): 플레이 로그 영역을 반으로 나눠 아래쪽에 채팅창, 수신/전송/이스케이프/관전자/봇전
+const path = require('path'); const U = require('./mz_util'); const S = U.S; let pass = 0, fail = 0; const ok = (c, m) => { console.log(c ? '✓' : '✗', m); c ? pass++ : fail++; };
+const R = U.G({}, [], []); R.chat = [{ id: 1, w: 0, n: '플레이어 1', t: '안녕 <img src=x onerror=alert(1)>' }, { id: 2, w: 2, n: '관전자 1', t: '구경중' }];
+(async () => { const { chromium } = require('playwright'); const br = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+  const open = async (view, vp = { width: 1366, height: 800 }) => { const pg = await br.newPage({ viewport: vp }); pg.errs = []; pg.on('pageerror', e => pg.errs.push(e.message)); pg.on('dialog', d => { pg.errs.push('dialog'); d.dismiss(); });
+    await pg.addInitScript(() => { window.__sent = []; window.WebSocket = class { constructor() { this.readyState = 1; window.__ws = this; } send(m) { window.__sent.push(m); } close() {} }; });
+    await pg.goto('file://' + path.resolve(__dirname, '../index.html')); await pg.evaluate(d => window.__ws.onmessage({ data: JSON.stringify({ t: 'defs', defs: d }) }), R.defs); await pg.evaluate(vv => window.__ws.onmessage({ data: JSON.stringify(vv) }), view); await pg.waitForTimeout(250); return pg; };
+  const vP = JSON.parse(JSON.stringify(S.view(R, 0))); let pg = await open(vP);
+  const hl = await pg.evaluate(() => ({ log: document.getElementById('log').getBoundingClientRect().height, chat: document.getElementById('chatl').getBoundingClientRect().height + document.getElementById('chatf').getBoundingClientRect().height + 28, vis: getComputedStyle(document.getElementById('chatp')).display }));
+  ok(hl.vis !== 'none' && hl.log > 80 && hl.chat > 80 && Math.abs(hl.log - hl.chat) < hl.log * .6, `1 로그/채팅이 위아래로 나뉨 (로그 ${Math.round(hl.log)}px / 채팅 ${Math.round(hl.chat)}px)`);
+  const rows = await pg.evaluate(() => [...document.querySelectorAll('#chatl div')].map(d => d.textContent)); ok(rows.length === 2 && /플레이어 1: 안녕/.test(rows[0]) && /관전자 1: 구경중/.test(rows[1]), '2 기존 대화 표시: ' + rows.join(' | ').slice(0, 80));
+  ok(await pg.locator('#chatl img').count() === 0 && !pg.errs.length, '3 HTML 은 이스케이프되어 실행되지 않음 ' + pg.errs.join('|'));
+  await pg.evaluate(() => window.__ws.onmessage({ data: JSON.stringify({ t: 'chat', m: { id: 3, w: 1, n: '플레이어 2', t: '새 메시지' } }) })); await pg.evaluate(() => window.__ws.onmessage({ data: JSON.stringify({ t: 'chat', m: { id: 3, w: 1, n: '플레이어 2', t: '새 메시지' } }) })); await pg.waitForTimeout(100);
+  ok(await pg.locator('#chatl div').count() === 3, '4 실시간 수신 (같은 id 중복 없음)'); ok(await pg.locator('#chatl .me').count() === 1, '5 내 메시지 강조');
+  await pg.fill('#chati', 'GG 잘 부탁'); await pg.press('#chati', 'Enter'); const sent = await pg.evaluate(() => window.__sent.filter(s => /"chat"/.test(s))); ok(sent.length === 1 && /GG 잘 부탁/.test(sent[0]) && (await pg.inputValue('#chati')) === '', '6 Enter 로 전송, 입력창 비움: ' + sent[0]);
+  await pg.fill('#chati', '   '); await pg.press('#chati', 'Enter'); ok((await pg.evaluate(() => window.__sent.filter(s => /"chat"/.test(s)).length)) === 1, '7 빈 입력은 전송 안 함'); ok(!pg.errs.length, '8 오류 없음'); await pg.close();
+  const vS = JSON.parse(JSON.stringify(S.viewSpec(R))); pg = await open(vS); await pg.fill('#chati', '관전자 메시지'); await pg.press('#chati', 'Enter'); ok((await pg.evaluate(() => window.__sent.filter(s => /관전자 메시지/.test(s)).length)) === 1 && (await pg.locator('#chatn').innerText()) === '관전 중', '9 관전자 화면에서도 전송 가능 + "관전 중" 표시'); await pg.close();
+  const vB = { ...vP, bot: 1 }; pg = await open(vB); ok((await pg.evaluate(() => getComputedStyle(document.getElementById('chatp')).display)) === 'none', '10 봇전에서는 채팅창 숨김(로그가 전체 높이)'); await pg.close();
+  pg = await open(vP, { width: 390, height: 780 }); await pg.evaluate(() => document.body.classList.add('logopen')); ok(!pg.errs.length, '11 모바일 폭에서도 오류 없음'); await pg.screenshot({ path: '/tmp/p15/chat_mobile.png' }); await pg.close();
+  pg = await open(vP); await pg.screenshot({ path: '/tmp/p15/chat_pc.png' }); await pg.close();
+  await br.close(); console.log(`\nchat_ui_test: ${pass} 통과 / ${fail} 실패`); process.exit(fail ? 1 : 0); })();

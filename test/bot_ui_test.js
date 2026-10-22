@@ -4,7 +4,7 @@ let WS; for (const m of ['ws', '/tmp/smoke/node_modules/ws']) { try { WS = requi
 if (!chromium || !WS) { console.log('SKIP: playwright 또는 ws 없음'); process.exit(0); }
 const { spawn } = require('child_process'), path = require('path'), fs = require('fs'), U = require('./bot_util.js');
 const PORT = 9100 + Math.floor(Math.random() * 400); let pass = 0, fail = 0; const ok = (c, m) => { console.log(c ? '✓' : '✗', m); c ? pass++ : fail++; };
-const srv = spawn('node', [path.join(__dirname, '../server.js')], { env: { ...process.env, PORT, NODE_PATH: path.dirname(path.dirname(WS)), BOT_THINK_MS: '300', BOT_MICRO_MS: '200', BOT_DELAY_MS: '120' }, stdio: 'ignore' }); process.on('exit', () => srv.kill());
+const srv = spawn('node', [path.join(__dirname, '../server.js')], { env: { ...process.env, FIRST_CHOOSE: '0', PORT, NODE_PATH: path.dirname(path.dirname(WS)), BOT_THINK_MS: '300', BOT_MICRO_MS: '200', BOT_DELAY_MS: '120' }, stdio: 'ignore' }); process.on('exit', () => srv.kill());
 const toDeck = (name, d) => ({ name, cards: d.list.reduce((o, id) => (o[id] = (o[id] || 0) + 1, o), {}), partner: d.partner, kase: d.kase });
 const AUTO = () => { // 사람 플레이어 자동 조종(페이지 안에서 실제 서버 메시지 A()/S() 사용). 화면(V.acts) 기준으로만 행동한다.
   window.__seen = window.__seen || new Set(); window.__errs = window.__errs || []; let last = '', tries = 0;

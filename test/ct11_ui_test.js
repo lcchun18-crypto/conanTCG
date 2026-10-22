@@ -4,7 +4,7 @@ if (!chromium) { console.log('SKIP'); process.exit(0); }
 const fs = require('fs'), path = require('path'), { spawn } = require('child_process');
 const NEW = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'ct11_ids.json'), 'utf8'));
 let pass = 0, fail = 0; const ok = (c, m) => { console.log(c ? '✓' : '✗', m); c ? pass++ : fail++; };
-(async () => { const PORT = 3900 + (process.pid % 90); const sv = spawn('node', [path.join(__dirname, '../server.js')], { env: { ...process.env, PORT: String(PORT) }, stdio: 'ignore' }); await new Promise(r => setTimeout(r, 1500));
+(async () => { const PORT = 3900 + (process.pid % 90); const sv = spawn('node', [path.join(__dirname, '../server.js')], { env: { ...process.env, FIRST_CHOOSE: '0', PORT: String(PORT) }, stdio: 'ignore' }); await new Promise(r => setTimeout(r, 1500));
   const br = await chromium.launch(fs.existsSync('/opt/pw-browsers/chromium') ? { executablePath: '/opt/pw-browsers/chromium' } : {}); let code = 0;
   try { const pg = await (await br.newContext({ viewport: { width: 1366, height: 800 } })).newPage(); const errs = []; pg.on('pageerror', e => errs.push(e.message)); await pg.goto(`http://localhost:${PORT}/`);
     await pg.waitForFunction(() => typeof DB !== 'undefined' && DB.cards && Object.keys(DB.cards).length > 1000, null, { timeout: 20000 });

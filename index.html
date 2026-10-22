@@ -161,6 +161,7 @@ body.m #effp{width:54%;max-height:46%;top:4px;right:4px}body.m #effp .fxh .fxi{w
 /* ── 오버레이(효과 선택/덱 확인) ── */
 #board.dimov::after{content:"";position:absolute;top:0;right:0;bottom:0;left:0;background:#0009;z-index:14;pointer-events:none}   /* v1.17.28: has 선택자 대신 JS 클래스(맥 Safari 에서 팝업이 안 뜨고 화면만 어두워지던 문제) */
 #ovl{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:15;max-width:94%;max-height:94%;overflow:auto;display:flex;flex-direction:column;gap:8px}
+#firstbn{position:fixed;left:0;right:0;top:34%;display:flex;justify-content:center;z-index:9999;pointer-events:auto;transition:opacity .5s}#firstbn.out{opacity:0}#firstbn .fbi{background:#101a2cf2;border:2px solid #ffd166;border-radius:14px;padding:16px 34px;text-align:center;box-shadow:0 8px 30px #000a;animation:fbin .5s ease-out}#firstbn .fbd{font-size:34px;display:block;animation:fbs .9s ease-out}#firstbn b{display:block;color:#ffd166;font-size:14px;margin:4px 0}#firstbn em{font-style:normal;font-size:22px;font-weight:800;color:#fff}@keyframes fbin{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}@keyframes fbs{from{transform:rotate(-540deg)}to{transform:rotate(0)}}
 #ovl{display:none}#ovl.on{display:flex}
 #remp .box,#pk{background:linear-gradient(#22303f,#16212d);border:1.5px solid var(--gold);border-radius:14px;padding:14px 16px;box-shadow:0 16px 50px #000c;min-width:280px}
 #effp .fxh{display:flex;gap:14px;align-items:flex-start}#effp .fxi{flex:none;width:clamp(130px,17vw,210px);border-radius:8px;box-shadow:0 4px 16px #000a;border:1px solid #ffffff22}#effp .fxm{flex:1;min-width:0}#effp .fxi.noimg{aspect-ratio:5/7;display:flex;align-items:center;justify-content:center;background:#243244;text-align:center;padding:8px;font-weight:700;font-size:13px}#effp .fxm>b{color:var(--gold);font-size:16px;display:block}#effp .fxid{display:inline-block;margin-top:2px;font:600 11px ui-monospace,Consolas,monospace;color:#9fd0ff}#effp .fxq{margin-top:6px;font-size:15px;font-weight:700;color:#fff}#effp .fxm .fxt{max-height:190px}body.m #effp .fxi{width:84px}#effp .box>b,#remp .box>b{color:var(--gold);font-size:15px}#effp .box>div{margin-top:4px;font-size:14px}#remp .cs{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0;max-width:900px}#remp .cs .card{margin:0}
@@ -191,7 +192,10 @@ body.m #effp{width:54%;max-height:46%;top:4px;right:4px}body.m #effp .fxh .fxi{w
 #logc .lh button{padding:2px 8px;font-size:11px}
 #log{flex:1;min-height:0;overflow:auto;padding:0 10px 10px;font-size:11.5px;line-height:1.5;color:#a8b8cb}
 #log div{padding:3px 0;border-bottom:1px solid #ffffff0b}#log .lgc{cursor:pointer;text-decoration:underline dotted #ffffff55;text-underline-offset:2px}#log .lgc:hover{color:#fff;text-decoration-color:var(--gold)}#log div.hi{color:#ffd58a}#log div.trn{color:var(--mut);font-size:10.5px;text-align:center;border-bottom:0;padding-top:7px}
-#logc.col{width:36px}#logc.col #log{display:none}#logc.col .lh{flex-direction:column;padding:8px 4px}#logc.col .lh span{writing-mode:vertical-rl}
+#log{flex:1 1 50%}#chatp{flex:1 1 50%;min-height:0;display:flex;flex-direction:column;border-top:2px solid var(--line);background:#0b1118}#logc.nochat #chatp{display:none}#logc.nochat #log{flex:1}#chatp .lh{padding:6px 10px 4px}#chatp .lh small{font-weight:400;color:var(--mut);font-size:10.5px}
+#chatl{flex:1;min-height:0;overflow:auto;padding:0 10px 6px;font-size:12px;line-height:1.45;color:#c5d2e0}#chatl div{padding:2px 0;word-break:break-word}#chatl b{font-weight:800}#chatl .c0 b{color:#8fb8ff}#chatl .c1 b{color:#ff9bb0}#chatl .c2 b{color:#9aa7b5}#chatl .me{background:#ffffff0d;border-radius:4px;padding:2px 4px}#chatl .em{color:var(--mut);font-style:italic}
+#chatf{flex:none;display:flex;gap:4px;padding:6px 8px calc(6px + env(safe-area-inset-bottom));border-top:1px solid #ffffff12}#chatf input{flex:1;min-width:0;padding:6px 8px;border-radius:6px;border:1px solid var(--line);background:#0e1620;color:#e8eef5;font-size:13px}#chatf button{padding:4px 10px;font-size:12px}
+#logc.col{width:36px}#logc.col #chatp{display:none}#logc.col #log{display:none}#logc.col .lh{flex-direction:column;padding:8px 4px}#logc.col .lh span{writing-mode:vertical-rl}
 /* ── 전투 표시: 화살표 / AP ── */
 #arr{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:12;overflow:visible}
 #arrg path{fill:none;stroke-linecap:round;filter:drop-shadow(0 0 6px #000c)}
@@ -293,6 +297,7 @@ body.m #bd{position:fixed;inset:0;z-index:24;background:#0007}body.m.topopen #bd
 /* 로그 = 왼쪽에서 열리는 패널 */
 body.m #logc,body.m #logc.col{position:fixed;left:0;top:calc(var(--app-top) + env(safe-area-inset-top) + 40px);bottom:0;width:min(84vw,340px);z-index:35;transform:translateX(-104%);transition:transform .18s;border-right:1.5px solid var(--gold);padding-left:env(safe-area-inset-left);box-shadow:0 0 30px #000c}
 body.m.logopen #logc{transform:none}
+body.m #chati{font-size:16px}body.m #chatl{font-size:13.5px}
 body.m #log{touch-action:pan-y;overscroll-behavior:contain;font-size:13px;padding-bottom:calc(10px + env(safe-area-inset-bottom))}
 /* 본체 */
 body.m #game{touch-action:pan-x pan-y}
@@ -478,7 +483,7 @@ body.m #dbErr>div{max-width:94vw}
 <small>봇은 내 손패와 뒷면 세트 카드까지 볼 수 있지만, 앞으로의 덱 순서는 모릅니다. 난이도는 EXPERT 하나입니다(전문 봇은 같은 Expert 탐색 + 덱 전용 전략). 전문 봇은 정해진 덱을 씁니다. 저장한 덱(40장 + 사건 + 파트너)만 고를 수 있습니다.</small></div></div>
 <div id="game"><div id="top"><span class="brand">명탐정 코난 TCG</span><span id="turnb">-</span><span id="firstb" class="order" style="display:none" aria-live="polite"></span><span class="pill">방 코드 <b id="rc"></b></span><span class="pill" id="info"></span><span class="pill specpill" id="specpill" style="display:none">👁 관전 중</span><span class="sp"></span><button id="restartBtn" class="ghost" type="button" title="현재 게임을 초기화하고 처음부터 다시 시작">🔄 다시하기</button><button id="rtBtn" class="ghost" type="button" style="display:none" title="이번 턴의 모든 행동을 취소하고 턴 시작 상태로 되돌립니다">이번 턴 다시시작</button><button id="leaveBtn" class="ghost" type="button" title="로비로 나가기">🚪 로비로</button><button class="mbtn" id="mLog">📜 로그</button><button class="mbtn" id="mMenu">☰ 메뉴</button><span id="botpill" class="pill" style="display:none">🤖 BOT / EXPERT</span><span id="botover" class="grp" style="display:none"><button class="pri" onclick="botRestart()">다시 대전</button><button onclick="botLog()">AI 기록 다운로드</button></span>
 <span class="grp" id="topmenu"><select id="dsel"></select><button class="pri" onclick="loadDeck()">덱 등록</button><button onclick="openDB()">카드 / 덱 관리</button><button class="danger" onclick="confirm('항복할까요?')&&A('resign')">항복</button></span></div>
-<div id="main"><div id="logc"><div class="lh"><span>플레이 로그</span><button class="ghost" id="logt" onclick="toggleLog()">접기</button></div><div id="log"></div></div>
+<div id="main"><div id="logc"><div class="lh"><span>플레이 로그</span><button class="ghost" id="logt" onclick="toggleLog()">접기</button></div><div id="log"></div><div id="chatp"><div class="lh"><span>채팅</span><small id="chatn"></small></div><div id="chatl"></div><form id="chatf" autocomplete="off"><input id="chati" maxlength="200" placeholder="메시지 입력 후 Enter" enterkeyhint="send"><button type="submit" class="pri">전송</button></form></div></div>
 <div id="board"><div id="oppl" class="half opp"></div>
 <div id="mid"><div id="msg"></div><div id="err"></div><div id="btns"></div></div>
 <div id="mel" class="half me"></div><svg id="arr" xmlns="http://www.w3.org/2000/svg"><defs><marker id="ah1" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#ff6a3d" stroke="none"/></marker><marker id="ah2" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#f2bd4b" stroke="none"/></marker></defs><g id="arrg"></g></svg><div id="battle"></div>
@@ -513,7 +518,7 @@ function netUI(kind,msg){const e=document.getElementById('net');if(!e)return;cle
  if(kind==='up'||kind==='warn')NET.hide=setTimeout(()=>{e.className='';document.body.classList.remove('netdown')},kind==='up'?2500:6000)}
 const wsOpen=()=>!!NET.ws&&NET.ws.readyState===OPEN;
 function S(o){ // 연결이 열려 있을 때만 전송. 닫혀 있으면 예외 없이 false (화면은 그대로, 상태 표시만)
- if(V&&V.spec&&o.t!=='leaveRoom'&&o.t!=='spectate')return false;   // 관전자는 조작 메시지를 보내지 않는다 (서버도 거부)
+ if(V&&V.spec&&o.t!=='leaveRoom'&&o.t!=='spectate'&&o.t!=='chat')return false;   // 관전자는 조작 메시지를 보내지 않는다 (서버도 거부)
  const w=NET.ws;if(w&&w.readyState===OPEN){try{w.send(JSON.stringify(o));return true}catch{}}
  netUI(NET.hadOpen?'down':'conn',NET.hadOpen?'연결이 끊어졌습니다. 재연결 중... 연결되면 다시 시도해 주세요.':'서버 연결 중...');netKick(false);return false}
 function netDown(w){ // 이 소켓이 죽었다: 정리하고 재연결 예약 (현재 소켓이 아니면 무시)
@@ -558,6 +563,7 @@ function askTurnRestart(){askYN('이번 턴의 모든 행동을 취소하고 턴
 function specGo(){const c=($('scode').value||'').trim().toUpperCase();if(!c){$('lerr').textContent='관전할 방 코드를 입력하세요.';return}$('lerr').textContent='';NET.specTry=c;S({t:'spectate',code:c})}
 function onMsg(e){let m;try{m=JSON.parse(e.data)}catch{return}
  if(m.t==='spectating'){NET.spec=m.code;NET.specRe=false;NET.specTry=null}
+ else if(m.t==='chat'){chatAdd(m.m);return}
  else if(m.t==='joined')sessPut({code:m.code,seat:m.seat,token:m.token});
  else if(m.t==='resumeFail'){sessPut(null);toLobby();netUI('warn',m.msg||'방을 복구하지 못했습니다.')}
  else if(m.t==='err'&&NET.specRe){NET.specRe=false;NET.spec=null;toLobby();netUI('warn',m.msg||'관전을 복구하지 못했습니다.')}
@@ -915,6 +921,7 @@ function uiSpec(){const b=$('btns');b.innerHTML='';$('effp').innerHTML='';$('etr
  if(V.phase==='over'){const w=V.winner;m=(w===0||w===1)?'🏁 게임 종료 — '+pn(w)+' 승리':'🏁 게임 종료';const bn=$('endb');if(w===0||w===1){const key='S'+V.code+':'+w+':'+V.n;if(endShown!==key){endShown=key;bn.className='on';bn.querySelector('.et').textContent='🏆 '+pn(w)+' 승리';bn.querySelector('.es').textContent='게임이 끝났습니다 (관전 중)';bn.querySelector('.eclose').onclick=()=>{bn.className=''}}}}
  else{endShown=null;$('endb').className='';
   if(V.phase==='setup')m='덱 준비 중 — '+[0,1].map(i=>pn(i)+(V.P[i].ready?' ✔':' …')).join(' / ');
+  else if(V.phase==='choose')m=pn(V.chooser)+'이(가) 선공/후공을 정하는 중…';
   else if(V.phase==='mull')m=pn(V.mull)+'이(가) 손패 교체를 결정 중…';
   else if(V.eff)m='플레이어가 효과를 처리하는 중입니다…';
   else if(s)m=pn(s.who)+'의 응답 대기 중 ('+({guard:'가드 선택',contact:'컨택트',mis:'미스리드'}[s.type]||s.type)+')';
@@ -926,6 +933,7 @@ function ui(){if(V.spec)return uiSpec();const me=V.me,T=V.turn===me,s=V.sub,b=$(
  if(V.phase==='over'){m=V.winner===me?'🏆 승리했습니다!':'😢 패배했습니다';endBanner()}
  else if(V.eff){m=effUI(b,B)}
  else if(V.phase==='setup')m=V.P[me].ready?'덱 등록 완료. 상대를 기다리는 중…':'위쪽 바에서 덱을 선택하고 [덱 등록] (40장, 같은 카드 3장 이하, 파트너·사건 지정)';
+ else if(V.phase==='choose'){if(V.chooser===me){m='🎲 추첨으로 당신이 선후공을 정합니다 — 선택하세요';B('선공으로 시작',()=>A('first',{v:'first'}),'pri');B('후공으로 시작',()=>A('first',{v:'second'}),'pri')}else m='🎲 상대가 선공/후공을 정하는 중…'}
  else if(V.phase==='mull'){if(V.mull===me){m='교체할 손패를 선택 후 확정 (선택 없이 확정 = 유지)';B(`확정 (${selm.length}장 교체)`,()=>{A('mull',{ids:selm});selm=[]},'pri')}else m='상대가 손패 교체를 결정 중…'}
  else if(s){if(s.who!==me)m='상대의 응답 대기 중 ('+({guard:'가드 선택',contact:'컨택트',mis:'미스리드'}[s.type]||s.type)+')';
   else if(s.type==='mis'){m='미스리드: 슬립시킬 캐릭터를 선택하고 확정';B('확정',()=>{A('mis',{ids:selm});selm=[]},'pri')}
@@ -939,12 +947,15 @@ function ui(){if(V.spec)return uiSpec();const me=V.me,T=V.turn===me,s=V.sub,b=$(
  $('msg').textContent=Tm(m);actUI()}
 $('leaveBtn').onclick=leaveGame;
 let prevSolved=null;const solvedFx=[0,0];
-function render(){if(!V)return;const me=V.me;document.body.classList.toggle('spec',!!V.spec);$('specpill').style.display=V.spec?'':'none';if(V.spec){$('specpill').textContent='👁 관전 중'+(V.nspec>1?' ('+V.nspec+'명)':'');mode=null;hsel=null;pend=null;selm=[]}effSync();$('botpill').style.display=V.bot?'':'none';$('restartBtn').style.display=V.spec?'none':'';$('rtBtn').style.display=!V.spec&&V.rt&&V.phase==='play'?'':'none';if(V.bot)$('botpill').textContent='🤖 '+(V.botName||'BOT / EXPERT');$('botover').style.display=V.bot&&V.phase==='over'?'':'none';document.body.classList.toggle('botmode',!!V.bot);if(mode&&!canSel())mode=null;if(hsel&&!(handTurn()&&V.P[me].hand.some(x=>x.id===hsel)))hsel=null;$('rc').textContent=V.code;const PH={setup:'덱 준비',mull:'멀리건',over:'게임 종료'};$('info').textContent=V.phase==='play'?`${V.n}번째 턴`:(PH[V.phase]||V.phase);document.body.classList.toggle('playing',V.phase!=='setup');{const fb=$('firstb');if(!V.spec&&V.phase!=='setup'&&(V.first===0||V.first===1)){fb.style.display='';const f=V.first===me;fb.className='order '+(f?'f':'s');fb.textContent=f?'선공':'후공';fb.title=f?'내가 선공입니다':'내가 후공입니다'}else fb.style.display='none'}
+// v1.17.33: 게임 시작(멀리건 진입) 때 선공/후공 추첨 결과를 화면에 크게 알린다 (서버가 50:50 랜덤, 봇전은 선택값 따름)
+let lastPh='';function firstBanner(kind){try{const old=document.getElementById('firstbn');if(old)old.remove();const me=V.me,f=V.first,txt=kind==='choose'?(V.spec?(V.chooser===0?'호스트':'게스트')+'이(가) 선후공을 정합니다':V.chooser===me?'당신이 선공/후공을 정합니다':'상대가 선공/후공을 정합니다'):V.spec?(f===0?'호스트':'게스트')+' 선공':f===me?'당신이 선공입니다':'상대가 선공입니다 (당신은 후공)';
+ const d=document.createElement('div');d.id='firstbn';d.innerHTML='<div class="fbi"><span class="fbd">🎲</span><b>'+(kind==='choose'?'선후공 결정권 추첨':'선후공 결과')+'</b><em>'+txt+'</em></div>';document.body.appendChild(d);setTimeout(()=>{d.classList.add('out');setTimeout(()=>d.remove(),500)},2800);d.onclick=()=>d.remove()}catch(e){}}
+function render(){if(!V)return;if(V.phase==='choose'&&lastPh!=='choose')firstBanner('choose');else if(V.phase==='mull'&&lastPh!=='mull')firstBanner();lastPh=V.phase;const me=V.me;document.body.classList.toggle('spec',!!V.spec);$('specpill').style.display=V.spec?'':'none';if(V.spec){$('specpill').textContent='👁 관전 중'+(V.nspec>1?' ('+V.nspec+'명)':'');mode=null;hsel=null;pend=null;selm=[]}effSync();$('botpill').style.display=V.bot?'':'none';$('restartBtn').style.display=V.spec?'none':'';$('rtBtn').style.display=!V.spec&&V.rt&&V.phase==='play'?'':'none';if(V.bot)$('botpill').textContent='🤖 '+(V.botName||'BOT / EXPERT');$('botover').style.display=V.bot&&V.phase==='over'?'':'none';document.body.classList.toggle('botmode',!!V.bot);if(mode&&!canSel())mode=null;if(hsel&&!(handTurn()&&V.P[me].hand.some(x=>x.id===hsel)))hsel=null;$('rc').textContent=V.code;const PH={setup:'덱 준비',mull:'멀리건',over:'게임 종료'};$('info').textContent=V.phase==='play'?`${V.n}번째 턴`:(PH[V.phase]||V.phase);document.body.classList.toggle('playing',V.phase!=='setup');{const fb=$('firstb');if(!V.spec&&V.phase!=='setup'&&(V.first===0||V.first===1)){fb.style.display='';const f=V.first===me;fb.className='order '+(f?'f':'s');fb.textContent=f?'선공':'후공';fb.title=f?'내가 선공입니다':'내가 후공입니다'}else fb.style.display='none'}
  {const sv=[0,1].map(i=>!!(V.P[i].kase&&V.P[i].kase.solved));if(prevSolved)sv.forEach((x,i)=>{if(x&&!prevSolved[i])solvedFx[i]=Date.now()+1400});prevSolved=sv}
  document.body.classList.toggle('mullph',V.phase!=='play');const tb=$('turnb');if(V.phase==='play'){tb.className=V.turn===me?'me':'opp';tb.textContent=V.spec?'▶ 플레이어 '+(V.turn+1)+' 턴':(V.turn===me?'▶ 내 턴':'상대 턴')}else{tb.className='';tb.textContent=PH[V.phase]||V.phase}
  pl('oppl',V.P[1-me],false);pl('mel',V.P[me],true);
  const h=$('hand');V.P[me].hand.forEach(c=>h.appendChild(mk(c,{click:()=>hClick(c),sel:selm.includes(c.id)||hsel===c.id})));fitHand();
- drawLog();
+ drawLog();chatInit();chatSync();
  $('pk').innerHTML='';
  drawRem();{const on=!!($('remp').querySelector('.box')||$('pk').childNodes.length);$('ovl').classList.toggle('on',on);$('board').classList.toggle('dimov',on)}ui();battleUI();arrows();
  if(M){const need=(V.phase==='setup'&&!V.P[me].ready)||(V.bot&&V.phase==='over');if(need!==prevNeed){prevNeed=need;document.body.classList.toggle('topopen',need)}syncSheet();$('dbTabDeck')}
@@ -952,6 +963,12 @@ function render(){if(!V)return;const me=V.me;document.body.classList.toggle('spe
 // ── 로그 / 리무브 에리어 보기 ──
 // v1.17.0: 로그 줄 안의 카드 이름만 hover 대상으로 만든다. 서버가 보낸 V.lr[i] = [[시작,끝,카드 정의 키],…] (카드 ID 기반 — 이름으로 다시 추측하지 않는다). hover 는 보드/손패/팝업과 같은 pv(f,c) 와 _pv 를 쓴다(터치는 PVSEL 의 .lgc 로 기존 pvTouch 사용).
 function logHtml(l,refs){if(!refs||!refs.length)return esc(l);let o='',p=0;for(const[a,b,d]of refs){if(a<p||!DEFS[d])continue;o+=esc(l.slice(p,a))+`<span class="lgc" data-d="${esc(d)}">${esc(l.slice(a,b))}</span>`;p=b}return o+esc(l.slice(p))}
+// v1.17.34 채팅: 서버 view.chat 이 기준(재접속/관전 입장 시 복원), 새 메시지는 {t:'chat'} 로 즉시 추가(id 로 중복 제거)
+let CHAT=[];function chatDraw(){const L=$('chatl');if(!L)return;const me=V&&!V.spec?V.me:-1,near=L.scrollHeight-L.scrollTop-L.clientHeight<40;
+ L.innerHTML=CHAT.length?CHAT.map(c=>`<div class="c${c.w}${c.w===me?' me':''}"><b>${esc(c.n)}</b>: ${esc(c.t)}</div>`).join(''):'<div class="em">플레이어와 관전자가 함께 쓰는 채팅입니다.</div>';if(near||!L._i){L.scrollTop=1e9;L._i=1}}
+function chatSync(){const n=V&&V.chat||[];const ok=n.length===CHAT.length&&(!n.length||n[n.length-1].id===CHAT[CHAT.length-1].id);if(!ok){CHAT=n.slice();chatDraw()}$('logc').classList.toggle('nochat',!!(V&&V.bot));if($('chatn'))$('chatn').textContent=V&&V.spec?'관전 중':''}
+function chatAdd(m){if(CHAT.length&&CHAT[CHAT.length-1].id>=m.id)return;CHAT.push(m);if(CHAT.length>100)CHAT.shift();chatDraw()}
+function chatInit(){const f=$('chatf');if(!f||f._i)return;f._i=1;f.addEventListener('submit',e=>{e.preventDefault();const i=$('chati'),t=i.value.trim();if(!t)return;if(S({t:'chat',text:t}))i.value=''});$('chati').addEventListener('keydown',e=>e.stopPropagation())}
 function drawLog(){const L=$('log'),lr=V.lr||[];L.innerHTML=V.log.map((l,i)=>`<div class="${/^[—─-]{2}/.test(l)?'trn':/컨택트|컷인|변장|승리|사건 액션|추리|가드/.test(l)?'hi':''}">${logHtml(l,lr[i])}</div>`).join('');
  L.querySelectorAll('.lgc').forEach(e=>{const f0=DEFS[e.dataset.d];if(!f0)return;const f=f0.img?{...f0,img:gimg(f0)}:f0,c={d:e.dataset.d};e._pv=[f,c];e.onmouseenter=()=>pv(f,c)});L.scrollTop=1e9}
 function drawRem(){const b=$('remp');b.innerHTML='';if(remShow==null)return;const P=V.P[remShow],box=div('box'),h=document.createElement('b');h.textContent=`${remShow===V.me?'내':'상대'} 리무브 에리어 (${P.rem.length}장)`;box.appendChild(h);const cs=div('cs');

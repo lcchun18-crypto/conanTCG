@@ -10,7 +10,7 @@ const mk = (id, n, type, extra = {}) => ({ id, n, type, color: 'blue', lv: '1', 
 const cards = {}; for (let i = 0; i < 14; i++) cards['c' + i] = mk('c' + i, '캐릭터' + i, 'char', { lv: String(i % 3) }); cards.p = mk('p', '파트너', 'partner'); cards.k = mk('k', '사건', 'case');
 fs.writeFileSync(cf, JSON.stringify({ cards })); process.on('exit', () => { try { fs.unlinkSync(cf); } catch (e) {} });
 let srv = null; const kids = [];
-const startSrv = (port, grace) => { const s = spawn('node', [path.join(__dirname, '../server.js')], { env: { ...process.env, PORT: port, CARDS_JSON: cf, RECONNECT_GRACE_MS: String(grace), NODE_PATH: path.dirname(path.dirname(WSP)) }, stdio: 'ignore' }); kids.push(s); return s; };
+const startSrv = (port, grace) => { const s = spawn('node', [path.join(__dirname, '../server.js')], { env: { ...process.env, FIRST_CHOOSE: '0', PORT: port, CARDS_JSON: cf, RECONNECT_GRACE_MS: String(grace), NODE_PATH: path.dirname(path.dirname(WSP)) }, stdio: 'ignore' }); kids.push(s); return s; };
 process.on('exit', () => kids.forEach(k => { try { k.kill('SIGKILL'); } catch (e) {} }));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const ready = async port => { for (let i = 0; i < 100; i++) { const up = await new Promise(r => { const c = net.connect(port, '127.0.0.1', () => { c.destroy(); r(true); }); c.on('error', () => r(false)); }); if (up) return; await sleep(100); } throw new Error('서버가 뜨지 않음 ' + port); };
