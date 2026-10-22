@@ -986,3 +986,9 @@ python tools/make_web_images.py --prune      # 원본이 없어진 최적화본 
 - 서버: 메시지 타입 `chat`(`text`) — 200자 제한, 제어문자 제거, 4초 5회 속도 제한, 방당 최근 100개 보관. 실시간은 `{t:'chat', m}` 로 방송, 재접속·늦은 관전 입장은 view.chat 으로 복원. 봇전/방 밖에서는 거부(봇전은 채팅창 숨김).
 - 화면: 모든 메시지는 이스케이프되어 HTML 이 실행되지 않으며, 같은 id 중복 표시 방지, 내 메시지 강조, 모바일 입력창 16px(iOS 확대 방지).
 - 테스트: `npm run test:chat` (12, 가짜 ws 로 실제 server.js 경로 구동), `npm run test:chatui` (11).
+
+## v1.17.35 — 화면 파일/서버 버전 불일치 경고 + 선후공 선택 무응답 자동 결정
+- 현상: 서버(server.js)만 새 버전이고 화면 파일(index.html)이 예전 것이면 "호스트가 선공/후공을 정합니다"라는 로그만 보이고 버튼·채팅창이 없어 게임이 멈춘 것처럼 보임. 이 경우를 위해:
+  - 서버가 view 에 버전(`sv`, package.json 기준)을 보내고, 화면의 `CLIENT_VER` 와 다르면 상단에 빨간 경고("index.html 을 최신으로 덮어쓰고 Ctrl+F5") 표시. 릴리스마다 index.html 의 `CLIENT_VER` 와 package.json 버전을 같이 올릴 것.
+  - 선후공 결정권자가 45초(환경변수 `CHOOSE_MS`) 안에 고르지 않으면(자리 비움·오래된 화면 등) 서버가 랜덤으로 자동 결정하고 로그에 "⏱ 시간 초과" 기록 → 멈추지 않음.
+- 테스트: `npm run test:verwarn` (18), `npm run test:choosetimeout` (4).

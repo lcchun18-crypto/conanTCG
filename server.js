@@ -70,9 +70,11 @@ function resetRoom(R, seat) { const keep = { code: R.code, ws: R.ws, tok: R.tok,
 function start(R) { R.chooser = undefined;
   R.P.forEach(P => { shuf(P.deck); for (let i = 0; i < 5; i++) P.hand.push(P.deck.pop()); });
   // v1.17.33: 유저끼리(봇 아님)는 둘 중 한 명이 랜덤으로 '선후공 결정권'을 얻고, 그 사람이 선공/후공을 고른다
-  if (process.env.FIRST_CHOOSE !== '0' && R.ws[0] && R.ws[1] && !R.bot && R.firstPref !== 0 && R.firstPref !== 1) { R.phase = 'choose'; R.first = undefined; R.mullSeat = undefined; R.chooser = Math.random() < .5 ? 0 : 1; say(R, `🎲 추첨 결과: ${nm(R.chooser)}이(가) 선공/후공을 정합니다.`); return; }
+  if (process.env.FIRST_CHOOSE !== '0' && R.ws[0] && R.ws[1] && !R.bot && R.firstPref !== 0 && R.firstPref !== 1) { R.phase = 'choose'; R.first = undefined; R.mullSeat = undefined; R.chooser = Math.random() < .5 ? 0 : 1; say(R, `🎲 추첨 결과: ${nm(R.chooser)}이(가) 선공/후공을 정합니다.`);
+    // 무응답(자리 비움/오래된 화면 파일 등)으로 멈추지 않도록 일정 시간 뒤 자동으로 랜덤 결정
+    clearTimeout(R.chooseT); R.chooseT = setTimeout(() => { if (R.phase !== 'choose') return; R.first = Math.random() < .5 ? 0 : 1; say(R, `⏱ 시간 초과 — 자동으로 ${nm(R.first)} 선공으로 정했습니다.`); beginMull(R); try { bc(R); } catch (e) {} }, +process.env.CHOOSE_MS || 45000); R.chooseT.unref && R.chooseT.unref(); return; }
   R.first = R.firstPref === 0 || R.firstPref === 1 ? R.firstPref : Math.random() < .5 ? 0 : 1; beginMull(R); }
-function beginMull(R) { R.phase = 'mull'; R.mullSeat = R.first; say(R, `선공: ${nm(R.first)}. 손패 교체(멀리건)는 1회 가능합니다.`); }
+function beginMull(R) { clearTimeout(R.chooseT); R.phase = 'mull'; R.mullSeat = R.first; say(R, `선공: ${nm(R.first)}. 손패 교체(멀리건)는 1회 가능합니다.`); }
 
 // v1.14.0: 카드 이미지는 파일(CardImage/<파일명>) — 클라이언트가 보내는 img 는 '우리 서버의 CardImage 상대 경로'만 받는다(다른 사이트 URL·경로 이탈 차단). 옛 data URL 은 호환용으로만 허용.
 const IMG_REL = /^CardImage(?:Web)?\/[A-Za-z0-9][A-Za-z0-9_.-]{0,118}\.(jpg|jpeg|png|webp)$/i;
@@ -245,7 +247,8 @@ const co = (R, id) => { const c = R.cards[id], d = D(R, id); return { id, d: c.d
 function effView(R, s) { const E = R.eff; if (!E) return null; const q = E.req;
   if (q.who !== s) return { wait: 1, msg: '상대가 효과를 처리하는 중입니다…' };
   return { kind: q.kind, msg: q.msg, min: q.min, max: q.max, ordered: q.ordered, distinct: q.distinct, labels: q.labels, ord: q.ord ? q.ord.map(o => ({ i: o.i, d: R.cards[o.id] ? R.cards[o.id].d : '', c: co(R, o.id) })) : null, evp: q.evp || null, yes: q.yes, no: q.no, reveal: q.reveal, cards: (q.ids || []).map(x => co(R, x)), sp: q.sp ? q.sp.map(e => e.fd ? { h: e.h, fd: 1, k: e.k, m: e.m } : { h: e.h, fd: 0, c: co(R, e.x) }) : null, sel: q.sel, src: E.it.src != null ? D(R, E.it.src).n : '', srcD: E.it.src != null && R.cards[E.it.src] ? R.cards[E.it.src].d : '', abI: E.it.src != null && E.it.ab ? (D(R, E.it.src).ab || []).indexOf(E.it.ab) : -1, abN: E.it.src != null ? (D(R, E.it.src).ab || []).length : 0, abLab: (E.it.ab && E.it.ab.lab) || '', itK: E.it.kind || '' }; }
-function view(R, s) { const V = { t: 'v', me: s, code: R.code, phase: R.phase, turn: R.turn, n: R.n, first: R.first, chooser: R.chooser, chat: (R.chat || []).slice(-100), mull: R.mullSeat, winner: R.winner,
+const SERVER_VER = (() => { try { return String(require('./package.json').version || ''); } catch (e) { return ''; } })();   // v1.17.35: 클라이언트(index.html)가 서버보다 오래된 파일이면 화면에서 경고
+function view(R, s) { const V = { t: 'v', me: s, code: R.code, phase: R.phase, turn: R.turn, n: R.n, sv: SERVER_VER, first: R.first, chooser: R.chooser, chat: (R.chat || []).slice(-100), mull: R.mullSeat, winner: R.winner,
     acts: actsFor(R, s), bot: R.bot ? 1 : 0, rt: !R.bot && R.phase === 'play' && R.turn === s && R.snap && R.snap.n === R.n && R.snap.turn === R.turn ? 1 : 0, botName: R.bot ? (R.bot.name || 'BOT / EXPERT') : '', fl: R.fl, log: R.log.slice(-60), lr: logRefs(R), eff: effView(R, s), both: R.ws.every(Boolean),
     sub: R.sub && { type: R.sub.type, who: R.sub.who, atk: R.sub.atk, def: R.sub.def, tk: R.sub.tk, tid: R.sub.tid, ms: R.sub.ms, mg: R.sub.type === 'guard' ? mustGuard(R, R.sub.who) : undefined }, P: [] };
   const HS = hiddenSetIds(R, s);
