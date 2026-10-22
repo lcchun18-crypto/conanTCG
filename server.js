@@ -388,7 +388,8 @@ function main() {
       const txt = String(m.text == null ? '' : m.text).replace(/[\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, 200); if (!txt) return;
       const now = Date.now(); ws.cts = (ws.cts || []).filter(t => now - t < 4000); if (ws.cts.length >= 5) return send(ws, { t: 'err', msg: '채팅을 너무 빠르게 보내고 있습니다. 잠시 후 다시 시도하세요.' }); ws.cts.push(now);
       if (ws.spec && !ws.sn) ws.sn = R.specSeq = (R.specSeq || 0) + 1;
-      const e = { id: R.chatSeq = (R.chatSeq || 0) + 1, w: ws.spec ? 2 : ws.seat, n: ws.spec ? '관전자 ' + ws.sn : '플레이어 ' + (ws.seat + 1), t: txt }; (R.chat = R.chat || []).push(e); if (R.chat.length > 100) R.chat.splice(0, R.chat.length - 100);
+      const nk = String(m.nick == null ? '' : m.nick).replace(/[\u0000-\u001f\u007f\u200b-\u200f\u202a-\u202e]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 12);   // v1.17.36: 닉네임(선택). 비우면 플레이어N/관전자N
+      const e = { id: R.chatSeq = (R.chatSeq || 0) + 1, w: ws.spec ? 2 : ws.seat, n: nk || (ws.spec ? '관전자 ' + ws.sn : '플레이어 ' + (ws.seat + 1)), nk: nk ? 1 : 0, t: txt }; (R.chat = R.chat || []).push(e); if (R.chat.length > 100) R.chat.splice(0, R.chat.length - 100);
       R.ws.forEach(w => send(w, { t: 'chat', m: e })); sendSpec(R, { t: 'chat', m: e }); return; }
     if (ws.spec) { if (m.t === 'leaveRoom') { if (ws.R) dropSpec(ws.R, ws); return send(ws, { t: 'left' }); } return send(ws, { t: 'err', msg: '관전자는 조작할 수 없습니다.' }); }
     if (m.t === 'spectate') { if (ws.R) return send(ws, { t: 'err', msg: '이미 방에 들어가 있습니다.' });

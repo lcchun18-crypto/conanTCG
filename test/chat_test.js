@@ -18,6 +18,13 @@ setTimeout(() => { try {
   const B0 = all(A, 'chat').length; for (let i = 0; i < 8; i++) tx(B, { t: 'chat', text: 'spam' + i }); ok(all(A, 'chat').length - B0 < 8 && !!last(B, 'err'), `9 도배 제한: 8회 중 ${all(A, 'chat').length - B0}회만 통과`);
   const E = sock(); tx(E, { t: 'spectate', code }); const v = last(E, 'v'); ok(v && v.chat && v.chat.length >= 4 && v.chat[0].t === '안녕하세요 <b>x</b>', '10 늦게 들어온 관전자도 view.chat 으로 이전 대화 복원 (' + (v && v.chat && v.chat.length) + '개)');
   const F = sock(); tx(F, { t: 'chat', text: '방 밖' }); ok(!!last(F, 'err'), '11 방에 없으면 거부');
+  A.cts = []; B.cts = []; C.cts = []; D.cts = [];
+  tx(A, { t: 'chat', text: '닉 테스트', nick: '  탐정  왕 ' }); ok(last(B, 'chat').m.n === '탐정 왕' && last(B, 'chat').m.nk === 1, '13 닉네임 사용(공백 정리): "' + last(B, 'chat').m.n + '"');
+  tx(A, { t: 'chat', text: '닉 없음', nick: '   ' }); ok(last(B, 'chat').m.n === '플레이어 1' && last(B, 'chat').m.nk === 0, '14 닉네임 비우면 플레이어1');
+  tx(B, { t: 'chat', text: '긴 닉', nick: '가나다라마바사아자차카타파하' }); ok(last(A, 'chat').m.n === '가나다라마바사아자차카타', '15 닉네임 12자 제한: ' + last(A, 'chat').m.n);
+  tx(B, { t: 'chat', text: '제어문자 닉', nick: 'a\u0000b\nc\u202ed' }); ok(!/[\u0000-\u001f\u202e]/.test(last(A, 'chat').m.n), '16 닉네임 제어문자 제거: ' + JSON.stringify(last(A, 'chat').m.n));
+  tx(C, { t: 'chat', text: '관전 닉', nick: '구경꾼' }); ok(last(A, 'chat').m.n === '구경꾼' && last(A, 'chat').m.w === 2, '17 관전자도 닉네임 사용'); tx(D, { t: 'chat', text: '관전 무닉' }); ok(last(A, 'chat').m.n === '관전자 2', '18 관전자 닉네임 없으면 관전자N');
+  tx(A, { t: 'chat', text: 'x', nick: 12345 }); ok(last(B, 'chat').m.n === '12345', '19 숫자 닉네임도 문자열로 처리');
   for (let i = 0; i < 130; i++) { A.cts = []; tx(A, { t: 'chat', text: 'n' + i }); } const G = sock(); tx(G, { t: 'spectate', code }); ok(last(G, 'v').chat.length === 100, '12 최근 100개만 보관 (' + last(G, 'v').chat.length + ')');
  } catch (e) { ok(false, '예외: ' + e.stack); }
   console.log(`\nchat_test: ${pass} 통과 / ${fail} 실패`); process.exit(fail ? 1 : 0); }, 400);
