@@ -1,0 +1,21 @@
+// v1.17.37: 플레이 로그 노란 강조(+볼드)는 "카드를 공개해서 가져오는" 로그에만
+const path = require('path'); const U = require('./mz_util'); const { G, real, dummy, field, req, ans, pump, FX } = U; const S = U.S; let pass = 0, fail = 0; const ok = (c, m) => { console.log(c ? '✓' : '✗', m); c ? pass++ : fail++; };
+const ab = (ops) => [{ ic: 'onplay', ops }];
+const run = (defsX, ops) => { const defs = { a: dummy('A', { color: 'blue', ab: ab(ops) }), b: dummy('청캐', { color: 'blue', ap: '3000' }), ...defsX }; const R = G(defs, ['a', 'b', 'b', 'b'], ['b']); const s = R.turn, P = R.P[s]; const a = field(R, s, 'a'); R.cards[a].sum = 0;
+  P.deck = P.deck.filter(i => R.defs[R.cards[i].d].n !== '청캐'); const bs = Object.keys(R.cards).map(Number).filter(i => R.cards[i].o === s && R.defs[R.cards[i].d].n === '청캐').slice(0, 3); bs.forEach(i => { for (const z of ['deck', 'hand', 'file', 'rem']) R.P[s][z] = R.P[s][z].filter(x => x !== i); P.deck.push(i); });
+  FX.fire(R, 'onplay', a, { by: 'hand' }); pump(R); let g = 0; while (R.eff && g++ < 10) { const q = req(R); if (process.env.DBG) console.log('Q', JSON.stringify(q).slice(0, 300)); if (q.kind === 'pick') ans(R, q.sel ? q.sel.slice(0, Math.max(q.min || 0, 1)) : []); else if (q.kind === 'ack') ans(R, undefined); else ans(R, true); pump(R); } return R.log; };
+const lookLog = run({}, [{ op: 'look', n: 3, filter: { type: 'char', color: 'blue' }, max: 1, then: 'hand', rest: 'bottom' }]);
+const pickLog = run({}, [{ op: 'peek', deck: 'self', from: 'top', n: 3 }, { op: 'pick', from: 'seen', filter: { type: 'char' }, n: 1, min: 0, as: 'chosen', reveal: true, msg: '공개해서 손패에' }, { op: 'mv', ref: 'chosen', to: 'hand' }, { op: 'mv', ref: 'rest', to: 'deckBottom', order: 'any' }]);
+const revLog = run({}, [{ op: 'reveal', filter: { type: 'char' } }]);
+(async () => { const { chromium } = require('playwright'); const br = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' }); const pg = await br.newPage({ viewport: { width: 1366, height: 800 } }); const errs = []; pg.on('pageerror', e => errs.push(e.message));
+  await pg.addInitScript(() => { window.WebSocket = class { constructor() { this.readyState = 1; window.__ws = this; } send() {} close() {} }; }); await pg.goto('file://' + path.resolve(__dirname, '../index.html'));
+  const cls = ls => pg.evaluate(a => a.map(l => logCls(l)), ls);
+  const must = [...lookLog, ...pickLog].filter(l => /선택·공개/.test(l)); ok(must.length >= 2, '1 엔진이 실제로 만든 "선택·공개" 로그 ' + must.length + '건: ' + must.slice(0, 2).join(' / ').slice(0, 120));
+  ok((await cls(must)).every(c => c === 'hi'), '2 서치(덱에서 선택·공개 / 선택·공개) 로그는 노란색 강조');
+  const rv = revLog.filter(l => /덱을 \d+장 공개/.test(l)); ok(rv.length === 1 && /손패에/.test(rv[0]) && (await cls(rv))[0] === 'hi', '3 엔진의 "덱 공개 → 손패에" 로그(reveal 연산)도 강조: ' + rv[0]);
+  const neg = ['── 호스트의 턴 (#1) ──', '컨택트! 小林 → 毛利', '컷인! X → AP+2000', '변장! KID(으)로 교체 (원래 캐릭터는 덱 아래)', '추리 선언: 사건', '가드 안 함', '호스트 승리', '사건 액션: 증거 획득', '[효과] 호스트 손패 5장 공개: a, b', '[효과] 수사 1: 상대 덱 위 1장 공개: LO', '[효과] 호스트 1장 드로우', '상대 캐릭터를 리무브!', '[효과] 호스트 덱 위 3장 확인'];
+  const nc = await cls(neg); ok(nc.every((c, i) => i === 0 ? c === 'trn' : c === ''), '4 컨택트·컷인·변장·추리·가드·승리·사건 액션·손패 공개·수사 등은 강조 없음: ' + JSON.stringify(nc));
+  const R = G({}, [], []); const v = JSON.parse(JSON.stringify(S.view(R, 0))); v.log = [...neg.slice(1, 6), ...must.slice(0, 1)]; v.lr = []; await pg.evaluate(d => window.__ws.onmessage({ data: JSON.stringify({ t: 'defs', defs: d }) }), R.defs); await pg.evaluate(vv => window.__ws.onmessage({ data: JSON.stringify(vv) }), v); await pg.waitForTimeout(250);
+  const st = await pg.evaluate(() => { const hi = [...document.querySelectorAll('#log div.hi')]; return { n: hi.length, w: hi[0] ? getComputedStyle(hi[0]).fontWeight : '', bg: hi[0] ? getComputedStyle(hi[0]).backgroundColor : '', col: hi[0] ? getComputedStyle(hi[0]).color : '' }; });
+  ok(st.n === 1 && +st.w >= 700 && /rgb/.test(st.bg), `5 화면: 강조 줄 1개만, 볼드(${st.w}) + 노란 배경(${st.bg}) 글자색 ${st.col}`); ok(!errs.length, '6 오류 없음 ' + errs.join('|'));
+  await pg.screenshot({ path: '/tmp/p15/log_hi.png', clip: { x: 0, y: 40, width: 240, height: 300 } }); await br.close(); console.log(`\nlog_highlight_test: ${pass} 통과 / ${fail} 실패`); process.exit(fail ? 1 : 0); })();
