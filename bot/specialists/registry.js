@@ -15,13 +15,13 @@ let _specs = null; const _extra = new Map();   // _extra: 테스트용 mock spec
 function readSpec(mod, src, baseDir = __dirname) {
   const errors = [];
   if (!mod || typeof mod !== 'object') return { errors: [`${src}: export 가 객체가 아닙니다`] };
-  for (const k of Object.keys(mod)) if (!['id', 'name', 'desc', 'color', 'deckFile', 'deck', 'profile'].includes(k)) errors.push(`${src}: 알 수 없는 항목 ${k}`);
+  for (const k of Object.keys(mod)) if (!['id', 'name', 'desc', 'color', 'deckFile', 'deck', 'profile', 'strategy'].includes(k)) errors.push(`${src}: 알 수 없는 항목 ${k}`);
   if (!ID_RE.test(String(mod.id || ''))) errors.push(`${src}: id 는 영소문자/숫자/_ (2~41자) 여야 합니다 (현재 ${JSON.stringify(mod.id)})`);
   if (!mod.name || typeof mod.name !== 'string') errors.push(`${src}: name 이 필요합니다`);
   let deckJson = mod.deck; if (!deckJson && mod.deckFile) { const fp = path.resolve(baseDir, mod.deckFile); try { deckJson = fs.readFileSync(fp, 'utf8'); } catch (e) { errors.push(`${src}: 덱 파일을 읽을 수 없습니다 (${mod.deckFile}): ${e.message}`); } }
   if (!deckJson && !errors.length) errors.push(`${src}: deckFile(덱 빌더가 내보낸 JSON)이 필요합니다`);
   const pd = deckJson ? DF.parseDeckFile(deckJson) : { errors: [], deck: null }; for (const e of pd.errors) errors.push(`${src}: 덱 파일 — ${e}`);
-  return { errors, spec: errors.length ? null : { id: mod.id, name: mod.name, desc: mod.desc || '', color: mod.color || null, deck: pd.deck, profile: mod.profile || {} } };
+  return { errors, spec: errors.length ? null : { id: mod.id, name: mod.name, desc: mod.desc || '', color: mod.color || null, deck: pd.deck, profile: mod.profile || {}, strategy: mod.strategy || null } };   // v1.18.0: strategy = bot/strategies.js 의 전용 전략 id (없으면 범용 규칙/탐색)
 }
 // 추가 폴더: 환경변수 BOT_SPECIALISTS_DIR (같은 형식의 파일들; 개인용/실험용 봇이나 테스트용). 기본 폴더(이 폴더)가 먼저 읽힙니다.
 const dirs = () => [__dirname, ...(process.env.BOT_SPECIALISTS_DIR ? [path.resolve(process.env.BOT_SPECIALISTS_DIR)] : [])];

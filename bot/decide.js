@@ -35,6 +35,9 @@ function decide(spec, searcher) {
   const { R, seat } = spec, cfg = { ...DEFAULTS, ...(spec.cfg || {}) }, t0 = Date.now(), d = who(R);
   if (!d || d.seat !== seat) return { err: 'not my decision' };
   const info = { kind: d.kind, ms: 0, nodes: 0 }; if (cfg.specialist) info.specialist = cfg.specialist;
+  // v1.18.0: 전용 전략을 가진 전문 봇(예: 백녹이기기 → WhiteGreenStrategy)은 엔진 선택과 무관하게 그 전략이 결정한다 (실전·self-play 공통 코드).
+  if (cfg.specialist) { try { const sp = require('./specialists/registry.js').get(String(cfg.specialist).replace(/@raw$/, '')); const st = sp && sp.strategy && require('./strategies.js').get(sp.strategy);
+    if (st) { const r = st.decide(R, seat, cfg); if (r.err) return r; info.engine = 'wg'; r.info.ms = Date.now() - t0; return { mv: r.mv, info: { ...info, ...r.info } }; } } catch (e) { return { err: 'strategy error: ' + (e && e.stack || e) }; } }
   // v1.8.0: 기본 엔진은 규칙 스크립트(bot/rulebot.js). 이전 탐색 엔진은 BOT_ENGINE=expert (또는 cfg.engine='expert') 일 때만 쓴다.
   if ((cfg.engine || process.env.BOT_ENGINE || 'rule') !== 'expert') {
     const r = require('./rulebot.js').choose(R, seat, { lethal: cfg.lethal, lethalMs: cfg.lethalMs, lethalNodes: cfg.lethalNodes });

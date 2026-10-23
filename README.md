@@ -1004,3 +1004,105 @@ python tools/make_web_images.py --prune      # 원본이 없어진 최적화본 
 - 변경: 노란색 + 볼드(+옅은 노란 배경)는 "카드를 공개해서 가져오는" 로그에만 적용 — 서치(`덱에서 N장 선택·공개`, `…이(가) N장 선택·공개`)와 `덱을 N장 공개 → 「카드」을(를) 손패에`. 나머지 줄은 강조 없음(턴 구분선은 기존 스타일 유지). 손패 공개·수사·확인(공개 없이 보기)은 강조하지 않음.
 - 판정 함수 `logCls()` / 정규식 `REVGET` (index.html).
 - 테스트: `npm run test:loghl` (6, 엔진이 실제로 만든 look/pick/reveal 로그로 확인).
+
+## v1.18.0 — 백녹이기기 (전용 AI 모드 · WG-AI v0.1) + self-play 영상 환경
+- **새 모드**: 로비 `🤖 봇과 대전` → 전문 봇 목록의 **백녹이기기**. 기존 Expert/전문 봇/연습/PvP/관전/효과/룰 엔진/덱 빌더는 그대로. AI 덱은 확정 덱으로 자동 고정(덱 선택 없음), 내 덱은 평소처럼 선택.
+  - 덱: 메인 40(id_0214×3 0876×3 0308×3 0123×3 1096×3 0205×2 1097×3 0188×2 0688×3 0873×3 1098×3 1153×3 0130×3 0564×3) · 사건 id_1156 · 파트너 id_P085 (`bot/specialists/decks/baekrok.json`).
+- **전용 전략층 `WhiteGreenStrategy`** (`bot/whitegreen/`): 전문 봇 정의에 `strategy:'whitegreen'` 을 지정하면 `bot/decide.js` 가 이 전략으로 판단을 보냄(공통 룰 엔진·카드 효과 재사용).
+  - `observe.js`: 비공개 정보 격리 — 상대 손패/덱/뒷면 카드는 공개 정보로 만든 대역으로 바꾸고, 내 덱 순서도 섞은 관측 상태로만 판단. (테스트로 상대 숨은 카드·덱 순서를 바꿔도 결정이 같음을 확인)
+  - `knowledge.js`: 카드 역할/계열 태그(서치·제거·컷인·돌격·변장·미스리드·선언 등)를 효과 데이터에서 파생 — 카드 id 하드코딩 없이 역할·시너지 층으로 확장.
+  - `versions/v0_1.js`: **WG-AI v0.1** = Expert 규칙 스크립트의 상식 판단 + 구조(훅 슬롯: mulligan·play·declare·removeTarget·attack·evidence·reason·hint·cutin·guard·eff). 이후 v0.2… 를 `versions/` 에 추가하면 버전별 대결 가능.
+  - `strategy.js`: 결정마다 **Decision Log** 기록(턴·AI·상태·후보·선택·이유·요인).
+- **self-play 환경**: `bot/whitegreen/selfplay.js`(같은 전략·같은 룰 엔진으로 AI A vs B, 선후공·seed·버전 지정, 결과: 버전/선후공/승자/턴/증거/FILE), `report.js`(Decision Log 마크다운).
+- **영상 녹화**: `node tools/wg_record.js --seed 1 --out ./out --name white-green-selfplay-001` → 실제 index.html 관전 화면(양쪽 손패 공개) + 결정 캡션 → mp4 (Playwright + ffmpeg). 실제 대전에서는 AI 손패가 숨겨짐(기존 동작).
+- 테스트: `npm run test:wg` (15). 기존 `specialist_ui_test` 는 실제 등록된 baekrok 를 목록 비교에서 제외하도록 수정.
+- 참고: `specialist_ui_test` 의 "목록 정보(색)" 1건은 이번 변경 이전부터 실패(mock 덱 색 판정) — 이번 작업과 무관.
+
+## v1.18.1 — WG-AI v0.2 (PD 피드백 1차 반영)
+- `bot/whitegreen/versions/v0_2.js` 추가(기본 버전 = v0.2, 이전 v0.1 은 `versionA/versionB` 로 지정해 대결 가능). 룰 엔진·공통 규칙은 그대로이고 `main`/`eff` 훅만 덮어씀. 카드 id 는 `ROLE` 표(역할)로만 참조.
+- 반영한 규칙(Decision Log 의 rule 이 `wg:*`): `event-first`(1코 서치 이벤트 우선) · `turnpass-no-reason`(턴패스 시 추리 금지) · `act-before-play`(행동 후 캐릭터 등장, 제거 등장 효과는 예외) · `case-sure`/`case-hold`/`case-pick`/`case-attack`(사건 효과는 "내 AP+MR+손패 컷인 ≥ 상대 AP+2000" 일 때만, 이후 계획한 공격) · `sonoko-forced`/`sonoko-prep`/`sonoko-hold`/`sonoko-pick`(소노코 혼자 슬립 금지, 먼저 누운 강한 캐릭터가 확실한 킬 대상에 강제 컨택) · `hold-finisher`(마코토 보존, 다른 낼 카드가 없을 때만 사용) · `no-suicide`/`active-first`(자살 공격 금지, 액티브 우선).
+- 아직 미구현(PD 규칙 대기/후속): 9→8→7 코스트 콤보 설계, MR 이 없을 때 AP8000 컨택 + 2000 컷인으로 마코토 2회 공격 준비, 증거 레이스(리살 위협) 판단, 멀리건/가드 정책.
+- 전략 `mem`(인스턴스별 계획 기억) 추가, `main` 훅 슬롯 추가(`strategy.js`). 테스트 `npm run test:wg` 18건(v0.2 규칙 발동·v0.1 vs v0.2·숨은 정보 비의존 포함).
+
+## v1.18.2 — WG-AI v0.3 (PD 피드백 2차 반영)
+- `versions/v0_3.js` 추가(기본 버전 v0.3, v0.1/v0.2 와 `versionA/versionB` 로 대결 가능). 새 규칙(rule `wg:*`):
+  - `play-pick`: 이벤트/등장 효과의 "등장시킬 캐릭터" 선택에서 낼 수 있는 카드가 있으면 반드시 냄(후공 1턴 이벤트 뒤 소노코 미등장 수정). `search-pick`: 손패에 바로 낼 캐릭터가 없으면 FILE 이하 카드를 가져옴.
+  - `no-push-out` / `push-cheapest`: 현장이 가득 차면 등장 효과로 더 비싼 캐릭터를 밀어내지 않음(효과 미사용), 밀어내야 하면 가장 싼 캐릭터.
+  - 막히는 공격: 공격 판정을 "상대의 가장 센 액티브 블로커" 기준으로 계산 → 막혀서 지는 공격은 하지 않음 (강제 컨택은 막을 수 없으므로 별도 계산).
+  - MR(9코): `mr-hold`(리무브 에어리어에 돌격 8코 대상이 없으면 선언 금지, 돌격으로만 사용) · `mr-prep`(MR 이 있고 대상이 없으면 경구를 먼저 내거나 해결편/경구/서치 효과의 "손패 리무브"로 8코를 리무브 에어리어에 버림).
+  - `guard-weak`: 내 캐릭터가 공격에 리무브되게 되면 더 싼 액티브 캐릭터로 블록.
+- 테스트 `npm run test:wg` 20건.
+
+## v1.19.0 — WG-AI v0.4 (PD 피드백 3차 반영)
+- `versions/v0_4.js`(기본 버전). 새 규칙: `disguise`(키드 변장: FILE 6+ 에서 낮은 AP 컨택이면 변장, 계획 계산에도 AP7000 반영) · `sonoko-prep`(약한 캐릭터가 추리/증거 액션으로 먼저 눕고 소노코 강제 컨택) · `reason-over-blocked`(막히거나 지는 공격 대신 추리, LP 0 캐릭터는 추리 금지 `no-lp0-reason`) · `mr-first`(첫 MR 은 무조건: 낼 수 있으면 내고 어시스트로 가능하면 어시스트) · `lv8-order`/`kaito-from-rem`(8코는 AP8000 헤이지/경구 먼저, 카이토는 MR 로 리무브에서) · `combo-987`/`combo-hint`(MR+AP8000 필드 + 마코토 손패면 마코토까지 먼저 내고 액션) · `cutin-10000`(컷인으로 10000 을 만들 수 있으면 만듦) · `mr-no-cutin`(MR 은 컷인으로 최후수단) · `no-pointless-fetch`/`discard-not-fetched`(3코 서치 후 같은 카드를 버리지 않음) · `set-on-hattori`(유사쿠 세트는 헤이지에게).
+- 컷인 계산에서 MR 제외, 컷인에 기대는 동타성 공격은 "이김"으로 치지 않음(컷인은 확실한 킬일 때만). 전략 훅 슬롯에 `contact`(컨택 중 컷인/변장) 추가.
+- self-play 기록에 공격 감사(`audit`: 공격/방어/블로커 AP) 필드 추가. 테스트 `npm run test:wg` 23건.
+
+## v1.20.0 — WG-AI v0.5 (PD 피드백 4차 반영)
+- `versions/v0_5.js`(기본 버전), 전략 훅 슬롯 `misread`(sub:mis) 추가. 새 규칙(rule `wg:*`):
+  - 미스리드: 상대 FILE ≥5 이면 `no-misread`, FILE ≤4 + 파트너(리더) 추리 + 나를 칠 수 있는(같거나 높은 AP) 상대 액티브가 없으면 `misread`.
+  - 변장 대비: 상대 FILE ≥6 이면 약한 캐릭터로 막지 않음(`no-guard-vs-disguise`), 사건 공격이 블로커에 막힐 상황이면 추리로 대체(`reason-over-blocked`/`no-blocked-attack`).
+  - 소노코: `sonoko-first`(해결편+변장 가능 시 먼저 등장), 강제 컨택은 액티브 대상 우선(`+1000` 이상), `case-sono`(사건 효과를 먼저 쓰고 소노코 강제 컨택으로 처치).
+  - `combo-987` 일반화: 10000 공격이 가능하면(MR 버프/컷인 포함) 마코토를 먼저 냄.
+  - FILE 8+ : 추리 대신 전개/힌트/어시스트(`late-deploy`) 또는 공격/종료(`late-no-reason`), 리살 직전 제외.
+  - 헤이지 세트: 등장 턴은 돌격, 이미 행동했으면 액티브(`hattori-set`). `attack-before-end`(안 움직인 캐릭터가 있으면 이길 수 있는 공격 후 종료), `act-before-push-out`/`push-acted`(행동 안 한 캐릭터는 밀어내지 않음).
+  - `lethal`: 매 행동 시작에 리살 체크(추리 연쇄 + 큰 예산 탐색).
+- 테스트 `npm run test:wg` 26건(미스리드는 구성한 상태로 확인).
+
+## v1.21.0 — WG-AI v0.6 (PD 피드백 5차 반영)
+- `versions/v0_6.js`(기본 버전). 새/변경 규칙(rule `wg:*`):
+  - 미스리드: 상대 FILE ≤4 이면 파트너/캐릭터 추리 모두 사용(`misread`). Lv3 이하(綾子)는 항상, 비싼 캐릭터만 상대 액티브 AP 와 비교. FILE ≥5 는 `no-misread`.
+  - `keep-action`: 최종 점검 — 어떤 규칙이 골랐든 블로커에 막히는 증거 공격/지는 컨택은 하지 않고(이기는 컨택 → 추리 → 종료 순) 행동권을 보존. 대체 행동(fallback)·소노코 준비도 같은 검사를 통과해야 함.
+  - `kill-before-reason`: 이기는(죽일 수 있는) 컨택이 있으면 추리보다 먼저 정리(소노코 준비 추리 포함). 리살(`lethal`)만 예외.
+  - 마코토: 선언 효과(드로우+액티브) 가능 시 항상 사용(`makoto-declare`), 10000 킬 후 손패 리무브는 카이토 우선(`makoto-discard`).
+  - MR: 리무브 에어리어에 8코 돌격 대상이 있으면 돌격 공격보다 선언 먼저(`mr-declare-first`).
+  - 카이토(8코)는 손에서 내지 않음(경구/헤이지/Lv5+ 우선, `kaito-from-rem`). MR 대비 버림도 카이토 우선.
+  - `assist-chain`: 어시스트하면 연속 전개(힌트 체인) 장수가 늘어나면 먼저 어시스트.
+- 테스트 `npm run test:wg06`(= `test:wg`) 33건: 블로커 공격 0회, 구성한 상황(미스리드 / 킬 우선 / 약한 공격 금지) 포함.
+
+## v1.22.0 — WG-AI v0.7 (PD 피드백 6차 반영)
+- `versions/v0_7.js`(기본 버전). v0.6 대비:
+  - 미스리드: 상대 FILE(어시스트한 파트너 포함) ≥5 이면 미사용(돌격 Lv5+). ≤4 이면(4파일 파트너 추리는 5파일이 될 수 없음) 사용하되, 나를 공격할 수 있는 상대 캐릭터(액티브 + 이번 턴 등장하지 않았거나 돌격/신속, AP 3000 이상이며 내 미스리드 캐릭터 AP 이상)가 있으면 미사용. Lv3 예외 삭제.
+  - 마코토 효과로 손패를 버릴 때는 코스트가 가장 낮은 캐릭터(`makoto-discard`).
+  - `evidence-enough`: 증거가 사건 해결에 필요한 수 이상이면 추리하지 않음(이기는 공격 → 종료).
+  - `assist-event`: 낼 수 있는 캐릭터가 없고 1코 서치 이벤트가 있으면 어시스트 후 이벤트(턴패스 방지). `assist-chain` 은 Lv5 이상 제한을 없애 2코 캐릭터도 포함.
+- 테스트 `npm run test:wg07`(= `test:wg`) 37건: 미스리드(공격 가능 상대 유/무, 어시스트 5파일), 어시스트 우선, 증거 충분 시 추리 금지 포함.
+
+## v1.24.0 — WG-AI v0.9 (PD 피드백 7·8차 반영; v0.8 + v0.9)
+- `versions/v0_8.js`, `versions/v0_9.js`(기본 버전). 변경:
+  - 미스리드: 나를 공격할 수 있는 상대 캐릭터(액티브 + 이번 턴 등장하지 않았거나 돌격/신속)의 AP 가 **같거나 높으면** 위협(AP 하한 삭제). 비교 AP 에 MR 보너스 포함.
+  - `evidence-enough`: 양 플레이어 증거 합 ≥ 내 사건 해결 필요 수이면 추리 대신 상대 증거 액션(뺏어오기) → 이기는 공격 → 종료.
+  - MR(Lv8+ 컨택 +2000)을 양쪽 모두 계산: 내 MR 이 있으면 내 Lv8+ 는 +2000, 상대 MR 이 있으면 상대 Lv8+ 목표/블로커/공격자도 +2000(공격 판단, 컨택 중 변장/컷인, 블록, 미스리드 위협). 새 규칙 `guard-win`(이기는 가장 싼 수비수로 블록).
+- 버그 수정: `evidence-enough` 가 합법 후보 밖의 수를 돌려주던 문제(반환 형식).
+- 테스트 `npm run test:wg09`(= `test:wg`) 40건: 미스리드 동일 AP 위협·어시스트 5파일, 증거 합, MR 10000 공격 포함.
+
+## v1.25.0 — WG-AI v0.10 ~ v0.12 (PD 피드백 9~11차 반영)
+- `versions/v0_10.js`~`v0_12.js`(기본 버전 v0.12), `strategy.js`: 넥스트 힌트 후 추가 사용 구간(`hint`)도 main 훅 적용.
+  - 마코토 아끼기: 현장에 이미 있으면 두 번째 금지(`one-makoto`, 최종 점검 포함), 7코 이벤트 「鈴木家と京極真」는 리무브의 마코토/스즈키 재벌 캐릭터 4장 이상일 때만(`hold-trash-event`).
+  - 선언 효과: 2코 소노코는 마코토가 액티브 캐릭터를 때릴 수 있을 때만(`sono2-active/hold`), 8코 경구는 경찰 캐릭터가 액티브를 때릴 수 있을 때만(`gin-active/hold`), 헤이지는 공격한 뒤에(`heiji-attack-first`/`heiji-hold`/`heiji-yusaku-first`).
+  - 6코 소노코는 직접 때리지 않음(`sonoko-no-attack`), 7코 키드는 직접 내지 않음(`no-direct-kid`), 사건 효과는 이길 수 있는 공격 전에(`case-sure`), 캐릭터를 죽일 수 있으면 사건 공격보다 먼저(`kill-before-case`).
+  - 콤보 실행: A(헤이지→유사쿠→마코토), B(MR→경구/카이토→마코토)를 `combo-A/B` 로 순서대로(+힌트 이어가기), 어시스트는 고코스트(Lv5+) 전개가 늘 때만(`assist-chain`), 낼 캐릭터가 없고 1코 이벤트가 있으면 어시스트(`assist-event`), 해결편 어시스트 후 소노코(`assist-solve`).
+  - 서치(1코 이벤트): 후보와 선택 이유를 Decision Log 에 표시, 필요 카드(MR/헤이지·유사쿠/경구, 마코토는 콤보 때) 우선.
+  - 버그 수정: `X.guardAp` 가 내보내지지 않아 일부 규칙(`attack-before-end` 등)이 조용히 실패하던 문제.
+- 테스트 `npm run test:wg12`(= `test:wg`) 48건.
+
+## v1.26.0 — WG-AI v0.13 (PD 피드백 12차: 매 턴 콤보 목표)
+- `versions/v0_13.js`(기본 버전 v0.13): 콤보 A(헤이지→유사쿠→마지막 장) / B(MR(카이토)→8코(경구·헤이지·유사쿠)→마지막 장). 마지막 장은 6코 소노코가 있으면 소노코, 없으면 7코 마코토.
+- 마코토 아끼기: 마코토 대신 6코 소노코/5코 이상(돌격 등)을 낼 수 있으면 그것을 냄. 정말 낼 것이 없을 때만 마코토.
+- 서치(1코 이벤트): 콤보 A/B 중 부족한 부품이 적은 쪽을 목표로 부족한 카드 우선(`search-pick`).
+- 콤보 어시스트(`combo-assist`): 부품은 갖췄고 FILE이 1 모자라 어시스트로 해결될 때만(남은 장수 기준 필요 FILE 계산). 어시스트로도 못 채우면 쓰지 않음.
+- 테스트 `npm run test:wg13` 51건(51~53 추가).
+
+## v1.27.0 — WG-AI v0.14 ~ v0.15 (PD 피드백 13~14차) + 백녹이기기 누적 배포 (1.17.37 → 1.27.0)
+- **배포 주의**: 라이브 1.17.37 이후 처음 올리는 누적 배포. 서버(`package.json`)와 화면(`index.html`의 `CLIENT_VER`)이 같아야 "버전 불일치" 경고가 안 뜨므로 둘 다 1.27.0 으로 맞춤(index.html 은 이 상수 외 변경 없음).
+- v0.14: 2코 소노코/경구 선언 효과의 대상 선택이 비어(선택 안 함) 효과가 불발하던 버그 수정(대상 목록에 상대 캐릭터가 섞여 있었음), **MR 이 선언 효과로 파트너 에리어로 이동하면 MR 버프(+2000)를 '없음'으로 계산하던 버그 수정**(모든 MR 판정에 파트너 에리어 포함), 같은 경구 선언 중복 사용 금지(`gin-once`), 소노코 강제 컨택으로 이미 처리 가능하면 경구 선언 보류(`gin-save`), 상대 캐릭터가 전부 액티브이고 6코 소노코가 손에 있으면 마코토 대신 소노코(`sono6-over-makoto`).
+- v0.15: 키드 직접 사용 금지의 대체 선택에서 1코 서치 이벤트 우선(힌트 후 이벤트 미사용 수정), 한 장 낸 뒤 6코 소노코/5코 돌격이 있으면 넥스트 힌트로 이어서 전개(`hint-deploy`), 마코토 패시브 손패 리무브는 이미 AP10000 이상이면 생략(`makoto-no-double`), AP10000↑ 액티브 마코토가 때릴 캐릭터가 있으면 다른 캐릭터보다 먼저 공격(`makoto-attack-first`), 턴 끝 파트너 추리(`partner-reason-end`), 헤이지 등장 턴에는 선언 효과로 돌격을 받아 공격(`heiji-assault`).
+- 테스트 `npm run test:wg15` 58건 내외(v0.13 대비 54~58 추가, 일부 불안정한 검사 완화).
+- 이번 누적 zip 에는 백녹이기기 관련 모든 파일(`bot/whitegreen/**`, `bot/specialists/baekrok.js`·`decks/baekrok.json`, `bot/strategies.js`·`decide.js`·`controller.js`·`specialists/registry.js`, `tools/wg_record.js`, 테스트 2개)과 `index.html`, `package.json`, `README.md` 가 들어 있음.
+
+## v1.28.0 — 채팅은 게임과 독립: 이번 턴 다시하기·게임 종료/다시하기에도 유지
+- 증상: 게임이 끝나 방을 초기화(다시하기)하면 채팅이 사라지고, "이번 턴 다시시작"을 하면 채팅도 턴 시작 시점으로 되돌아갔음(턴 도중에 쓴 메시지가 사라짐).
+- 원인(서버): 채팅(`R.chat`)이 게임 상태와 같이 스냅샷에 저장/복원되었고, 방 초기화(`resetRoom`)가 방 상태를 통째로 새로 만들면서 같이 지워졌음.
+- 수정: 채팅(`chat`·`chatSeq`·`specSeq`)을 스냅샷 제외 목록(`SNAP_SKIP`)에 추가하고, `resetRoom` 이 채팅·메시지 번호·관전자 번호를 그대로 이어받음. 클라이언트는 서버 `view.chat` 을 기준으로 그리므로 화면 쪽 수정 없음(새로고침되지 않고 이어서 사용).
+- 서버/화면 버전 일치를 위해 `package.json` 과 `index.html` 의 `CLIENT_VER` 를 1.28.0 으로 함(index.html 은 이 상수 외 변경 없음).
+- 테스트 `npm run test:chatpersist` (5건).

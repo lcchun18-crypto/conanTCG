@@ -95,7 +95,7 @@ class BotCtl {
     const mv = res.mv, e = this.deps.dispatch(R, mv.seat, mv.m);
     this.decisions++;
     this.log.push({ n: this.decisions, at: new Date().toISOString(), state: sum, snap, kind: d.kind, chosen: { desc: describe(R, mv), move: mv.m }, top: (res.info.top || []), search: { ms: res.info.ms, nodes: res.info.nodes, iterations: res.info.iters, value: res.info.value, win: res.info.win, forced: res.info.forced, planned: res.info.planned, fallback: res.info.fallback, exact: res.info.exact, reply: res.info.reply, line: res.info.lineDesc, overrides: res.info.overrides },
-      explain: res.info.explain || undefined, tactics: res.info.tactics || undefined, mulligan: res.info.mulligan || undefined, error: e || undefined });   // v1.5.0: explain = 후보별 판단 요소 분해(증거 템포·보드·FILE·리살 거리·상대 위협·Action Economy·포메이션·손패) + 시퀀스
+      explain: res.info.explain || undefined, wg: res.info.wg || undefined, tactics: res.info.tactics || undefined, mulligan: res.info.mulligan || undefined, error: e || undefined });   // v1.5.0: explain = 후보별 판단 요소 분해(증거 템포·보드·FILE·리살 거리·상대 위협·Action Economy·포메이션·손패) + 시퀀스
     if (e) { this.illegal++; this.fallback('illegal: ' + e); }
     this.deps.bc(R);
   }

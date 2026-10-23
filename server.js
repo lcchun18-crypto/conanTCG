@@ -46,7 +46,7 @@ function startTurn(R) { const s = R.turn, P = R.P[s]; R.n++; R.fl = {}; R.actor 
   say(R, `── ${nm(s)}의 턴 (#${R.n}) ──`); FX.fireMain(R, s); if (R.rng != null) snapTake(R); }
 
 // ── v1.9.0 이번 턴 다시시작: 턴 시작 처리(오토/드로우/FILE) 직후의 정규(canonical) 상태를 서버가 보관하고, 복원은 그 스냅샷 자체를 되돌린다(드로우 재실행 아님). 난수 상태(R.rng)도 함께 저장.
-const SNAP_SKIP = new Set(['ws', 'tok', 'gt', 'bot', 'defs', 'code', 'log', 'lr', '_lp', 'rv', 'rvSeq', 'rvLog', 'snap', 'curS', '_dp', 'spec', 'noSpec']);
+const SNAP_SKIP = new Set(['ws', 'tok', 'gt', 'bot', 'defs', 'code', 'log', 'lr', '_lp', 'rv', 'rvSeq', 'rvLog', 'snap', 'curS', '_dp', 'spec', 'noSpec', 'chat', 'chatSeq', 'specSeq']);   // v1.28.0: 채팅은 게임 상태와 독립 — 이번 턴 다시시작(스냅샷 복원)에 영향받지 않음
 const _prot = new WeakMap();
 const protSet = R => { const n = Object.keys(R.defs).length, c = _prot.get(R.defs); if (c && c.n === n) return c.set; const set = new WeakSet(), st = [R.defs]; while (st.length) { const v = st.pop(); if (!v || typeof v !== 'object' || set.has(v)) continue; set.add(v); Object.values(v).forEach(x => st.push(x)); } _prot.set(R.defs, { n, set }); return set; };
 const dclone = (v, prot) => { if (!v || typeof v !== 'object') return v; if (prot.has(v)) return v; if (Array.isArray(v)) return v.map(x => dclone(x, prot));
@@ -63,8 +63,8 @@ function turnRestart(R, seat) {
   R.rv = []; say(R, `↩ ${nm(seat)}이(가) 이번 턴을 다시 시작했습니다 (턴 시작 상태로 복원)`);
   withCur(R, () => { FX.pump(R); settle(R); if (R.ending && !R.eff && !R.q.length && !R.sub && R.phase === 'play') { doEnd(R); FX.pump(R); settle(R); } }); return null; }
 // ── v1.9.0 다시하기: 같은 방 코드·연결을 유지한 채 게임 상태 전체를 처음(덱 등록 전)으로 되돌린다. 이전 덱은 재사용하지 않는다.
-function resetRoom(R, seat) { const keep = { code: R.code, ws: R.ws, tok: R.tok, gt: R.gt, spec: R.spec, noSpec: R.noSpec }; for (const k of Object.keys(R)) delete R[k];
-  Object.assign(R, mkR(keep.code)); R.ws = keep.ws; if (keep.tok) R.tok = keep.tok; if (keep.gt) R.gt = keep.gt; if (keep.spec) R.spec = keep.spec; if (keep.noSpec) R.noSpec = true; R.rng = (Math.random() * 4294967296) >>> 0;
+function resetRoom(R, seat) { const keep = { code: R.code, ws: R.ws, tok: R.tok, gt: R.gt, spec: R.spec, noSpec: R.noSpec, chat: R.chat, chatSeq: R.chatSeq, specSeq: R.specSeq }; for (const k of Object.keys(R)) delete R[k];
+  Object.assign(R, mkR(keep.code)); R.ws = keep.ws; if (keep.tok) R.tok = keep.tok; if (keep.gt) R.gt = keep.gt; if (keep.spec) R.spec = keep.spec; if (keep.noSpec) R.noSpec = true; if (keep.chat) R.chat = keep.chat; if (keep.chatSeq) R.chatSeq = keep.chatSeq; if (keep.specSeq) R.specSeq = keep.specSeq; R.rng = (Math.random() * 4294967296) >>> 0;
   R.lr = null; R._lp = null; R.log = [seat === 0 || seat === 1 ? `${nm(seat)}이(가) 게임을 초기화했습니다. 두 플레이어 모두 덱을 다시 등록하세요.` : '게임이 초기화되었습니다.']; return R; }
 
 function start(R) { R.chooser = undefined;

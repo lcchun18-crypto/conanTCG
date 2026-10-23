@@ -14,7 +14,7 @@ const toDeck = (name, d) => ({ name, cards: d.list.reduce((o, id) => (o[id] = (o
 const getJson = p => new Promise((res, rej) => http.get(`http://localhost:${PORT}${p}`, r => { let b = ''; r.on('data', c => b += c); r.on('end', () => res({ status: r.statusCode, body: b })); }).on('error', rej));
 (async () => {
   await new Promise(r => setTimeout(r, 1300));
-  const api = await getJson('/api/specialists'), j = JSON.parse(api.body), names = j.specialists.map(x => x.id).sort();
+  const api = await getJson('/api/specialists'), j = JSON.parse(api.body), names = j.specialists.map(x => x.id).filter(x => x !== 'baekrok').sort();
   ok(api.status === 200 && names.join() === 'mock_bad,mock_red,mock_two', '/api/specialists: registry 에서 자동 생성된 목록 ' + names.join(','));
   const r = j.specialists.find(x => x.id === 'mock_red'), t = j.specialists.find(x => x.id === 'mock_two'), b = j.specialists.find(x => x.id === 'mock_bad');
   ok(r.ok && r.deckName === 'RedMockDeck' && r.cards === 40 && r.colors.length === 1, `목록 정보: 이름/덱 이름/색(${r.colorLabel})/장수`); ok(t.colorLabel === '녹색', 'color 지정 시 그 색 표시 (녹색)'); ok(!b.ok && b.errors.length, '규칙 위반 덱은 ok=false + 이유: ' + b.errors[0]);

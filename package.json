@@ -1,6 +1,6 @@
 {
   "name": "conan-sim",
-  "version": "1.17.37",
+  "version": "1.28.0",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -104,7 +104,17 @@
     "test:chatui": "node test/chat_ui_test.js",
     "test:verwarn": "node test/ver_warn_test.js",
     "test:choosetimeout": "node test/choose_timeout_test.js",
-    "test:loghl": "node test/log_highlight_test.js"
+    "test:loghl": "node test/log_highlight_test.js",
+    "test:wg": "node test/wg_strategy_test.js",
+    "test:wg06": "node test/wg_strategy_test.js",
+    "test:wg07": "node test/wg_strategy_test.js",
+    "test:wg09": "node test/wg_strategy_test.js",
+    "test:wg12": "node test/wg_strategy_test.js",
+    "test:wg13": "node test/wg_strategy_test.js",
+    "test:wg15": "node test/wg_strategy_test.js",
+    "test:chatpersist": "node test/chat_persist_test.js",
+    "wg:selfplay": "node tools/wg_record.js --norec 1 --out ./out/wg",
+    "wg:record": "node tools/wg_record.js --out ./out/wg"
   },
   "engines": {
     "node": ">=18"
