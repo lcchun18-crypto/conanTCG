@@ -3,7 +3,7 @@
 module.exports = {
   id: 'baekrok',
   name: '백녹이기기',
-  desc: '백/녹 전용 AI (WG-AI v0.15) — 확정 덱 고정, 전용 전략 WhiteGreenStrategy',
+  desc: '백/녹 전용 AI (WG-AI v0.17) — 확정 덱 고정, 전용 전략 WhiteGreenStrategy',
   deckFile: 'decks/baekrok.json',
   strategy: 'whitegreen',
   profile: {},

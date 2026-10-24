@@ -2,7 +2,7 @@
 const KIND = { mulligan: '멀리건', mull: '멀리건', main: '메인', play: '카드 사용', assist: '조수', hint: '다음 힌트', 'hint-skip': '힌트 생략', declare: '선언 사용', removeTarget: '제거 대상', effect: '효과 처리', attack: '공격', 'evidence-attack': '증거 공격', reason: '추리', solve: '사건 해결', end: '턴 종료', guard: '방어', cutin: '끼어들기', 'cutin-pass': '끼어들기 패스', disguise: '변장', misread: '오독' };
 const cardsTxt = a => (a || []).map(c => typeof c === 'string' ? c : (c.n || c.name || c.id)).join(', ') || '-';
 const fv = v => Array.isArray(v) ? '[' + v.map(x => x && typeof x === 'object' ? (x.name || JSON.stringify(x)) + (x.lv != null ? '(Lv' + x.lv + ')' : '') : x).join(', ') + ']' : v && typeof v === 'object' ? JSON.stringify(v) : v;
-function side(s) { if (!s) return '-'; return `FILE ${s.file ?? '-'} · 손패 ${Array.isArray(s.hand) ? s.hand.length : s.handCount ?? '-'} · 필드[${cardsTxt(s.field)}] · 증거 ${Array.isArray(s.evidence) ? s.evidence.length : s.evidence ?? '-'} · 덱 ${s.deck ?? '-'}`; }
+function side(s) { if (!s) return '-'; return `FILE ${s.file ?? '-'}${s.pIn && typeof s.file === 'number' ? `+파트너(=${s.file + 1})` : ''} · 손패 ${Array.isArray(s.hand) ? s.hand.length : s.handCount ?? '-'} · 필드[${cardsTxt(s.field)}] · 증거 ${Array.isArray(s.evidence) ? s.evidence.length : s.evidence ?? '-'} · 덱 ${s.deck ?? '-'}`; }
 function md(match) { const r = match.result, o = [];
   o.push(`# 백녹이기기 self-play Decision Log`, '', `- AI A: ${r.aiVersions.A} / AI B: ${r.aiVersions.B}`, `- 선공: AI ${r.first} · 승자: ${r.winner ? 'AI ' + r.winner : '미종료'}${r.unfinished ? ' (' + r.unfinished + ')' : ''} · 총 ${r.turns}턴 · 결정 ${r.decisions}회`,
     `- 최종 증거 A ${r.finalEvidence.A} / B ${r.finalEvidence.B} · 최종 FILE A ${r.finalFile.A} / B ${r.finalFile.B}`, `- seed ${r.seed} · 불법수 대체 ${r.illegalFallbacks}회`, '');

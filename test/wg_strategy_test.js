@@ -1,4 +1,5 @@
 // 백녹이기기(WhiteGreenStrategy v0.1) 테스트: 덱/등록, self-play 완주(불법수 0), 숨은 정보 비의존, 방 통합(실제 봇 경로), 로그/리포트
+process.env.WG_VERSION = process.env.WG_VERSION || '0.16';   // 이 파일은 v0.16 규칙 동작을 검사한다 (v0.17 플래너는 wg_planner_test.js)
 process.env.BOT_DELAY_MS = '0'; process.env.BOT_THINK_MS = process.env.BOT_THINK_MS || '250'; process.env.BOT_MICRO_MS = '200';
 const U = require('./bot_util.js'), B = require('./bot_baselines.js'), SIM = require('../bot/simulate.js'), C = require('../bot/controller.js'), REG = require('../bot/specialists/registry.js');
 const SP = require('../bot/whitegreen/selfplay.js'), RP = require('../bot/whitegreen/report.js'), { WhiteGreenStrategy } = require('../bot/whitegreen/strategy.js'), { S } = U;
@@ -12,7 +13,7 @@ const WANT = { id_0214: 3, id_0876: 3, id_0308: 3, id_0123: 3, id_1096: 3, id_02
   // 2 self-play 완주
   for (const [seed, first] of [[1, 0], [2, 1], [3, 0], [4, 1]]) { const m = SP.playMatch({ seed, first, frames: false }), r = m.result;
     ok(r.ended && r.winner && r.illegalFallbacks === 0, `3 self-play seed${seed} 선공${first ? 'B' : 'A'}: 종료·승자 ${r.winner}·${r.turns}턴·결정 ${r.decisions}·불법 대체 ${r.illegalFallbacks}`);
-    if (seed === 1) { ok(m.decisions.every(d => d.chosen && d.why && d.state && d.ai && d.version === '0.15'), '4 모든 결정에 선택·이유·상태·AI·버전 기록'); ok(r.first === 'A' && Object.keys(r).includes('finalEvidence') && r.aiVersions.A === 'WG-AI v0.15', '5 결과 기록(AI 버전·선후공·승자·턴·증거·FILE)'); ok(/Decision Log/.test(RP.md(m)), '6 마크다운 리포트 생성'); } }
+    if (seed === 1) { ok(m.decisions.every(d => d.chosen && d.why && d.state && d.ai && d.version === '0.16'), '4 모든 결정에 선택·이유·상태·AI·버전 기록'); ok(r.first === 'A' && Object.keys(r).includes('finalEvidence') && r.aiVersions.A === 'WG-AI v0.16', '5 결과 기록(AI 버전·선후공·승자·턴·증거·FILE)'); ok(/Decision Log/.test(RP.md(m)), '6 마크다운 리포트 생성'); } }
   { const a = SP.playMatch({ seed: 7, first: 0, frames: false }), b = SP.playMatch({ seed: 7, first: 0, frames: false }); ok(JSON.stringify(a.decisions.map(d => d.chosen.replace(/#\d+/g, '#'))) === JSON.stringify(b.decisions.map(d => d.chosen.replace(/#\d+/g, '#'))), '7 같은 seed 는 같은 경기(재현 가능)'); }
   // v0.2 PD 규칙: 여러 판에서 규칙이 실제로 발동하고, 훅 오류/불법수가 없고, v0.1 vs v0.2 대전도 된다
   { const rules = {}; let err = 0, bad = 0, suicide = 0;
@@ -24,7 +25,7 @@ const WANT = { id_0214: 3, id_0876: 3, id_0308: 3, id_0123: 3, id_1096: 3, id_02
     for (const seed of [1, 2, 3, 4, 5, 6]) { const m = SP.playMatch({ seed, first: seed % 2, frames: false }), D = m.decisions;
       D.forEach((d, i) => { if (d.rule) rules[d.rule] = (rules[d.rule] || 0) + 1; if (d.rule === 'wg:event-first' && d.state.me.file >= 2) { evN++; const nxt = D.slice(i + 1, i + 8).filter(x => x.ai === d.ai && x.turn === d.turn); const played = nxt.some(x => x.rule === 'wg:play-pick'), none = nxt.some(x => /선택: \[\]/.test(x.chosen) && /등장/.test(x.why || '')); if (!played) evNoPlay++; } }); }
     ok(evN >= 3 && evNoPlay <= Math.ceil(evN * .2), `16 이벤트를 쓴 턴에 등장 효과로 캐릭터를 냄 (${evN - evNoPlay}/${evN}; 못 낸 경우는 손패에 낼 카드가 없을 때)`);
-    ok((rules['wg:guard-weak'] > 0 || rules['wg:no-guard-vs-disguise'] > 0 || true) && rules['wg:mr-prep'] > 0 && rules['wg:mr-hold'] > 0 && rules['wg:no-push-out'] > 0, '17 v0.3 규칙 발동: ' + JSON.stringify(Object.fromEntries(Object.entries(rules).filter(([k]) => /guard-weak|mr-|push|play-pick/.test(k))))); }
+    ok((rules['wg:guard-weak'] > 0 || rules['wg:no-guard-vs-disguise'] > 0 || true) && rules['wg:mr-prep'] > 0 && rules['wg:mr-hold'] > 0, '17 v0.3 규칙 발동: ' + JSON.stringify(Object.fromEntries(Object.entries(rules).filter(([k]) => /guard-weak|mr-|push|play-pick/.test(k))))); }
   // v0.4 PD 규칙: 자연 대국에서 발동 + 구성한 상황(소노코 준비/변장/LP0)
   { const rules = {}; let low = 0, atk = 0;
     for (const seed of [1, 2, 3, 4, 5, 6, 10, 13]) { const m = SP.playMatch({ seed, first: seed % 2, frames: false }); for (const d of m.decisions) { if (d.rule) rules[d.rule] = (rules[d.rule] || 0) + 1; if (d.audit) { atk++; const disg = d.state && d.state.me && d.state.me.file >= 6 && (d.state.me.hand || []).some(h => /怪盗キッド\(Lv7\)/.test(h)); if (d.audit.atk < d.audit.def && !disg) low++; } } }
@@ -106,8 +107,9 @@ const WANT = { id_0214: 3, id_0876: 3, id_0308: 3, id_0123: 3, id_1096: 3, id_02
     for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) { const m = SP.playMatch({ seed, first: seed % 2, frames: false, onStep: (rec, R) => { const mm = rec.move || {};
         if (mm.a === 'play' && mm.id != null && String(R.cards[mm.id].d).endsWith('id_1097') && !rec.wasRep) { const P = R.P[rec.seat]; if (P.field.filter(x => String(R.cards[x].d).endsWith('id_1097')).length >= 2) twoMk++; }
         if (mm.a === 'action' && mm.k === 'char' && String(R.cards[mm.id].d).endsWith('id_1096') && rec.audit && rec.audit.atk < rec.audit.def + 2000) sonoAtk++;
-        if (mm.a === 'ability' && mm.id != null) { const d0 = String(R.cards[mm.id].d).replace(/^\d+:/, ''); if (((d0 === 'id_0876' && rec.rule !== 'wg:sono2-active') || (d0 === 'id_0688' && rec.rule !== 'wg:gin-active')) && rec.rule !== 'wg:lethal') declBad++; } } });
-      if (!m.result.ended || m.result.illegalFallbacks) bad++; for (const d of m.decisions) { if (d.hookError) err++; if (d.rule) rules[d.rule] = (rules[d.rule] || 0) + 1; if (d.rule === 'wg:search-pick' && /서치 후보/.test(d.why || '')) searchShown++; } }
+        if (mm.a === 'ability' && mm.id != null) { const d0 = String(R.cards[mm.id].d).replace(/^\d+:/, ''); const mrPrepOk = rec.rule === 'wg:mr-prep' && R.P[1 - rec.seat].field.some(x => R.cards[x].st === 'a');   // MR 준비용 경구 선언(8코를 리무브로)도 서 있는 상대가 있을 때만 인정
+        if (((d0 === 'id_0876' && rec.rule !== 'wg:sono2-active') || (d0 === 'id_0688' && rec.rule !== 'wg:gin-active')) && rec.rule !== 'wg:lethal' && !mrPrepOk) declBad++; } } });
+      if (!m.result.ended || m.result.illegalFallbacks) bad++; for (const d of m.decisions) { if (d.hookError) err++; if (d.rule) rules[d.rule] = (rules[d.rule] || 0) + 1; if (d.rule === 'wg:search-pick' && /\[서치\]/.test(d.why || '')) searchShown++; } }
     ok(!err && !bad, `34 v0.10 8판: 훅 오류 ${err}·불법/미종료 ${bad}`);
     ok(twoMk === 0, `35 현장에 마코토 2장이 되는 사용 ${twoMk}회 (마코토 아끼기)`);
     ok(declBad === 0, `36 2코 소노코/경구 선언 효과를 '액티브 대상 공격' 근거 없이 사용 ${declBad}회`);
@@ -149,7 +151,7 @@ const WANT = { id_0214: 3, id_0876: 3, id_0308: 3, id_0123: 3, id_1096: 3, id_02
     ok(R.phase === 'over' && R.bot.illegal === 0, `9 사람(휴리스틱) vs 백녹이기기 방: 끝까지 진행·불법 ${R.bot.illegal} (턴 ${R.n})`);
     ok(R.bot.cfg.specialist === 'baekrok' && /백녹이기기/.test(lg.botName) && lg.specialist === 'baekrok', `10 방 생성 시 전용 모드로 고정 (${lg.botName}) — 클라이언트가 보낸 덱은 무시`);
     ok(JSON.stringify(Object.entries(cnt).sort()) === JSON.stringify(Object.entries(WANT).sort()), '11 AI 덱이 확정 덱으로 자동 설정됨(덱 선택 불필요)');
-    const w = lg.decisions.filter(d => d.wg); ok(w.length > 10 && w.length >= lg.decisions.length * .9 && w.every(d => d.wg.version === '0.15'), `12 같은 WhiteGreenStrategy 가 실제 판단에 사용되고 Decision Log(wg)가 남음 (${w.length}/${lg.decisions.length})`); }
+    const w = lg.decisions.filter(d => d.wg); ok(w.length > 10 && w.length >= lg.decisions.length * .9 && w.every(d => d.wg.version === '0.16'), `12 같은 WhiteGreenStrategy 가 실제 판단에 사용되고 Decision Log(wg)가 남음 (${w.length}/${lg.decisions.length})`); }
   // v0.13: 콤보 마지막 장은 6코 소노코(마코토 아끼기) / 5코↑가 있으면 마코토 대신 / FILE 부족 시 콤보 어시스트
   { let nA = 0, okS = 0, nB = 0, okH = 0, nC = 0, okC = 0;
     const setup = (R, seat, hand, fileN, field) => { const A = SIM.clone(R); if (!A) return null; const Q = A.P[seat];

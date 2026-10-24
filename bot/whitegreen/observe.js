@@ -25,6 +25,9 @@ function observe(R, seat, seed) {
   const rnd = SIM.mulberry32((seed >>> 0) || 1), cards = {};
   for (const k of Object.keys(R.cards)) cards[k] = { ...R.cards[k] };
   const mine = R.P[seat].deck.filter(x => cards[x]), md = shuffle(mine.map(x => cards[x].d), rnd); mine.forEach((x, i) => { cards[x].d = md[i]; });   // 내 덱 순서 지움
+  // v1.29.0: 지금 처리 중인 효과가 내 덱의 카드를 나에게 공개했다면(서치로 덱 위 3장 확인 등) 그 카드들의 정의는 AI 가 실제로 아는 정보 → 섞지 않고 실제 정의로 되돌린다
+  //   (이전에는 공개된 후보도 섞인 대역으로 보여 서치가 엉뚱한 카드를 고르는 문제가 있었음)
+  { const q = R.eff && R.eff.req; if (q && q.who === seat) { const mineSet = new Set(mine); for (const x of [...(q.ids || []), ...(q.sel || [])]) if (mineSet.has(x) && cards[x]) cards[x].d = R.cards[x].d; } }
   const hid = hiddenOppIds(R, seat); let pool = publicOppDefs(R, seat); if (!pool.length) pool = mine.map(x => R.cards[x].d).filter(k => R.defs[k] && R.defs[k].type === 'char');   // 공개된 게 없으면 내 덱의 캐릭터를 일반적인 대역으로
   if (pool.length) hid.forEach(x => { cards[x].d = pool[Math.floor(rnd() * pool.length)]; });
   const O = Object.assign(Object.create(Object.getPrototypeOf(R)), R, { cards, rng: (rnd() * 4294967296) >>> 0 }); O.__observed = seat; return O;

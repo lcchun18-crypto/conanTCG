@@ -44,7 +44,7 @@ const rvOf = R => (R.rvLog || []);
   const r0 = sent[0].filter(m => m.t === 'reveal'), r1 = sent[1].filter(m => m.t === 'reveal');
   ok(r0.length === 1 && r1.length === 1 && JSON.stringify(r0[0]) === JSON.stringify(r1[0]) && r0[0].to.length === 1 && r0[0].to[0] === 1 - s && r0[0].cards.length === 2 && r0[0].cards.every(c => c.d), '두 클라이언트가 동일한 reveal 메시지를 받음 (to=상대, 카드 정보 포함)'); }
 // ───── (3) 이번 턴 다시시작 ─────
-const dump = R => { const keep = {}; for (const k of Object.keys(R)) if (!['ws', 'tok', 'gt', 'bot', 'defs', 'log', 'rv', 'rvSeq', 'rvLog', 'snap', 'curS', '_dp'].includes(k)) keep[k] = R[k]; return JSON.stringify(keep, (k, v) => typeof v === 'function' ? 'fn' : v); };
+const dump = R => { const keep = {}; for (const k of Object.keys(R)) if (!['ws', 'tok', 'gt', 'bot', 'defs', 'log', 'rv', 'rvSeq', 'rvLog', 'snap', 'curS', '_dp', 'chat', 'chatSeq', 'specSeq', 'lr', '_lp'].includes(k)) keep[k] = R[k]; return JSON.stringify(keep, (k, v) => typeof v === 'function' ? 'fn' : v); };
 const defs3 = { M1: dummy('M1', { ap: '3000', lv: '1' }), M2: dummy('M2', { ap: '2000' }), O1: dummy('O1', { ap: '1000' }), O2: dummy('O2', { ap: '1500' }),
   DR: ev('DR', [{ op: 'draw', n: 2 }]), RM: ev('RM', [{ op: 'select', n: 1, do: 'remove', filter: { own: 'opp' } }]), LK: ev('LK', [{ op: 'peek', n: 3 }, { op: 'pick', from: 'seen', n: 1, min: 1, reveal: true, as: 'chosen' }, { op: 'mv', ref: 'chosen', to: 'hand' }]),
   SH: ev('SH', [{ op: 'reveal', name: 'ZZZ', rest: 'shuffleBottom' }]) };
@@ -70,6 +70,9 @@ const SC = {
 };
 for (const [name, f] of Object.entries(SC)) { try { const T = mk3(), before = dump(T.R), hd = JSON.stringify(T.R.P[T.s].hand), dk = JSON.stringify(T.R.P[T.s].deck); f(T); const changed = dump(T.R) !== before;
     const e = S.turnRestart(T.R, T.s); ok(!e && changed && dump(T.R) === before && !T.R.eff && !T.R.sub && !T.R.q.length && JSON.stringify(T.R.P[T.s].hand) === hd && JSON.stringify(T.R.P[T.s].deck) === dk, `다시시작 [${name}]: 행동 후 복원 → 전체 상태(손패·덱 순서·FILE·증거·필드·파트너·사건·리무브·세트·턴 상태·임시효과·효과큐/보류) 동일${e ? ' err=' + e : ''}${changed ? '' : ' (상태 변화 없음!)'}`); } catch (e) { ok(false, `[${name}] 예외: ${e.message}`); } }
+{ const T = mk3(), before = dump(T.R); T.R.bot = { busy: false, d: 0, sysDirty() { this.d++; } }; S.snapTake(T.R);   // v1.28.3: 봇 대전에서도 이번 턴 다시시작
+  doPlay(T.R, T.s, 'M2'); finish(T.R); T.R.bot.busy = true; ok(typeof S.turnRestart(T.R, T.s) === 'string', '봇 대전: 봇이 생각 중이면 거부'); T.R.bot.busy = false;
+  ok(S.turnRestart(T.R, T.s) === null && dump(T.R) === before && T.R.bot.d === 1, '봇 대전: 이번 턴 다시시작 성공 + 봇 추적기 재설정'); ok(S.view(T.R, T.s).rt === 1, '봇 대전: view.rt=1'); }
 { const T = mk3(), before = dump(T.R); ok(S.turnRestart(T.R, T.s) === null && dump(T.R) === before, '턴 시작 직후(행동 없이) 다시시작: 변화 없음');
   const hd = JSON.stringify(T.R.P[T.s].hand), dk = JSON.stringify(T.R.P[T.s].deck), fl = JSON.stringify(T.R.P[T.s].file);
   for (let i = 0; i < 3; i++) { doPlay(T.R, T.s, 'M2'); finish(T.R); S.act(T.R, T.s, { a: 'hint' }); pump(T.R); ok(S.turnRestart(T.R, T.s) === null && dump(T.R) === before, `같은 턴 ${i + 1}번째 다시시작 → 항상 원래 턴 시작 상태`); }

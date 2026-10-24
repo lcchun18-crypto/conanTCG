@@ -41,8 +41,8 @@ function stateOf(R, seat) {
   const P = R.P[seat], O = R.P[1 - seat], f = id => `${nm(R, id)}(${R.cards[id].st === 'a' ? '액티브' : R.cards[id].st === 's' ? '슬립' : '스턴'} Lv${lvOf(R, id)} AP${apOf(R, id)})`;
   const need = (() => { try { return +(D(R, P.kase).lv) || 0; } catch (e) { return 0; } })();
   return { turn: R.n, turnSeat: R.turn, phase: R.phase, first: R.first === seat,
-    me: { file: P.file.length, hand: P.hand.map(id => `${nm(R, id)}(Lv${lvOf(R, id)})`), field: P.field.map(f), evidence: P.evid.length, deck: P.deck.length, rem: P.rem.length, partner: R.cards[P.partner] ? `${nm(R, P.partner)}(${P.pIn ? '파트너 에리어 밖' : '대기'})` : null, caseSolved: !!(R.cards[P.kase] && R.cards[P.kase].solved) },
-    opp: { file: O.file.length, handCount: O.hand.length, field: O.field.map(f), evidence: O.evid.length, deck: O.deck.length, rem: O.rem.length } };
+    me: { file: P.file.length, pIn: !!P.pIn, hand: P.hand.map(id => `${nm(R, id)}(Lv${lvOf(R, id)})`), field: P.field.map(f), evidence: P.evid.length, deck: P.deck.length, rem: P.rem.length, partner: R.cards[P.partner] ? `${nm(R, P.partner)}(${P.pIn ? '파트너 에리어 밖' : '대기'})` : null, caseSolved: !!(R.cards[P.kase] && R.cards[P.kase].solved) },
+    opp: { file: O.file.length, pIn: !!O.pIn, handCount: O.hand.length, field: O.field.map(f), evidence: O.evid.length, deck: O.deck.length, rem: O.rem.length } };
 }
 // 가능했던 주요 행동 (합법 후보 요약)
 function candidatesOf(R, moves, chosen, cap = 24) {

@@ -52,15 +52,15 @@ const protSet = R => { const n = Object.keys(R.defs).length, c = _prot.get(R.def
 const dclone = (v, prot) => { if (!v || typeof v !== 'object') return v; if (prot.has(v)) return v; if (Array.isArray(v)) return v.map(x => dclone(x, prot));
   if (v instanceof Set) return new Set([...v].map(x => dclone(x, prot))); if (v instanceof Map) return new Map([...v].map(([k, x]) => [k, dclone(x, prot)]));
   const p = Object.getPrototypeOf(v); if (p !== Object.prototype && p !== null) return v; const o = {}; for (const k of Object.keys(v)) o[k] = dclone(v[k], prot); return o; };
-function snapTake(R) { if (R.bot || R.phase !== 'play') { R.snap = null; return; } const prot = protSet(R), data = {};
+function snapTake(R) { if (R.phase !== 'play') { R.snap = null; return; } const prot = protSet(R), data = {};
   for (const k of Object.keys(R)) { if (SNAP_SKIP.has(k)) continue; data[k] = k === 'q' ? R.q.map(it => ({ ...it })) : dclone(R[k], prot); }
   R.snap = { turn: R.turn, n: R.n, data }; }
 function turnRestart(R, seat) {
-  if (R.bot) return '봇 대전에서는 사용할 수 없습니다'; if (R.phase !== 'play') return '진행 중인 게임에서만 사용할 수 있습니다'; if (R.turn !== seat) return '내 턴에서만 사용할 수 있습니다';
+  if (R.bot && R.bot.busy) return '봇이 생각 중입니다. 잠시 후 다시 눌러주세요'; if (R.phase !== 'play') return '진행 중인 게임에서만 사용할 수 있습니다'; if (R.turn !== seat) return '내 턴에서만 사용할 수 있습니다';
   const S = R.snap; if (!S || S.n !== R.n || S.turn !== R.turn) return '복원할 턴 시작 상태가 없습니다';
   const prot = protSet(R); for (const k of Object.keys(R)) if (!SNAP_SKIP.has(k) && !(k in S.data)) delete R[k];
   for (const [k, v] of Object.entries(S.data)) R[k] = k === 'q' ? v.map(it => ({ ...it })) : dclone(v, prot);   // 스냅샷은 그대로 두고 복사본을 적용 → 같은 턴에 여러 번 눌러도 항상 원래 턴 시작 상태
-  R.rv = []; say(R, `↩ ${nm(seat)}이(가) 이번 턴을 다시 시작했습니다 (턴 시작 상태로 복원)`);
+  R.rv = []; say(R, `↩ ${nm(seat)}이(가) 이번 턴을 다시 시작했습니다 (턴 시작 상태로 복원)`); if (R.bot && R.bot.sysDirty) { try { R.bot.sysDirty(); } catch (e) {} }   // v1.28.3: 봇 대전도 지원 — 봇 탐색 추적기를 복원된 상태로 재설정
   withCur(R, () => { FX.pump(R); settle(R); if (R.ending && !R.eff && !R.q.length && !R.sub && R.phase === 'play') { doEnd(R); FX.pump(R); settle(R); } }); return null; }
 // ── v1.9.0 다시하기: 같은 방 코드·연결을 유지한 채 게임 상태 전체를 처음(덱 등록 전)으로 되돌린다. 이전 덱은 재사용하지 않는다.
 function resetRoom(R, seat) { const keep = { code: R.code, ws: R.ws, tok: R.tok, gt: R.gt, spec: R.spec, noSpec: R.noSpec, chat: R.chat, chatSeq: R.chatSeq, specSeq: R.specSeq }; for (const k of Object.keys(R)) delete R[k];
@@ -249,7 +249,7 @@ function effView(R, s) { const E = R.eff; if (!E) return null; const q = E.req;
   return { kind: q.kind, msg: q.msg, min: q.min, max: q.max, ordered: q.ordered, distinct: q.distinct, labels: q.labels, ord: q.ord ? q.ord.map(o => ({ i: o.i, d: R.cards[o.id] ? R.cards[o.id].d : '', c: co(R, o.id) })) : null, evp: q.evp || null, yes: q.yes, no: q.no, reveal: q.reveal, cards: (q.ids || []).map(x => co(R, x)), sp: q.sp ? q.sp.map(e => e.fd ? { h: e.h, fd: 1, k: e.k, m: e.m } : { h: e.h, fd: 0, c: co(R, e.x) }) : null, sel: q.sel, src: E.it.src != null ? D(R, E.it.src).n : '', srcD: E.it.src != null && R.cards[E.it.src] ? R.cards[E.it.src].d : '', abI: E.it.src != null && E.it.ab ? (D(R, E.it.src).ab || []).indexOf(E.it.ab) : -1, abN: E.it.src != null ? (D(R, E.it.src).ab || []).length : 0, abLab: (E.it.ab && E.it.ab.lab) || '', itK: E.it.kind || '' }; }
 const SERVER_VER = (() => { try { return String(require('./package.json').version || ''); } catch (e) { return ''; } })();   // v1.17.35: 클라이언트(index.html)가 서버보다 오래된 파일이면 화면에서 경고
 function view(R, s) { const V = { t: 'v', me: s, code: R.code, phase: R.phase, turn: R.turn, n: R.n, sv: SERVER_VER, first: R.first, chooser: R.chooser, chat: (R.chat || []).slice(-100), mull: R.mullSeat, winner: R.winner,
-    acts: actsFor(R, s), bot: R.bot ? 1 : 0, rt: !R.bot && R.phase === 'play' && R.turn === s && R.snap && R.snap.n === R.n && R.snap.turn === R.turn ? 1 : 0, botName: R.bot ? (R.bot.name || 'BOT / EXPERT') : '', fl: R.fl, log: R.log.slice(-60), lr: logRefs(R), eff: effView(R, s), both: R.ws.every(Boolean),
+    acts: actsFor(R, s), bot: R.bot ? 1 : 0, rt: R.phase === 'play' && R.turn === s && R.snap && R.snap.n === R.n && R.snap.turn === R.turn ? 1 : 0, botName: R.bot ? (R.bot.name || 'BOT / EXPERT') : '', fl: R.fl, log: R.log.slice(-60), lr: logRefs(R), eff: effView(R, s), both: R.ws.every(Boolean),
     sub: R.sub && { type: R.sub.type, who: R.sub.who, atk: R.sub.atk, def: R.sub.def, tk: R.sub.tk, tid: R.sub.tid, ms: R.sub.ms, mg: R.sub.type === 'guard' ? mustGuard(R, R.sub.who) : undefined }, P: [] };
   const HS = hiddenSetIds(R, s);
   for (const i of [0, 1]) { const P = R.P[i], o = i === s, show = o || R.phase === 'play' || R.phase === 'over';
@@ -407,7 +407,7 @@ function main() {
     if (m.t === 'join') { const R = rooms[cl(m.code, 8).toUpperCase().trim()];
       if (!R) return send(ws, { t: 'err', msg: '없는 방 코드입니다.' }); if (R.ws[1]) return send(ws, { t: 'err', msg: '방이 가득 찼습니다.' });
       R.ws[1] = ws; ws.R = R; ws.seat = 1; seatTok(R, 1, ws); say(R, '게스트가 입장했습니다.'); send(ws, { t: 'defs', defs: R.defs }); return bc(R); }
-    if (m.t === 'createBot') { if (ws.R) return; try { const R = require('./bot/controller').createRoom({ rooms, mkR, ready, dispatch, loadCards: () => ({ cards: cardsObj() }), say, cl, ws, m, send, bc }); ws.R = R; ws.seat = 0; seatTok(R, 0, ws); return bc(R); } catch (err) { return send(ws, { t: 'err', msg: '봇 대전을 시작할 수 없습니다: ' + (err && err.message || err) }); } }
+    if (m.t === 'createBot') { if (ws.R) return; try { const R = require('./bot/controller').createRoom({ rooms, mkR, ready, dispatch, loadCards: () => ({ cards: cardsObj() }), say, cl, ws, m, send, bc }); R.rng = (Math.random() * 4294967296) >>> 0; ws.R = R; ws.seat = 0; seatTok(R, 0, ws); return bc(R); } catch (err) { return send(ws, { t: 'err', msg: '봇 대전을 시작할 수 없습니다: ' + (err && err.message || err) }); } }
     if (m.t === 'leaveRoom') { const R0 = ws.R; if (R0 && !R0.bot) { const seat = ws.seat; if (R0.ws[seat] === ws) R0.ws[seat] = null; endSeat(R0, seat); ws.R = null; ws.seat = null; send(ws, { t: 'left' }); } else send(ws, { t: 'left' }); return; }
     if (m.t === 'restartGame') { const R0 = ws.R; if (!R0 || R0.bot) return send(ws, { t: 'err', msg: '사람 대 사람 게임에서만 사용할 수 있습니다.' }); resetRoom(R0, ws.seat);
       R0.ws.forEach((w, i) => { if (!w) return; send(w, { t: 'reset', kind: 'game', by: ws.seat }); if (R0.tok && R0.tok[i]) send(w, { t: 'joined', code: R0.code, seat: i, token: R0.tok[i] }); send(w, { t: 'defs', defs: {} }); }); sendSpec(R0, { t: 'reset', kind: 'game', by: -1 }); sendSpec(R0, { t: 'defs', defs: {} }); return bc(R0); }
