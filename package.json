@@ -1,6 +1,6 @@
 {
   "name": "conan-sim",
-  "version": "1.29.0",
+  "version": "1.29.1",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -103,6 +103,7 @@
     "test:chat": "node test/chat_test.js",
     "test:chatui": "node test/chat_ui_test.js",
     "test:verwarn": "node test/ver_warn_test.js",
+    "test:verfoot": "node test/verfoot_test.js",
     "test:choosetimeout": "node test/choose_timeout_test.js",
     "test:loghl": "node test/log_highlight_test.js",
     "test:wg": "node test/wg_strategy_test.js",

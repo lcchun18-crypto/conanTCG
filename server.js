@@ -362,7 +362,7 @@ function main() {
     if (m && MIME[path.extname(m[1]).toLowerCase()]) return fs.readFile(path.join(__dirname, 'assets', m[1]), (e, d) => { if (e) { r.writeHead(404); return r.end(); } r.writeHead(200, { 'Content-Type': MIME[path.extname(m[1]).toLowerCase()], 'Cache-Control': 'public, max-age=86400' }); r.end(d); });
     fs.readFile(path.join(__dirname, 'index.html'), (e, d) => { if (e) { r.writeHead(500); return r.end('index.html 을 읽을 수 없습니다'); } r.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' }); r.end(d); }); });
   const wss = new WebSocketServer({ server, maxPayload: 30e6 });
-  wss.on('connection', ws => { ws.isAlive = true; ws.on('pong', () => { ws.isAlive = true; }); ws.on('error', () => {}); }); // 유휴 연결 유지용 ping (프록시가 조용한 WebSocket 을 끊는 것을 방지)
+  wss.on('connection', ws => { ws.isAlive = true; ws.on('pong', () => { ws.isAlive = true; }); ws.on('error', () => {}); try { ws.send(JSON.stringify({ t: 'hello', sv: SERVER_VER })); } catch (e) {} });   // v1.29.1: 접속 즉시 서버 버전을 보내 로비 하단에 표시 // 유휴 연결 유지용 ping (프록시가 조용한 WebSocket 을 끊는 것을 방지)
   // ── 연결 끊김 처리 (v1.5.1) ── 끊기면 바로 패배 처리하지 않고 GRACE 동안 같은 자리로 재접속(resume)을 기다린다. (RECONNECT_GRACE_MS=0 이면 예전처럼 즉시 종료)
   const GRACE = process.env.RECONNECT_GRACE_MS != null ? +process.env.RECONNECT_GRACE_MS : 60000;
   const seatTok = (R, seat, ws) => { R.tok = R.tok || [null, null]; R.tok[seat] = require('crypto').randomBytes(12).toString('hex'); send(ws, { t: 'joined', code: R.code, seat, token: R.tok[seat] }); };

@@ -24,6 +24,7 @@ input[type=file]{padding:4px}input[type=file]::file-selector-button{font-family:
 /* ── 로비 ── */
 #lobby{margin:auto;text-align:center;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:36px 44px;box-shadow:0 20px 60px #000a;min-width:340px}
 #lobby h1{margin:0 0 6px;font-size:26px;color:var(--gold);letter-spacing:.5px}#lobby .sub{color:var(--mut);margin-bottom:22px}
+#verfoot{margin-top:26px;font-size:12px;color:var(--mut);opacity:.85}#verfoot.bad{color:#f6b26b;opacity:1}
 #lobby button,#lobby input{font-size:16px;padding:12px 18px;margin:5px}#lobby #lerr{color:#ff9b94;min-height:20px;margin:8px 0 0}
 #game{display:none;flex:1;min-height:0;flex-direction:column}
 /* ── 상단바 ── */
@@ -475,7 +476,7 @@ body.m #dbErr>div{max-width:94vw}
 <input id="code" placeholder="방 코드" maxlength="4" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="go" onkeydown="if(event.key==='Enter'){S({t:'join',code:this.value});this.blur()}" style="text-transform:uppercase;width:130px;text-align:center"><button onclick="S({t:'join',code:code.value})">입장 (게스트)</button>
 <br><label class="nsl" title="체크하고 방을 만들면 관전자가 들어올 수 없습니다"><input type="checkbox" id="nospec"> 관전 불가 <small>(체크 후 방 생성 시 적용)</small></label>
 <div class="specrow"><input id="scode" placeholder="관전할 방 코드" maxlength="4" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="go" onkeydown="if(event.key==='Enter'){specGo();this.blur()}" style="text-transform:uppercase;width:130px;text-align:center"><button id="specBtn" onclick="specGo()">👁 관전</button></div>
-<div id="cdbErrL" class="dberr"><b class="dbm"></b><br><small>서버의 data/cards.json 을 읽지 못했습니다. 서버 관리자에게 알려 주세요.</small><br><button onclick="retryDb()">다시 시도</button></div><br><button class="ghost" onclick="openDB()">카드 / 덱 관리</button><p id="lerr"></p></div>
+<div id="cdbErrL" class="dberr"><b class="dbm"></b><br><small>서버의 data/cards.json 을 읽지 못했습니다. 서버 관리자에게 알려 주세요.</small><br><button onclick="retryDb()">다시 시도</button></div><br><button class="ghost" onclick="openDB()">카드 / 덱 관리</button><p id="lerr"></p><div id="verfoot" aria-live="polite">화면 v<span id="vfc"></span> · 서버 <span id="vfs">연결 중…</span></div></div>
 <div id="ldg" role="status" aria-live="polite"><div class="ldb"><div class="spin"></div><div class="ldt">봇 대전을 준비하는 중…</div><small>덱과 AI를 불러오고 있습니다. 잠시만 기다려 주세요.</small></div></div>
 <div id="botm"><div><b>🤖 봇과 대전</b>
 <div id="botList"></div>
@@ -570,6 +571,7 @@ function onMsg(e){let m;try{m=JSON.parse(e.data)}catch{return}
  else if(m.t==='joined')sessPut({code:m.code,seat:m.seat,token:m.token});
  else if(m.t==='resumeFail'){sessPut(null);toLobby();netUI('warn',m.msg||'방을 복구하지 못했습니다.')}
  else if(m.t==='err'&&NET.specRe){NET.specRe=false;NET.spec=null;toLobby();netUI('warn',m.msg||'관전을 복구하지 못했습니다.')}
+ else if(m.t==='hello'){NET.sv=m.sv||'';verFoot()}
  else if(m.t==='err'){loading(false);if(V){$('lerr').textContent='';$('err').textContent=m.msg;setTimeout(()=>{if($('err').textContent===m.msg)$('err').textContent=''},4000)}else{$('lerr').textContent=m.msg}}   // 게임 중 오류는 게임 화면에만, 로비 오류는 로비에만
  else if(m.t==='defs'){DEFS=m.defs;preloadDefs();V&&render()}
  else if(m.t==='reveal'){if(V&&!V.spec&&(m.to||[]).includes(V.me)){rvQ.push(m);rvNext()}}
@@ -951,7 +953,8 @@ function ui(){if(V.spec)return uiSpec();const me=V.me,T=V.turn===me,s=V.sub,b=$(
 $('leaveBtn').onclick=leaveGame;
 let prevSolved=null;const solvedFx=[0,0];
 // v1.17.33: 게임 시작(멀리건 진입) 때 선공/후공 추첨 결과를 화면에 크게 알린다 (서버가 50:50 랜덤, 봇전은 선택값 따름)
-const CLIENT_VER='1.29.0';let verShown=false;function verCheck(){if(verShown||!V||!V.sv||V.sv===CLIENT_VER)return;verShown=true;const d=document.createElement('div');d.id='verwarn';d.textContent='⚠ 서버(v'+V.sv+')와 화면 파일(index.html v'+CLIENT_VER+') 버전이 다릅니다. index.html 을 최신으로 덮어쓰고 Ctrl+F5 로 새로고침하세요. (눌러서 닫기)';d.onclick=()=>d.remove();document.body.appendChild(d)}
+const CLIENT_VER='1.29.1';let verShown=false;function verFoot(){const c=document.getElementById('vfc'),sv=document.getElementById('vfs'),f=document.getElementById('verfoot');if(c)c.textContent=CLIENT_VER;if(!sv||!f)return;const v=NET&&NET.sv;if(!v){sv.textContent='연결 중…';f.className='';return}sv.textContent='v'+v;f.className=v===CLIENT_VER?'':'bad';f.title=v===CLIENT_VER?'서버와 화면 파일 버전이 같습니다':'서버와 화면 파일 버전이 다릅니다 — index.html 을 최신으로 덮어쓰고 Ctrl+F5'}
+document.addEventListener('DOMContentLoaded',verFoot);function verCheck(){if(verShown||!V||!V.sv||V.sv===CLIENT_VER)return;verShown=true;const d=document.createElement('div');d.id='verwarn';d.textContent='⚠ 서버(v'+V.sv+')와 화면 파일(index.html v'+CLIENT_VER+') 버전이 다릅니다. index.html 을 최신으로 덮어쓰고 Ctrl+F5 로 새로고침하세요. (눌러서 닫기)';d.onclick=()=>d.remove();document.body.appendChild(d)}
 let lastPh='';function firstBanner(kind){try{const old=document.getElementById('firstbn');if(old)old.remove();const me=V.me,f=V.first,txt=kind==='choose'?(V.spec?(V.chooser===0?'호스트':'게스트')+'이(가) 선후공을 정합니다':V.chooser===me?'당신이 선공/후공을 정합니다':'상대가 선공/후공을 정합니다'):V.spec?(f===0?'호스트':'게스트')+' 선공':f===me?'당신이 선공입니다':'상대가 선공입니다 (당신은 후공)';
  const d=document.createElement('div');d.id='firstbn';d.innerHTML='<div class="fbi"><span class="fbd">🎲</span><b>'+(kind==='choose'?'선후공 결정권 추첨':'선후공 결과')+'</b><em>'+txt+'</em></div>';document.body.appendChild(d);setTimeout(()=>{d.classList.add('out');setTimeout(()=>d.remove(),500)},2800);d.onclick=()=>d.remove()}catch(e){}}
 function render(){if(!V)return;verCheck();if(V.phase==='choose'&&lastPh!=='choose')firstBanner('choose');else if(V.phase==='mull'&&lastPh!=='mull')firstBanner();lastPh=V.phase;const me=V.me;document.body.classList.toggle('spec',!!V.spec);$('specpill').style.display=V.spec?'':'none';if(V.spec){$('specpill').textContent='👁 관전 중'+(V.nspec>1?' ('+V.nspec+'명)':'');mode=null;hsel=null;pend=null;selm=[]}effSync();$('botpill').style.display=V.bot?'':'none';$('restartBtn').style.display=V.spec?'none':'';$('rtBtn').style.display=!V.spec&&V.rt&&V.phase==='play'?'':'none';if(V.bot)$('botpill').textContent='🤖 '+(V.botName||'BOT / EXPERT');$('botover').style.display=V.bot&&V.phase==='over'?'':'none';document.body.classList.toggle('botmode',!!V.bot);if(mode&&!canSel())mode=null;if(hsel&&!(handTurn()&&V.P[me].hand.some(x=>x.id===hsel)))hsel=null;$('rc').textContent=V.code;const PH={setup:'덱 준비',mull:'멀리건',over:'게임 종료'};$('info').textContent=V.phase==='play'?`${V.n}번째 턴`:(PH[V.phase]||V.phase);document.body.classList.toggle('playing',V.phase!=='setup');{const fb=$('firstb');if(!V.spec&&V.phase!=='setup'&&(V.first===0||V.first===1)){fb.style.display='';const f=V.first===me;fb.className='order '+(f?'f':'s');fb.textContent=f?'선공':'후공';fb.title=f?'내가 선공입니다':'내가 후공입니다'}else fb.style.display='none'}
